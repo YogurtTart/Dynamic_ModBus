@@ -6,7 +6,7 @@ function showStatus(message, type) {
     
     setTimeout(() => {
         status.style.display = 'none';
-    }, 5000);
+    }, 8000);
 }
 
 async function loadSettings() {
@@ -39,12 +39,7 @@ async function saveSettings() {
         });
         
         const result = await response.text();
-        showStatus('Settings saved successfully! Device will restart.', 'success');
-        
-        // Optional: Restart ESP after saving
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
+        showStatus('Settings saved successfully! Restart Your Device to change.', 'success');
         
     } catch (error) {
         showStatus('Error saving settings: ' + error, 'error');

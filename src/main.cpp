@@ -6,26 +6,26 @@
 #include "FSHandler.h"
 
 
-void forceResetEEPROM() {
-    Serial.println("🔄 FORCING EEPROM RESET...");
-    EEPROM.begin(EEPROM_SIZE);
+// void forceResetEEPROM() {
+//     Serial.println("🔄 FORCING EEPROM RESET...");
+//     EEPROM.begin(EEPROM_SIZE);
     
-    // Create default WiFi params
-    WifiParams defaultParams;
-    defaultParams.magic = 0xDEADBEEF;
-    strcpy(defaultParams.STAWifiID, "Tanand_Hardware");
-    strcpy(defaultParams.STApassword, "202040406060808010102020");
-    strcpy(defaultParams.APWifiID, "ESP8266_AP");
-    strcpy(defaultParams.APpassword, "12345678");
+//     // Create default WiFi params
+//     WifiParams defaultParams;
+//     defaultParams.magic = 0xDEADBEEF;
+//     strcpy(defaultParams.STAWifiID, "Tanand_Hardware");
+//     strcpy(defaultParams.STApassword, "202040406060808010102020");
+//     strcpy(defaultParams.APWifiID, "ESP8266_AP");
+//     strcpy(defaultParams.APpassword, "12345678");
     
-    // Write to EEPROM
-    EEPROM.put(WIFI_PARAMS_ADDR, defaultParams);
-    EEPROM.commit();
-    EEPROM.end();
+//     // Write to EEPROM
+//     EEPROM.put(WIFI_PARAMS_ADDR, defaultParams);
+//     EEPROM.commit();
+//     EEPROM.end();
     
-    Serial.println("✅ EEPROM reset to defaults");
-    delay(1000);
-}
+//     Serial.println("✅ EEPROM reset to defaults");
+//     delay(1000);
+// }
 
 
 void setup() {
