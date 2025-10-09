@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP8266 WiFi Configuration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ESP8266 WiFi Configuration</h1>
+            <p>Configure your device's WiFi settings</p>
+        </div>
+        
+        <div class="form-section">
+            <div class="status" id="status"></div>
+            
+            <div class="wifi-section">
+                <h2 class="section-title">Station Mode (STA)</h2>
+                <p class="section-description">Connect to your existing WiFi network</p>
+                <div class="form-group">
+                    <label for="sta_ssid">WiFi SSID</label>
+                    <input type="text" id="sta_ssid" placeholder="Enter your WiFi name">
+                </div>
+                <div class="form-group">
+                    <label for="sta_password">WiFi Password</label>
+                    <input type="password" id="sta_password" placeholder="Enter your WiFi password">
+                </div>
+            </div>
+            
+            <div class="wifi-section">
+                <h2 class="section-title">Access Point Mode (AP)</h2>
+                <p class="section-description">Device's own WiFi network for configuration</p>
+                <div class="form-group">
+                    <label for="ap_ssid">AP SSID</label>
+                    <input type="text" id="ap_ssid" placeholder="Enter AP name">
+                </div>
+                <div class="form-group">
+                    <label for="ap_password">AP Password</label>
+                    <input type="password" id="ap_password" placeholder="Enter AP password (min 8 chars)">
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            <button class="btn btn-secondary" onclick="loadSettings()">Load Current Settings</button>
+            <button class="btn btn-info" onclick="restartDevice()">Restart Device</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

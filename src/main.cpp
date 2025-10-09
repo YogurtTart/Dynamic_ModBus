@@ -1,18 +1,31 @@
-#include <Arduino.h>
-
-// put function declarations here:
-int myFunction(int, int);
+#include <ESP8266WiFi.h>
+#include <ArduinoOTA.h>
+#include "EEEProm.h"
+#include "WiFiHandler.h"
+#include "WebServer.h"
+#include "FSHandler.h"
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+    Serial.begin(9600);
+
+    // Initialize EEPROM and load WiFi settings
+    initEEEPROM();
+    loadWifi();
+
+    // Initialize File System
+    initFileSystem();
+        
+    // Setup WiFi and Web Server
+    setupWiFi();
+    setupWebServer();  // ✅ WEB SERVER ACTIVATED!
+
+    Serial.println("System ready!");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+    server.handleClient();    // Handle web requests
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+    checkWiFi();              // Check WiFi connection
+    
+    ArduinoOTA.handle();      // Handle OTA updates
 }
