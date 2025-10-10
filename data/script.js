@@ -1,12 +1,12 @@
 function showStatus(message, type) {
     const status = document.getElementById('status');
     status.textContent = message;
-    status.className = 'status ' + type;
+    status.className = 'status-message ' + type;
     status.style.display = 'block';
     
     setTimeout(() => {
         status.style.display = 'none';
-    }, 8000);
+    }, 5000);
 }
 
 async function loadSettings() {
@@ -19,9 +19,9 @@ async function loadSettings() {
         document.getElementById('ap_ssid').value = data.ap_ssid || '';
         document.getElementById('ap_password').value = data.ap_password || '';
         
-        showStatus('Settings loaded successfully!', 'success');
+        showStatus('WiFi settings loaded successfully!', 'success');
     } catch (error) {
-        showStatus('Error loading settings: ' + error, 'error');
+        showStatus('Error loading WiFi settings: ' + error, 'error');
     }
 }
 
@@ -39,10 +39,10 @@ async function saveSettings() {
         });
         
         const result = await response.text();
-        showStatus('Settings saved successfully! Restart Your Device to change.', 'success');
+        showStatus('WiFi settings saved successfully! Device will use new settings on restart.', 'success');
         
     } catch (error) {
-        showStatus('Error saving settings: ' + error, 'error');
+        showStatus('Error saving WiFi settings: ' + error, 'error');
     }
 }
 

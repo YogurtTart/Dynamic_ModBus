@@ -3,50 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP8266 WiFi Configuration</title>
+    <title>ESP8266 Configuration Portal</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>ESP8266 WiFi Configuration</h1>
-            <p>Configure your device's WiFi settings</p>
-        </div>
-        
-        <div class="form-section">
-            <div class="status" id="status"></div>
-            
-            <div class="wifi-section">
-                <h2 class="section-title">Station Mode (STA)</h2>
-                <p class="section-description">Connect to your existing WiFi network</p>
-                <div class="form-group">
-                    <label for="sta_ssid">WiFi SSID</label>
-                    <input type="text" id="sta_ssid" placeholder="Enter your WiFi name">
-                </div>
-                <div class="form-group">
-                    <label for="sta_password">WiFi Password</label>
-                    <input type="password" id="sta_password" placeholder="Enter your WiFi password">
+<body class="dark-mode">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">ESP8266 Configuration Portal</h1>
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <span class="status-text">System Online</span>
                 </div>
             </div>
-            
-            <div class="wifi-section">
-                <h2 class="section-title">Access Point Mode (AP)</h2>
-                <p class="section-description">Device's own WiFi network for configuration</p>
-                <div class="form-group">
-                    <label for="ap_ssid">AP SSID</label>
-                    <input type="text" id="ap_ssid" placeholder="Enter AP name">
-                </div>
-                <div class="form-group">
-                    <label for="ap_password">AP Password</label>
-                    <input type="password" id="ap_password" placeholder="Enter AP password (min 8 chars)">
-                </div>
+        </header>
+
+        <nav class="main-nav">
+            <div class="nav-container">
+                <a href="/" class="nav-item active" data-tab="wifi">
+                    <span class="nav-icon">📶</span>
+                    <span class="nav-text">WiFi Configuration</span>
+                </a>
+                <a href="/slaves.html" class="nav-item" data-tab="slaves">
+                    <span class="nav-icon">🔧</span>
+                    <span class="nav-text">Modbus Slaves</span>
+                </a>
             </div>
-            
-            <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
-            <button class="btn btn-secondary" onclick="loadSettings()">Load Current Settings</button>
-        </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="content-header">
+                <h2>WiFi Network Configuration</h2>
+                <p class="content-description">Configure device network settings for both station and access point modes</p>
+            </div>
+
+            <div class="status-message" id="status" aria-live="polite"></div>
+
+            <form class="configuration-form" id="wifiForm">
+                <div class="form-grid">
+                    <section class="form-section" aria-labelledby="sta-heading">
+                        <header class="section-header">
+                            <h3 id="sta-heading" class="section-title">
+                                <span class="section-icon">🖧</span>
+                                Station Mode (STA)
+                            </h3>
+                            <p class="section-description">Connect to existing WiFi network</p>
+                        </header>
+                        
+                        <div class="input-group">
+                            <label for="sta_ssid" class="input-label">
+                                WiFi Network Name (SSID)
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="sta_ssid" 
+                                   name="sta_ssid" 
+                                   class="text-input"
+                                   placeholder="Enter your WiFi network name"
+                                   aria-required="true">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="sta_password" class="input-label">
+                                WiFi Password
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="sta_password" 
+                                   name="sta_password" 
+                                   class="text-input"
+                                   placeholder="Enter WiFi password"
+                                   aria-required="true">
+                        </div>
+                    </section>
+
+                    <section class="form-section" aria-labelledby="ap-heading">
+                        <header class="section-header">
+                            <h3 id="ap-heading" class="section-title">
+                                <span class="section-icon">📡</span>
+                                Access Point Mode (AP)
+                            </h3>
+                            <p class="section-description">Device's own configuration network</p>
+                        </header>
+                        
+                        <div class="input-group">
+                            <label for="ap_ssid" class="input-label">
+                                AP Network Name
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="ap_ssid" 
+                                   name="ap_ssid" 
+                                   class="text-input"
+                                   placeholder="ESP8266_Config"
+                                   aria-required="true">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="ap_password" class="input-label">
+                                AP Password
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                   id="ap_password" 
+                                   name="ap_password" 
+                                   class="text-input"
+                                   placeholder="Minimum 8 characters"
+                                   aria-required="true"
+                                   minlength="8">
+                        </div>
+                    </section>
+                </div>
+
+                <div class="action-bar">
+                    <button type="button" 
+                            class="btn btn-secondary" 
+                            onclick="loadSettings()">
+                        <span class="btn-icon">↻</span>
+                        Load Current Settings
+                    </button>
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            onclick="saveSettings()">
+                        <span class="btn-icon">💾</span>
+                        Save WiFi Configuration
+                    </button>
+                </div>
+            </form>
+        </main>
+
+        <footer class="app-footer">
+            <div class="footer-content">
+                <!-- Empty footer as requested -->
+            </div>
+        </footer>
     </div>
-    
+
     <script src="script.js"></script>
 </body>
 </html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modbus Slave Configuration</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">ESP8266 Configuration Portal</h1>
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <span class="status-text">System Online</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <div class="nav-container">
+                <a href="/" class="nav-item" data-tab="wifi">
+                    <span class="nav-icon">📶</span>
+                    <span class="nav-text">WiFi Configuration</span>
+                </a>
+                <a href="/slaves.html" class="nav-item active" data-tab="slaves">
+                    <span class="nav-icon">🔧</span>
+                    <span class="nav-text">Modbus Slaves</span>
+                </a>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <div class="content-header">
+                <h2>Modbus RTU Slave Configuration</h2>
+                <p class="content-description">Configure Modbus RTU slaves and global polling parameters</p>
+            </div>
+
+            <div class="status-message" id="status" aria-live="polite"></div>
+
+            <div class="configuration-layout">
+                <section class="config-panel" aria-labelledby="slave-management-heading">
+                    <header class="panel-header">
+                        <h3 id="slave-management-heading" class="panel-title">
+                            <span class="panel-icon">➕</span>
+                            Add New Slave
+                        </h3>
+                    </header>
+
+                    <form class="slave-form" id="slaveForm">
+                        <div class="form-row">
+                            <div class="input-group compact">
+                                <label for="slave_id" class="input-label">Slave ID</label>
+                                <input type="number" 
+                                       id="slave_id" 
+                                       class="text-input"
+                                       placeholder="1"
+                                       min="1" 
+                                       max="247">
+                            </div>
+
+                            <div class="input-group compact">
+                                <label for="start_reg" class="input-label">Start Register</label>
+                                <input type="number" 
+                                       id="start_reg" 
+                                       class="text-input"
+                                       placeholder="0"
+                                       min="0" 
+                                       max="65535">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="input-group compact">
+                                <label for="num_reg" class="input-label">Register Count</label>
+                                <input type="number" 
+                                       id="num_reg" 
+                                       class="text-input"
+                                       placeholder="10"
+                                       min="1" 
+                                       max="125">
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="slave_name" class="input-label">Slave Name</label>
+                            <input type="text" 
+                                   id="slave_name" 
+                                   class="text-input"
+                                   placeholder="Temperature Sensor 1">
+                        </div>
+
+                        <div class="input-group">
+                            <label for="mqtt_topic" class="input-label">MQTT Topic</label>
+                            <input type="text" 
+                                   id="mqtt_topic" 
+                                   class="text-input"
+                                   placeholder="modbus/slave1/data">
+                        </div>
+
+                        <div class="action-bar compact">
+                            <button type="button" class="btn btn-primary" onclick="addSlave()">
+                                <span class="btn-icon">➕</span>
+                                Add Slave Device
+                            </button>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="config-panel" aria-labelledby="config-management-heading">
+                    <header class="panel-header">
+                        <h3 id="config-management-heading" class="panel-title">
+                            <span class="panel-icon">⚙️</span>
+                            Configuration Management
+                        </h3>
+                    </header>
+
+                    <div class="action-stack">
+                        <button class="btn btn-secondary full-width" onclick="loadSlaveConfig()">
+                            <span class="btn-icon">📥</span>
+                            Load Configuration
+                        </button>
+                        <button class="btn btn-secondary full-width" onclick="saveSlaveConfig()">
+                            <span class="btn-icon">💾</span>
+                            Save Configuration
+                        </button>
+                    </div>
+
+                    <div class="polling-section">
+                        <h4 class="section-title">Polling Settings</h4>
+                        <div class="input-group">
+                            <label for="poll_interval" class="input-label">Poll Interval (seconds)</label>
+                            <input type="number" 
+                                   id="poll_interval" 
+                                   class="text-input"
+                                   placeholder="10"
+                                   min="1" 
+                                   max="3600">
+                        </div>
+                        <button class="btn btn-primary full-width" onclick="savePollInterval()">
+                            <span class="btn-icon">⏱️</span>
+                            Set Poll Interval
+                        </button>
+                    </div>
+
+                    <div class="stats-panel">
+                        <h4 class="stats-title">System Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Active Slaves</span>
+                                <span class="stat-value" id="slaveCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Poll Interval</span>
+                                <span class="stat-value" id="currentPollInterval">10s</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="slave-list-panel" aria-labelledby="slave-list-heading">
+                <header class="panel-header">
+                    <h3 id="slave-list-heading" class="panel-title">
+                        <span class="panel-icon">📋</span>
+                        Configured Slaves
+                        <span class="badge" id="slaveCountBadge">0</span>
+                    </h3>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table" aria-describedby="slave-list-heading">
+                        <thead>
+                            <tr>
+                                <th scope="col">Slave ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Start Reg</th>
+                                <th scope="col">Count Reg</th>
+                                <th scope="col">MQTT Topic</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="slavesTableBody">
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="emptySlavesState">
+                        <div class="empty-icon">📭</div>
+                        <h4>No Slaves Configured</h4>
+                        <p>Add your first Modbus slave device to get started</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <div class="footer-content">
+                <!-- Empty footer as requested -->
+            </div>
+        </footer>
+    </div>
+
+    <script src="slaves.js"></script>
+</body>
+</html>
