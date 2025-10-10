@@ -58,3 +58,93 @@ bool writeFile(const String& path, const String& content) {
     Serial.printf("✅ Wrote %d bytes to %s\n", bytesWritten, path.c_str());
     return (bytesWritten > 0);
 }
+
+
+
+
+
+// ✅ NEW: Save slave configuration
+bool saveSlaveConfig(const JsonDocument& config) {
+    Serial.println("💾 Saving slave configuration to LittleFS...");
+    
+    String jsonString;
+    serializeJson(config, jsonString);
+    
+    bool success = writeFile("/slaves.json", jsonString);
+    if (success) {
+        Serial.println("✅ Slave configuration saved successfully");
+    } else {
+        Serial.println("❌ Failed to save slave configuration");
+    }
+    return success;
+}
+
+bool loadSlaveConfig(JsonDocument& config) {
+    Serial.println("📖 Loading slave configuration from LittleFS...");
+    
+    if (!fileExists("/slaves.json")) {
+        Serial.println("⚠️  No slave configuration found, using defaults");
+        return false;
+    }
+    
+    String jsonString = readFile("/slaves.json");
+    if (jsonString.length() == 0) {
+        Serial.println("❌ Empty slave configuration file");
+        return false;
+    }
+    
+    DeserializationError error = deserializeJson(config, jsonString);
+    if (error) {
+        Serial.printf("❌ Failed to parse slave config: %s\n", error.c_str());
+        return false;
+    }
+    
+    Serial.println("✅ Slave configuration loaded successfully");
+    return true;
+}
+
+bool savePollInterval(int interval) {
+    Serial.printf("💾 Saving poll interval (%d seconds) to LittleFS...\n", interval);
+    
+    StaticJsonDocument<128> doc;
+    doc["pollInterval"] = interval;
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    bool success = writeFile("/pollinterval.json", jsonString);
+    if (success) {
+        Serial.println("✅ Poll interval saved successfully");
+    } else {
+        Serial.println("❌ Failed to save poll interval");
+    }
+    return success;
+}
+
+// ✅ NEW: Load poll interval
+int loadPollInterval() {
+    Serial.println("📖 Loading poll interval from LittleFS...");
+    
+    if (!fileExists("/pollinterval.json")) {
+        Serial.println("⚠️  No poll interval found, using default (10 seconds)");
+        return 10;
+    }
+    
+    String jsonString = readFile("/pollinterval.json");
+    if (jsonString.length() == 0) {
+        Serial.println("❌ Empty poll interval file, using default");
+        return 10;
+    }
+    
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, jsonString);
+    if (error) {
+        Serial.printf("❌ Failed to parse poll interval: %s, using default\n", error.c_str());
+        return 10;
+    }
+    
+    int interval = doc["pollInterval"] | 10; // Default to 10 if not found
+    Serial.printf("✅ Poll interval loaded: %d seconds\n", interval);
+    return interval;
+}
+

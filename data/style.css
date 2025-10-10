@@ -466,11 +466,7 @@ body.dark-mode {
     font-weight: 600;
 }
 
-/* Data Table */
-.table-container {
-    overflow-x: auto;
-}
-
+/* ===== COMPACT TABLE STYLES ===== */
 .data-table {
     width: 100%;
     border-collapse: collapse;
@@ -481,23 +477,102 @@ body.dark-mode {
 
 .data-table th {
     background: #1a2435;
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
     text-align: left;
     font-weight: 600;
     color: var(--text-primary);
     font-size: var(--text-sm);
     border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
 }
 
 .data-table td {
-    padding: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
     border-bottom: 1px solid var(--border-color);
     font-size: var(--text-sm);
     color: var(--text-secondary);
+    vertical-align: middle;
+}
+
+/* Specific column width adjustments */
+.data-table th:nth-child(1),
+.data-table td:nth-child(1) {
+    /* Slave ID column */
+    width: 80px;
+    text-align: center;
+}
+
+.data-table th:nth-child(2),
+.data-table td:nth-child(2) {
+    /* Name column */
+    width: 120px;
+    min-width: 100px;
+}
+
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+    /* Start Reg column */
+    width: 80px;
+    text-align: center;
+}
+
+.data-table th:nth-child(4),
+.data-table td:nth-child(4) {
+    /* Count Reg column - Significantly reduced */
+    width: 80px;
+    text-align: center;
+    min-width: 60px;
+}
+
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) {
+    /* MQTT Topic column */
+    width: 150px;
+    min-width: 120px;
+}
+
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) {
+    /* Actions column */
+    width: 80px;
+    text-align: center;
+    min-width: 70px;
+}
+
+.data-table tr {
+    height: 45px;
 }
 
 .data-table tr:hover {
     background: #2d3748;
+}
+
+/* Make action buttons more compact */
+.btn-small {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--text-xs);
+    gap: var(--space-xs);
+}
+
+/* Compact the table container */
+.table-container {
+    overflow-x: auto;
+    margin-top: var(--space-md);
+}
+
+/* Ensure text doesn't wrap unnecessarily */
+.data-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Allow MQTT topic to wrap if needed */
+.data-table td:nth-child(5) {
+    white-space: normal;
+    word-break: break-word;
+    max-width: 150px;
+    line-height: 1.3;
 }
 
 /* Empty State */
@@ -546,18 +621,6 @@ body.dark-mode {
     gap: var(--space-md);
 }
 
-/* Responsive Design */
-@media (max-width: 1024px) {
-    .form-grid,
-    .configuration-layout {
-        grid-template-columns: 1fr;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
-    }
-}
-
 /* Polling Section Styles */
 .polling-section {
     background: #0f172a;
@@ -578,45 +641,37 @@ body.dark-mode {
     display: none;
 }
 
-/* Table adjustments for removed column */
-.data-table th:nth-child(4),
-.data-table td:nth-child(4) {
-    /* MQTT Topic column */
-    min-width: 200px;
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .form-grid,
+    .configuration-layout {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
 }
 
-.data-table th:nth-child(5),
-.data-table td:nth-child(5) {
-    /* Actions column */
-    width: 120px;
-    text-align: center;
-}
-
-/* Table adjustments for Count Reg column */
-.data-table th:nth-child(4),
-.data-table td:nth-child(4) {
-    /* Count Reg column */
-    width: 100px;
-    text-align: center;
-}
-
-.data-table th:nth-child(5),
-.data-table td:nth-child(5) {
-    /* MQTT Topic column */
-    min-width: 200px;
-}
-
-.data-table th:nth-child(6),
-.data-table td:nth-child(6) {
-    /* Actions column */
-    width: 120px;
-    text-align: center;
-}
-
-/* Ensure table columns are properly spaced */
-.data-table td {
-    padding: var(--space-md);
-    border-bottom: 1px solid var(--border-color);
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
+/* Responsive adjustments for very small screens */
+@media (max-width: 768px) {
+    .data-table th,
+    .data-table td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .data-table th:nth-child(1),
+    .data-table td:nth-child(1) {
+        width: 60px;
+    }
+    
+    .data-table th:nth-child(2),
+    .data-table td:nth-child(2) {
+        width: 100px;
+    }
+    
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        width: 120px;
+    }
 }

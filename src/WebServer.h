@@ -10,4 +10,7 @@ void handleRoot();
 void handleSaveWifi();
 void handleGetWifi();
 void handleStaticFiles();
+void handleSlavesPage();
+void handleSaveSlaves();
+void handleGetSlaves();
 String getContentType(String filename);

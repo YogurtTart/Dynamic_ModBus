@@ -1,5 +1,6 @@
 #include "WebServer.h"
 #include "EEEProm.h"
+#include "FSHandler.h" 
 #include <ESP8266WebServer.h>
 #include <ArduinoJson.h>
 
@@ -15,6 +16,11 @@ void setupWebServer() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
     server.on("/getwifi", HTTP_GET, handleGetWifi);
+    server.on("/slaves.html", HTTP_GET, handleSlavesPage);
+    server.on("/saveslaves", HTTP_POST, handleSaveSlaves);
+    server.on("/getslaves", HTTP_GET, handleGetSlaves);
+    server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
+    server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
     
     server.begin();
     Serial.println("✅ HTTP server started successfully");
@@ -35,6 +41,106 @@ void handleRoot() {
     String html = readFile("/index.html");
     server.send(200, "text/html", html);
     Serial.println("✅ Served index.html");
+}
+
+
+void handleSlavesPage() {
+    Serial.println("🌐 Handling slaves page request (/slaves.html)");
+    if (!fileExists("/slaves.html")) {
+        Serial.println("❌ slaves.html not found in LittleFS");
+        server.send(500, "text/plain", "Slaves page not found in LittleFS");
+        return;
+    }
+    
+    String html = readFile("/slaves.html");
+    server.send(200, "text/html", html);
+    Serial.println("✅ Served slaves.html");
+}
+
+void handleSaveSlaves() {
+    Serial.println("💾 POST /saveslaves - Saving slave configuration");
+    
+    String body = server.arg("plain");
+    Serial.printf("📥 Received slave config: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    StaticJsonDocument<2048> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    // Save using centralized FSHandler
+    if (saveSlaveConfig(doc)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.println("✅ Slave configuration saved successfully");
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save slave configuration");
+    }
+}
+
+void handleGetSlaves() {
+    Serial.println("📡 GET /getslaves - Returning slave configuration");
+    
+    StaticJsonDocument<2048> doc;
+    
+    if (loadSlaveConfig(doc)) {
+        String response;
+        serializeJson(doc, response);
+        server.send(200, "application/json", response);
+        Serial.printf("✅ Sent slave configuration (%d bytes)\n", response.length());
+    } else {
+        // Return empty config
+        server.send(200, "application/json", "{\"slaves\":[]}");
+        Serial.println("✅ Sent empty slave configuration");
+    }
+}
+
+void handleSavePollInterval() {
+    Serial.println("💾 POST /savepollinterval - Saving poll interval");
+    
+    String body = server.arg("plain");
+    Serial.printf("📥 Received poll interval: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    int interval = doc["pollInterval"] | 10;
+    
+    // Save using centralized FSHandler
+    if (savePollInterval(interval)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.printf("✅ Poll interval saved: %d seconds\n", interval);
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save poll interval");
+    }
+}
+
+void handleGetPollInterval() {
+    Serial.println("📡 GET /getpollinterval - Returning poll interval");
+    
+    // Load using centralized FSHandler
+    int interval = loadPollInterval();
+    
+    StaticJsonDocument<128> doc;
+    doc["pollInterval"] = interval;
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+    Serial.printf("✅ Sent poll interval: %d seconds\n", interval);
 }
 
 void handleGetWifi() {
