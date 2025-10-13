@@ -12,6 +12,17 @@ function showStatus(message, type) {
     }, 5000);
 }
 
+// Helper functions
+function sortSlavesByID() {
+    slaves.sort((a, b) => a.id - b.id);
+}
+
+function countUniqueSlaves() {
+    const uniqueIDs = new Set();
+    slaves.forEach(slave => uniqueIDs.add(slave.id));
+    return uniqueIDs.size;
+}
+
 function addSlave() {
     const slaveId = document.getElementById('slave_id').value;
     const startReg = document.getElementById('start_reg').value;
@@ -33,6 +44,7 @@ function addSlave() {
     };
 
     slaves.push(slave);
+    sortSlavesByID(); // Sort after adding
     updateSlavesList();
     clearSlaveForm();
     showStatus('Modbus slave added successfully!', 'success');
@@ -52,7 +64,10 @@ function updateSlavesList() {
     const slaveCount = document.getElementById('slaveCount');
     const slaveCountBadge = document.getElementById('slaveCountBadge');
     
-    slaveCount.textContent = slaves.length;
+    // Update statistics
+    document.getElementById('totalEntries').textContent = slaves.length;
+    const uniqueSlaveCount = countUniqueSlaves();
+    slaveCount.textContent = uniqueSlaveCount;
     slaveCountBadge.textContent = slaves.length;
     
     if (slaves.length === 0) {
@@ -63,6 +78,7 @@ function updateSlavesList() {
     
     emptyState.style.display = 'none';
     
+    // Display the sorted slaves (array is already sorted)
     list.innerHTML = slaves.map((slave, index) => `
         <tr>
             <td><strong>${slave.id}</strong></td>
@@ -89,6 +105,7 @@ function deleteSlave(index) {
 
 // Slave Configuration Functions
 async function saveSlaveConfig() {
+    // slaves array is already sorted at this point
     const config = {
         slaves: slaves
     };
@@ -118,6 +135,7 @@ async function loadSlaveConfig() {
         if (response.ok) {
             const config = await response.json();
             slaves = config.slaves || [];
+            sortSlavesByID(); // Sort after loading
             updateSlavesList();
             showStatus('Slave configuration loaded successfully!', 'success');
         } else {
