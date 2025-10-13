@@ -3,7 +3,7 @@
 
 const char* mqttServer = "192.168.31.66";
 const uint16_t mqttPort = 1883;
-
+const char* mqttTopicPub ="Lora/receive";
 unsigned long previousMQTTReconnect = 0;
 const unsigned long mqttReconnectInterval = 5000;
 
