@@ -59,10 +59,6 @@ bool writeFile(const String& path, const String& content) {
     return (bytesWritten > 0);
 }
 
-
-
-
-
 // ✅ NEW: Save slave configuration
 bool saveSlaveConfig(const JsonDocument& config) {
     Serial.println("💾 Saving slave configuration to LittleFS...");
@@ -76,6 +72,9 @@ bool saveSlaveConfig(const JsonDocument& config) {
     } else {
         Serial.println("❌ Failed to save slave configuration");
     }
+
+    modbus_reloadSlaves();
+
     return success;
 }
 
@@ -98,7 +97,7 @@ bool loadSlaveConfig(JsonDocument& config) {
         Serial.printf("❌ Failed to parse slave config: %s\n", error.c_str());
         return false;
     }
-    
+
     Serial.println("✅ Slave configuration loaded successfully");
     return true;
 }

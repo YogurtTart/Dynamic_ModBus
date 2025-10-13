@@ -1,6 +1,7 @@
 #pragma once
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "ModBusHandler.h"
 
 bool initFileSystem();
 bool fileExists(const String& path);

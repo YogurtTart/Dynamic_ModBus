@@ -5,7 +5,7 @@
 #include "WebServer.h"
 #include "FSHandler.h"
 #include "MQTTHandler.h"
-
+#include "ModBusHandler.h"
 
 // void forceResetEEPROM() {
 //     Serial.println("🔄 FORCING EEPROM RESET...");
@@ -58,6 +58,12 @@ void setup() {
     
     Serial.println("🌐 Starting Web Server...");
     setupWebServer();
+
+    if (modbus_begin()) {
+        Serial.println("Modbus RTU to JSON Converter Started");
+    } else {
+        Serial.println("Modbus initialization failed!");
+    }
     
     Serial.println("🎉 System fully initialized and ready!");
     Serial.println("======================================");
@@ -71,36 +77,10 @@ void loop() {
     if (!mqttClient.connected()) reconnectMQTT();
     mqttClient.loop();
 
+    //String jsonOutput = modbus_readAllDataJSON();
+    //Serial.println(jsonOutput);
+
+    delay(5000);
+
     ArduinoOTA.handle();      // Handle OTA updates
 }
-
-// struct BasicParams{
-//     unsigned Current1
-//     unsigned Current2
-//     unsigned Current3
-//     unsigned ZeroPhaseCurrent
-//     signed ActivePower1
-//     signed ActivePower2
-//     signed ActivePower3
-//     signed TTPActivePower
-//     signed ReactivePower1
-//     signed ReactivePower2
-//     signed ReactivePower3
-//     signed TTPReactivePower
-//     signed ApparentPower1
-//     signed ApparentPower2
-//     signed ApparentPower3
-//     signed TTPApparentPower
-//     signed PowerFactor1
-//     signed PowerFactor2
-//     signed PowerFactor3
-//     signed TTPPowerPhase
-// }
-
-// Struct BasicVoltage{
-//     unsigned AVoltage
-//     unsigned BVoltage
-//     unsigned CVoltage
-//     unsigned VoltageMeanValue
-//     unsigned ZeroSeqVoltage
-// }
