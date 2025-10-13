@@ -13,4 +13,7 @@ void handleStaticFiles();
 void handleSlavesPage();
 void handleSaveSlaves();
 void handleGetSlaves();
+void handleSavePollInterval();
+void handleGetPollInterval();
+
 String getContentType(String filename);

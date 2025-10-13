@@ -87,21 +87,10 @@ function deleteSlave(index) {
     }
 }
 
-function savePollInterval() {
-    const interval = document.getElementById('poll_interval').value;
-    if (!interval || interval < 1) {
-        showStatus('Please enter a valid polling interval', 'error');
-        return;
-    }
-    pollInterval = parseInt(interval);
-    document.getElementById('currentPollInterval').textContent = pollInterval + 's';
-    showStatus(`Global poll interval set to ${pollInterval} seconds`, 'success');
-}
-
+// Slave Configuration Functions
 async function saveSlaveConfig() {
     const config = {
-        slaves: slaves,
-        pollInterval: pollInterval
+        slaves: slaves
     };
 
     try {
@@ -114,12 +103,12 @@ async function saveSlaveConfig() {
         });
         
         if (response.ok) {
-            showStatus('Modbus configuration saved successfully!', 'success');
+            showStatus('Slave configuration saved successfully!', 'success');
         } else {
-            showStatus('Error saving configuration', 'error');
+            showStatus('Error saving slave configuration', 'error');
         }
     } catch (error) {
-        showStatus('Error saving configuration: ' + error, 'error');
+        showStatus('Error saving slave configuration: ' + error, 'error');
     }
 }
 
@@ -129,19 +118,69 @@ async function loadSlaveConfig() {
         if (response.ok) {
             const config = await response.json();
             slaves = config.slaves || [];
+            updateSlavesList();
+            showStatus('Slave configuration loaded successfully!', 'success');
+        } else {
+            showStatus('Error loading slave configuration', 'error');
+        }
+    } catch (error) {
+        showStatus('Error loading slave configuration: ' + error, 'error');
+    }
+}
+
+// Poll Interval Functions
+async function savePollInterval() {
+    const interval = document.getElementById('poll_interval').value;
+    if (!interval || interval < 1) {
+        showStatus('Please enter a valid polling interval', 'error');
+        return;
+    }
+    
+    const config = {
+        pollInterval: parseInt(interval)
+    };
+
+    try {
+        const response = await fetch('/savepollinterval', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            pollInterval = parseInt(interval);
+            document.getElementById('currentPollInterval').textContent = pollInterval + 's';
+            showStatus(`Poll interval saved: ${pollInterval} seconds`, 'success');
+        } else {
+            showStatus('Error saving poll interval', 'error');
+        }
+    } catch (error) {
+        showStatus('Error saving poll interval: ' + error, 'error');
+    }
+}
+
+async function loadPollInterval() {
+    try {
+        const response = await fetch('/getpollinterval');
+        if (response.ok) {
+            const config = await response.json();
             pollInterval = config.pollInterval || 10;
             
             document.getElementById('poll_interval').value = pollInterval;
             document.getElementById('currentPollInterval').textContent = pollInterval + 's';
-            updateSlavesList();
-            showStatus('Modbus configuration loaded successfully!', 'success');
+            showStatus(`Poll interval loaded: ${pollInterval} seconds`, 'success');
         } else {
-            showStatus('Error loading configuration', 'error');
+            showStatus('Error loading poll interval', 'error');
         }
     } catch (error) {
-        showStatus('Error loading configuration: ' + error, 'error');
+        showStatus('Error loading poll interval: ' + error, 'error');
     }
 }
 
-// Load configuration when page loads
-document.addEventListener('DOMContentLoaded', loadSlaveConfig);
+// Load both configurations when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadSlaveConfig();
+    loadPollInterval();
+});

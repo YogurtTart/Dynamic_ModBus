@@ -119,11 +119,11 @@
                     <div class="action-stack">
                         <button class="btn btn-secondary full-width" onclick="loadSlaveConfig()">
                             <span class="btn-icon">📥</span>
-                            Load Configuration
+                            Load Slave Configuration
                         </button>
                         <button class="btn btn-secondary full-width" onclick="saveSlaveConfig()">
                             <span class="btn-icon">💾</span>
-                            Save Configuration
+                            Save Slave Configuration
                         </button>
                     </div>
 
@@ -138,10 +138,16 @@
                                    min="1" 
                                    max="3600">
                         </div>
-                        <button class="btn btn-primary full-width" onclick="savePollInterval()">
-                            <span class="btn-icon">⏱️</span>
-                            Set Poll Interval
-                        </button>
+                        <div class="action-stack">
+                            <button class="btn btn-secondary full-width" onclick="loadPollInterval()">
+                                <span class="btn-icon">📥</span>
+                                Load Poll Interval
+                            </button>
+                            <button class="btn btn-primary full-width" onclick="savePollInterval()">
+                                <span class="btn-icon">⏱️</span>
+                                Save Poll Interval
+                            </button>
+                        </div>
                     </div>
 
                     <div class="stats-panel">
