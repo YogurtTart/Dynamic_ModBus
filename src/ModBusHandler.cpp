@@ -41,39 +41,6 @@ bool initModbus() {
     // Initialize RS485 control pin
     pinMode(MAX485_DE, OUTPUT);
     digitalWrite(MAX485_DE, LOW);
-
-    // Load slaves from file
-    File file = LittleFS.open("/slaves.json", "r");
-    if (!file) {
-        Serial.println("❌ Failed to open slaves.json");
-        return false;
-    }
-    
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, file);
-    file.close();
-    
-    if (error) {
-        Serial.print("❌ JSON deserialization failed: ");
-        Serial.println(error.c_str());
-        return false;
-    }
-    
-    JsonArray slavesArray = doc.as<JsonArray>();
-    slaveCount = slavesArray.size();
-    slaves = new SensorSlave[slaveCount];
-    
-    for (int i = 0; i < slaveCount; i++) {
-        JsonObject slaveObj = slavesArray[i];
-        slaves[i].id = slaveObj["id"];
-        slaves[i].startReg = slaveObj["startReg"]; 
-        slaves[i].numReg = slaveObj["numReg"];
-        slaves[i].name = slaveObj["name"].as<String>();
-        slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
-        
-        Serial.printf("✅ Loaded slave: ID=%d, Name=%s, StartReg=%d, NumRegs=%d, Topic=%s\n", 
-                     slaves[i].id, slaves[i].name.c_str(), slaves[i].startReg, slaves[i].numReg, slaves[i].mqttTopic.c_str());
-    }
     
     // Initialize ModbusMaster
     node.begin(1, Serial);
