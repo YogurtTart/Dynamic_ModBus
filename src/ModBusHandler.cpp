@@ -3,6 +3,8 @@
 #define MAX485_DE 5
 
 ModbusMaster node;
+VoltageData currentVoltageData;
+
 SensorSlave* slaves = nullptr;
 int slaveCount = 0;
 
@@ -37,6 +39,10 @@ float convertRegisterToHumidity(uint16_t regVal) {
     return regVal * 0.1;
 }
 
+bool hasVoltageData() {
+    return currentVoltageData.hasData;
+}
+
 bool initModbus() {
     // Initialize RS485 control pin
     pinMode(MAX485_DE, OUTPUT);
@@ -53,7 +59,6 @@ bool initModbus() {
 
 // Update non-blocking query (call this in loop())
 void updateNonBlockingQuery() {
-
     unsigned long currentTime = millis();
     
     if (!queryInProgress) {
@@ -86,77 +91,139 @@ String modbus_readAllDataJSON() {
     JsonDocument doc;
     JsonObject root = doc.to<JsonObject>();
     
-        SensorSlave slave = slaves[currentSlaveIndex];
+    SensorSlave slave = slaves[currentSlaveIndex];
+    
+    if (slave.name.indexOf("Sensor") >= 0) {
+        // Read sensor data
+        node.begin(slave.id, Serial);
         
-        if (slave.name.indexOf("Sensor") >= 0) {
-            // Read sensor data
-            node.begin(slave.id, Serial);
+        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
+            JsonObject Obj = root[slave.name].to<JsonObject>();
             
-            if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-                JsonObject Obj = root[slave.name].to<JsonObject>();
+            Obj["id"] = slave.id;
+            Obj["name"] = slave.name;
+            
+            Obj["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0));
+            Obj["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1));
+            
+            Obj["mqtt_topic"] = slave.mqttTopic;
+        } else {
+            Serial.println("Reading Sensor Failed");
+        }  
+
+    } else if (slave.name.indexOf("Meter") >= 0) {
+        node.begin(slave.id, Serial);
+        
+        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
+            JsonObject Obj = root[slave.name].to<JsonObject>();
+            
+            Obj["id"] = slave.id;
+            Obj["name"] = slave.name;
+            
+            JsonObject basicParams = Obj.createNestedObject("BasicParams");
+            basicParams["Current1"] = node.getResponseBuffer(0);
+            basicParams["Current2"] = node.getResponseBuffer(1);
+            basicParams["Current3"] = node.getResponseBuffer(2);
+            basicParams["ZeroPhaseCurrent"] = node.getResponseBuffer(3);
+            basicParams["ActiveP1"] = node.getResponseBuffer(4);
+            basicParams["ActiveP2"] = node.getResponseBuffer(5);
+            basicParams["ActiveP3"] = node.getResponseBuffer(6);
+            basicParams["3PhaseActiveP"] = node.getResponseBuffer(7);
+            basicParams["ReactiveP1"] = node.getResponseBuffer(8);
+            basicParams["ReactiveP2"] = node.getResponseBuffer(9);
+            basicParams["ReactiveP3"] = node.getResponseBuffer(10);
+            basicParams["3PhaseReactiveP"] = node.getResponseBuffer(11);
+            basicParams["ApparentP1"] = node.getResponseBuffer(12);
+            basicParams["ApparentP2"] = node.getResponseBuffer(13);
+            basicParams["ApparentP3"] = node.getResponseBuffer(14);
+            basicParams["3PhaseApparentP"] = node.getResponseBuffer(15);
+            basicParams["PowerF1"] = node.getResponseBuffer(16);
+            basicParams["PowerF2"] = node.getResponseBuffer(17);
+            basicParams["PowerF3"] = node.getResponseBuffer(18);
+            basicParams["3PhasePowerF"] = node.getResponseBuffer(19);
+            
+            // ✅ ADD: Include voltage data if available
+            if (hasVoltageData()) {
+                JsonObject voltageParams = Obj.createNestedObject("Voltage");
+                voltageParams["PhaseA"] = currentVoltageData.phaseA;
+                voltageParams["PhaseB"] = currentVoltageData.phaseB;
+                voltageParams["PhaseC"] = currentVoltageData.phaseC;
+                voltageParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
+                voltageParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
                 
-                Obj["id"] = slave.id;
-                Obj["name"] = slave.name;
-                
-                uint16_t rawTemp = node.getResponseBuffer(0);
-                Obj["temperature"] = convertRegisterToTemperature(rawTemp);
-                uint16_t rawHum = node.getResponseBuffer(1);
-                Obj["humidity"] = convertRegisterToHumidity(rawHum);
-                
-                Obj["mqtt_topic"] = slave.mqttTopic;
+                Serial.printf("✅ Meter %s with Voltage: I1=%d, V=%.1f/%.1f/%.1f\n", 
+                            slave.name.c_str(),
+                            node.getResponseBuffer(0),
+                            currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
             } else {
-                Serial.println("Reading Sensor Failed");
-            }  
-
-            } else if (slave.name.indexOf("Meter") >= 0 || slave.name.indexOf("meter") >= 0) {
-
-                node.begin(slave.id, Serial);
-                
-                if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-                    JsonObject Obj = root[slave.name].to<JsonObject>();
-                    
-                    Obj["id"] = slave.id;
-                    Obj["name"] = slave.name;
-                    
-                    
-                    JsonObject basicParams = Obj.createNestedObject("BasicParams");
-                    basicParams["Current1"] = node.getResponseBuffer(0);
-                    basicParams["Current2"] = node.getResponseBuffer(1);
-                    basicParams["Current3"] = node.getResponseBuffer(2);
-                    basicParams["ZeroPhaseCurrent"] = node.getResponseBuffer(3);
-                    
-                    
-                    Obj["mqtt_topic"] = slave.mqttTopic;
-                } else {
-                    Serial.println("Reading Meter Failed");
-                }  
-                
-            } else {
-                // Handle unknown/other devices
-                node.begin(slave.id, Serial);
-                
-                if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-                    JsonObject Obj = root[slave.name].to<JsonObject>();
-                    
-                    Obj["id"] = slave.id;
-                    Obj["name"] = slave.name;
-                    Obj["type"] = "unknown";  // ✅ Mark as unknown type
-                    Obj["mqtt_topic"] = slave.mqttTopic;
-
-                    slave.mqttTopic = "Lora/Error";
-                    
-                    // Add raw register data since we don't know the format
-                    JsonArray rawData = Obj.createNestedArray("raw_data");
-                    for (int j = 0; j < slave.numReg; j++) {
-                        rawData.add(node.getResponseBuffer(j));
-                    }
-                    
-                    Serial.printf("⚠️ Unknown device type: %s, returning raw data\n", slave.name.c_str());
-                    
-                } else {
-                    Serial.println("Reading Unknown Device Failed");
-                }
+                Serial.printf("✅ Meter %s: I1=%d (No voltage data yet)\n", 
+                            slave.name.c_str(), node.getResponseBuffer(0));
             }
+            
+            Obj["mqtt_topic"] = slave.mqttTopic;
+            
+        } else {
+            Serial.println("❌ Reading Meter Failed");
+        }  
+        
+    } else if (slave.name.indexOf("Voltage") >= 0) {
+        node.begin(slave.id, Serial);
+        
+        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
+            // ✅ STORE voltage data globally
+            currentVoltageData.phaseA = convertRegisterToVoltage(node.getResponseBuffer(0));
+            currentVoltageData.phaseB = convertRegisterToVoltage(node.getResponseBuffer(1));
+            currentVoltageData.phaseC = convertRegisterToVoltage(node.getResponseBuffer(2));
+            currentVoltageData.phaseVoltageMean = convertRegisterToVoltage(node.getResponseBuffer(3));
+            currentVoltageData.zeroSequenceVoltage = convertRegisterToVoltage(node.getResponseBuffer(4));
+            currentVoltageData.hasData = true;
+            
+            JsonObject Obj = root[slave.name].to<JsonObject>();
+            Obj["id"] = slave.id;
+            Obj["name"] = slave.name;
+            
+            JsonObject basicParams = Obj.createNestedObject("BasicParams");
+            basicParams["PhaseA"] = currentVoltageData.phaseA;
+            basicParams["PhaseB"] = currentVoltageData.phaseB;
+            basicParams["PhaseC"] = currentVoltageData.phaseC;
+            basicParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
+            basicParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
+            
+            Obj["mqtt_topic"] = slave.mqttTopic;
+            
+            Serial.printf("✅ Voltage stored: A=%.1fV, B=%.1fV, C=%.1fV\n", 
+                        currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
+                        
+        } else {
+            Serial.println("❌ Reading Voltage Failed");
+        }  
+        
+    } else {
+        // Handle unknown/other devices
+        node.begin(slave.id, Serial);
+        
+        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
+            JsonObject Obj = root[slave.name].to<JsonObject>();
+            
+            Obj["id"] = slave.id;
+            Obj["name"] = slave.name;
+            Obj["type"] = "unknown";  // ✅ Mark as unknown type
+            Obj["mqtt_topic"] = slave.mqttTopic;
+
+            slave.mqttTopic = "Lora/Error";
+            
+            // Add raw register data since we don't know the format
+            JsonArray rawData = Obj.createNestedArray("raw_data");
+            for (int j = 0; j < slave.numReg; j++) {
+                rawData.add(node.getResponseBuffer(j));
+            }
+            
+            Serial.printf("⚠️ Unknown device type: %s, returning raw data\n", slave.name.c_str());
+            
+        } else {
+            Serial.println("Reading Unknown Device Failed");
+        }
+    }
     
     String output;
     serializeJson(doc, output);    

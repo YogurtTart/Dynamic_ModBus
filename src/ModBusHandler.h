@@ -15,6 +15,17 @@ struct SensorSlave {
     String mqttTopic;
 };
 
+struct VoltageData {
+    float phaseA;
+    float phaseB;
+    float phaseC;
+    float phaseVoltageMean;
+    float zeroSequenceVoltage;
+    bool hasData = false;
+};
+
+bool hasVoltageData();
+
 // Function declarations
 bool initModbus();
 String modbus_readAllDataJSON();
