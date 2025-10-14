@@ -5,18 +5,21 @@
 #include <ModbusMaster.h>
 #include <LittleFS.h>
 #include "FSHandler.h"
+#include "MQTTHandler.h"
 
 struct SensorSlave {
     uint8_t id;
     uint16_t startReg;
-    uint16_t numRegs;
+    uint16_t numReg;
     String name;
     String mqttTopic;
 };
 
 // Function declarations
-bool modbus_begin();
+bool initModbus();
 String modbus_readAllDataJSON();
 float convertRegisterToTemperature(uint16_t regVal);
 float convertRegisterToHumidity(uint16_t regVal);
 bool modbus_reloadSlaves();
+
+void updateNonBlockingQuery();

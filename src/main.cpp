@@ -59,11 +59,8 @@ void setup() {
     Serial.println("🌐 Starting Web Server...");
     setupWebServer();
 
-    if (modbus_begin()) {
-        Serial.println("Modbus RTU to JSON Converter Started");
-    } else {
-        Serial.println("Modbus initialization failed!");
-    }
+    initModbus();
+    modbus_reloadSlaves();
     
     Serial.println("🎉 System fully initialized and ready!");
     Serial.println("======================================");
@@ -77,10 +74,12 @@ void loop() {
     if (!mqttClient.connected()) reconnectMQTT();
     mqttClient.loop();
 
-    //String jsonOutput = modbus_readAllDataJSON();
-    //Serial.println(jsonOutput);
 
-    delay(5000);
+    updateNonBlockingQuery();
+
+
+    // ----------------- Handle Web Server -----------------
+    server.handleClient();
 
     ArduinoOTA.handle();      // Handle OTA updates
 }
