@@ -117,6 +117,8 @@ bool savePollInterval(int interval) {
     } else {
         Serial.println("❌ Failed to save poll interval");
     }
+
+    modbus_reloadSlaves();
     return success;
 }
 

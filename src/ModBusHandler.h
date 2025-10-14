@@ -34,3 +34,5 @@ float convertRegisterToHumidity(uint16_t regVal);
 bool modbus_reloadSlaves();
 
 void updateNonBlockingQuery();
+float convertRegisterToVoltage(uint16_t regVal);
+void updatePollInterval(int newIntervalSeconds);

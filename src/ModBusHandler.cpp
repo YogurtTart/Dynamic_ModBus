@@ -12,6 +12,16 @@ int slaveCount = 0;
 unsigned long lastQueryTime = 0;
 uint8_t currentSlaveIndex = 0;
 bool queryInProgress = false;
+unsigned long pollInterval = 10000;
+
+enum QueryState { 
+    STATE_IDLE, 
+    STATE_QUERYING, 
+    STATE_WAITING 
+};
+QueryState currentState = STATE_IDLE;
+
+unsigned long lastActionTime = 0;
 
 #define QUERY_INTERVAL 500  // .5 seconds between slaves
 
@@ -39,6 +49,11 @@ float convertRegisterToHumidity(uint16_t regVal) {
     return regVal * 0.1;
 }
 
+// Convert register to Voltage
+float convertRegisterToVoltage(uint16_t regVal) {
+    return regVal * 0.1;
+}
+
 bool hasVoltageData() {
     return currentVoltageData.hasData;
 }
@@ -61,29 +76,40 @@ bool initModbus() {
 void updateNonBlockingQuery() {
     unsigned long currentTime = millis();
     
-    if (!queryInProgress) {
-        // Start new query cycle
-        queryInProgress = true;
-        currentSlaveIndex = 0;
-        lastQueryTime = currentTime;
-        Serial.println("🚀 Starting non-blocking query cycle");
-    }
-    
-    // Check if it's time to query next slave
-    if (currentTime - lastQueryTime >= QUERY_INTERVAL) {
-        lastQueryTime = currentTime;
-        
-        // Query current slave & publish
-        modbus_readAllDataJSON();
-        
-        // Move to next slave
-        currentSlaveIndex++;
-        
-        // Check if cycle complete
-        if (currentSlaveIndex >= slaveCount) {
-            queryInProgress = false;
-            Serial.println("🎉 Query cycle completed");
-        }
+     switch (currentState) {
+        case STATE_IDLE:
+            // Start first query cycle
+            currentState = STATE_QUERYING;
+            currentSlaveIndex = 0;
+            lastActionTime = currentTime;
+            Serial.println("🚀 Starting query cycle");
+            break;
+            
+        case STATE_QUERYING:
+            if (currentTime - lastActionTime >= QUERY_INTERVAL) {
+                lastActionTime = currentTime;
+                
+                // Query current slave
+                modbus_readAllDataJSON();
+                currentSlaveIndex++;
+                
+                if (currentSlaveIndex >= slaveCount) {
+                    // All slaves queried, wait for poll interval
+                    currentState = STATE_WAITING;
+                    Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
+                }
+            }
+            break;
+            
+        case STATE_WAITING:
+            if (currentTime - lastActionTime >= pollInterval) {
+                // Poll interval elapsed, start new cycle
+                currentState = STATE_QUERYING;
+                currentSlaveIndex = 0;
+                lastActionTime = currentTime;
+                Serial.println("🔄 Starting new query cycle");
+            }
+            break;
     }
 }
 
@@ -242,6 +268,13 @@ bool modbus_reloadSlaves() {
         return false;
     }
     
+    int newIntervalSeconds = loadPollInterval();
+    updatePollInterval(newIntervalSeconds);
+    
+    // Reset query state when reloading slaves
+    currentState = STATE_IDLE;
+    currentSlaveIndex = 0;
+
     // Get the slaves array
     JsonArray slavesArray = config["slaves"];
     int newSlaveCount = slavesArray.size();
@@ -269,4 +302,15 @@ bool modbus_reloadSlaves() {
     
     Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
     return true;
+}
+
+void updatePollInterval(int newIntervalSeconds) {
+    pollInterval = newIntervalSeconds * 1000; // Convert to milliseconds
+    
+    // If we're currently waiting, reset the timer
+    if (currentState == STATE_WAITING) {
+        lastActionTime = millis();
+    }
+    
+    Serial.printf("🔄 Poll interval updated to: %d seconds (%lu ms)\n", newIntervalSeconds, pollInterval);
 }
