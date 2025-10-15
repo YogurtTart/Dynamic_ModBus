@@ -148,4 +148,3 @@ int loadPollInterval() {
     Serial.printf("✅ Poll interval loaded: %d seconds\n", interval);
     return interval;
 }
-

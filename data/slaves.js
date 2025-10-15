@@ -1,6 +1,5 @@
 let slaves = [];
 let pollInterval = 10;
-let queryTimeout = 2000;
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
@@ -28,11 +27,10 @@ function addSlave() {
     const slaveId = document.getElementById('slave_id').value;
     const startReg = document.getElementById('start_reg').value;
     const numReg = document.getElementById('num_reg').value;
-    const divider = document.getElementById('divider').value;
     const slaveName = document.getElementById('slave_name').value;
     const mqttTopic = document.getElementById('mqtt_topic').value;
 
-    if (!slaveId || !startReg || !numReg || !divider || !slaveName || !mqttTopic) {
+    if (!slaveId || !startReg || !numReg || !slaveName || !mqttTopic) {
         showStatus('Please fill all fields', 'error');
         return;
     }
@@ -41,7 +39,6 @@ function addSlave() {
         id: parseInt(slaveId),
         startReg: parseInt(startReg),
         numReg: parseInt(numReg),
-        divider: parseFloat(divider),
         name: slaveName,
         mqttTopic: mqttTopic
     };
@@ -57,7 +54,6 @@ function clearSlaveForm() {
     document.getElementById('slave_id').value = '';
     document.getElementById('start_reg').value = '';
     document.getElementById('num_reg').value = '';
-    document.getElementById('divider').value = '';
     document.getElementById('slave_name').value = '';
     document.getElementById('mqtt_topic').value = '';
 }
@@ -89,7 +85,6 @@ function updateSlavesList() {
             <td>${slave.name}</td>
             <td>${slave.startReg}</td>
             <td>${slave.numReg}</td>
-            <td>${slave.divider}</td>
             <td><code>${slave.mqttTopic}</code></td>
             <td>
                 <button class="btn btn-small btn-warning" onclick="deleteSlave(${index})" title="Delete slave">
@@ -139,15 +134,7 @@ async function loadSlaveConfig() {
         const response = await fetch('/getslaves');
         if (response.ok) {
             const config = await response.json();
-            slaves = config.saves || [];
-            
-            // ✅ ADD: Ensure all slaves have divider field
-            slaves.forEach(slave => {
-                if (slave.divider === undefined) {
-                    slave.divider = 1.0; // Default divider
-                }
-            });
-            
+            slaves = config.slaves || [];
             sortSlavesByID(); // Sort after loading
             updateSlavesList();
             showStatus('Slave configuration loaded successfully!', 'success');
@@ -156,60 +143,6 @@ async function loadSlaveConfig() {
         }
     } catch (error) {
         showStatus('Error loading slave configuration: ' + error, 'error');
-    }
-}
-
-// Query Timeout Functions
-async function saveQueryTimeout() {
-    const timeoutInput = document.getElementById('query_timeout').value;
-    const timeout = parseFloat(timeoutInput);
-    
-    if (!timeoutInput || timeout < 0.5 || timeout > 10.0) {
-        showStatus('Please enter a valid timeout (0.5-10.0 seconds)', 'error');
-        return;
-    }
-    
-    const config = {
-        queryTimeout: Math.round(timeout * 1000) // Convert seconds to milliseconds for backend
-    };
-
-    try {
-        const response = await fetch('/savequerytimeout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(config)
-        });
-        
-        if (response.ok) {
-            queryTimeout = timeout;
-            document.getElementById('currentQueryTimeout').textContent = queryTimeout.toFixed(1) + 's';
-            showStatus(`Query timeout saved: ${queryTimeout.toFixed(1)} seconds`, 'success');
-        } else {
-            showStatus('Error saving query timeout', 'error');
-        }
-    } catch (error) {
-        showStatus('Error saving query timeout: ' + error, 'error');
-    }
-}
-
-async function loadQueryTimeout() {
-    try {
-        const response = await fetch('/getquerytimeout');
-        if (response.ok) {
-            const config = await response.json();
-            // Convert milliseconds to seconds for display
-            queryTimeout = (config.queryTimeout || 2000) / 1000;
-            
-            document.getElementById('query_timeout').value = queryTimeout.toFixed(1);
-            document.getElementById('currentQueryTimeout').textContent = queryTimeout.toFixed(1) + 's';
-            showStatus(`Query timeout loaded: ${queryTimeout.toFixed(1)} seconds`, 'success');
-        } else {
-            showStatus('Error loading query timeout', 'error');
-        }
-    } catch (error) {
-        showStatus('Error loading query timeout: ' + error, 'error');
     }
 }
 
@@ -264,9 +197,8 @@ async function loadPollInterval() {
     }
 }
 
-// Load all configurations when page loads
+// Load both configurations when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadSlaveConfig();
     loadPollInterval();
-    loadQueryTimeout();
 });
