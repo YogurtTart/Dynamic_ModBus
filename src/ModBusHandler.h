@@ -8,6 +8,7 @@
 #include "MQTTHandler.h"
 
 extern int slaveCount;
+extern unsigned long timeoutDuration; 
 
 struct SensorSlave {
     uint8_t id;
@@ -30,7 +31,6 @@ bool hasVoltageData();
 
 // Function declarations
 bool initModbus();
-String modbus_readAllDataJSON();
 float convertRegisterToTemperature(uint16_t regVal);
 float convertRegisterToHumidity(uint16_t regVal);
 bool modbus_reloadSlaves();
@@ -39,3 +39,8 @@ void updateNonBlockingQuery();
 float convertRegisterToVoltage(uint16_t regVal);
 void updatePollInterval(int newIntervalSeconds);
 void updateTimeout(int newTimeoutSeconds);
+
+// ✅ NEW: Non-blocking functions
+bool startNonBlockingQuery();
+bool checkNonBlockingResponse();
+void processNonBlockingData();

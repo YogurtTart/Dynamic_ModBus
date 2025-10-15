@@ -11,33 +11,37 @@ int slaveCount = 0;
 // Non-blocking query state
 unsigned long lastQueryTime = 0;
 uint8_t currentSlaveIndex = 0;
-bool queryInProgress = false;
 unsigned long pollInterval = 10000;
 unsigned long timeoutDuration = 1000;
 
+// Non-blocking state variables
 enum QueryState { 
     STATE_IDLE, 
-    STATE_QUERYING, 
+    STATE_START_QUERY,      // Start query state
+    STATE_WAIT_RESPONSE,    // Wait for response state
+    STATE_PROCESS_DATA,     // Process received data state
     STATE_WAITING 
 };
 QueryState currentState = STATE_IDLE;
 
 unsigned long lastActionTime = 0;
+unsigned long queryStartTime = 0;
+bool waitingForResponse = false;
 
 #define QUERY_INTERVAL 500  // .5 seconds between slaves
 
-// RS485 control
+
 void preTransmission() { 
     digitalWrite(MAX485_DE, HIGH); 
 }
+
 
 void postTransmission() { 
     digitalWrite(MAX485_DE, LOW); 
 }
 
-// Convert register to temperature
 float convertRegisterToTemperature(uint16_t regVal) {
-    int16_t tempInt;
+        int16_t tempInt;
     if (regVal & 0x8000) 
         tempInt = -((0xFFFF - regVal) + 1);
     else 
@@ -45,12 +49,10 @@ float convertRegisterToTemperature(uint16_t regVal) {
     return tempInt * 0.1;
 }
 
-// Convert register to humidity
 float convertRegisterToHumidity(uint16_t regVal) {
     return regVal * 0.1;
 }
 
-// Convert register to Voltage
 float convertRegisterToVoltage(uint16_t regVal) {
     return regVal * 0.1;
 }
@@ -73,191 +75,244 @@ bool initModbus() {
     return true;
 }
 
-// Update non-blocking query (call this in loop())
+// Start a non-blocking query
+bool startNonBlockingQuery() {
+    if (currentSlaveIndex >= slaveCount) return false;
+    
+    SensorSlave slave = slaves[currentSlaveIndex];
+    
+    node.begin(slave.id, Serial);
+    uint8_t result = node.readHoldingRegisters(slave.startReg, slave.numReg);
+    
+    queryStartTime = millis();
+    waitingForResponse = true;
+
+    Serial.printf("➡️ Querying slave %d: %s\n", slave.id, slave.name.c_str());
+
+    return (result == node.ku8MBSuccess);
+}
+
+// Check if response is ready
+bool checkNonBlockingResponse() {
+    if (!waitingForResponse) return false;
+    
+    // Check if Modbus transaction is complete by checking response buffer
+    // If we have data in the first buffer, the transaction is complete
+    if (node.getResponseBuffer(0) != 0xFFFF) { // 0xFFFF typically means empty buffer
+        return true;
+    }
+    
+    // Alternative: Check if we've received any response
+    // This depends on your ModbusMaster library implementation
+    // You might need to check node.available() or other methods
+    
+    return false;
+}
+
+// Process the received data
+void processNonBlockingData() {
+    SensorSlave slave = slaves[currentSlaveIndex];
+    
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    bool success = false;
+    
+    // Check if the query was successful by examining response code
+
+            if (slave.name.indexOf("Sensor") >= 0) {
+                JsonObject Obj = root[slave.name].to<JsonObject>();
+                Obj["id"] = slave.id;
+                Obj["name"] = slave.name;
+                Obj["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0));
+                Obj["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1));
+                Obj["mqtt_topic"] = slave.mqttTopic;
+                success = true;
+                Serial.printf("✅ Sensor %d: %.1f°C, %.1f%%\n", slave.id, 
+                             convertRegisterToTemperature(node.getResponseBuffer(0)),
+                             convertRegisterToHumidity(node.getResponseBuffer(1)));
+            } 
+            else if (slave.name.indexOf("Meter") >= 0) {
+                JsonObject Obj = root[slave.name].to<JsonObject>();
+                Obj["id"] = slave.id;
+                Obj["name"] = slave.name;
+                
+                JsonObject basicParams = Obj.createNestedObject("BasicParams");
+                basicParams["Current1"] = node.getResponseBuffer(0);
+                basicParams["Current2"] = node.getResponseBuffer(1);
+                basicParams["Current3"] = node.getResponseBuffer(2);
+                basicParams["ZeroPhaseCurrent"] = node.getResponseBuffer(3);
+                basicParams["ActiveP1"] = node.getResponseBuffer(4);
+                basicParams["ActiveP2"] = node.getResponseBuffer(5);
+                basicParams["ActiveP3"] = node.getResponseBuffer(6);
+                basicParams["3PhaseActiveP"] = node.getResponseBuffer(7);
+                basicParams["ReactiveP1"] = node.getResponseBuffer(8);
+                basicParams["ReactiveP2"] = node.getResponseBuffer(9);
+                basicParams["ReactiveP3"] = node.getResponseBuffer(10);
+                basicParams["3PhaseReactiveP"] = node.getResponseBuffer(11);
+                basicParams["ApparentP1"] = node.getResponseBuffer(12);
+                basicParams["ApparentP2"] = node.getResponseBuffer(13);
+                basicParams["ApparentP3"] = node.getResponseBuffer(14);
+                basicParams["3PhaseApparentP"] = node.getResponseBuffer(15);
+                basicParams["PowerF1"] = node.getResponseBuffer(16);
+                basicParams["PowerF2"] = node.getResponseBuffer(17);
+                basicParams["PowerF3"] = node.getResponseBuffer(18);
+                basicParams["3PhasePowerF"] = node.getResponseBuffer(19);
+                
+                if (hasVoltageData()) {
+                    JsonObject voltageParams = Obj.createNestedObject("Voltage");
+                    voltageParams["PhaseA"] = currentVoltageData.phaseA;
+                    voltageParams["PhaseB"] = currentVoltageData.phaseB;
+                    voltageParams["PhaseC"] = currentVoltageData.phaseC;
+                    voltageParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
+                    voltageParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
+                    
+                    Serial.printf("✅ Meter %s with Voltage: I1=%d, V=%.1f/%.1f/%.1f\n", 
+                                slave.name.c_str(),
+                                node.getResponseBuffer(0),
+                                currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
+                } else {
+                    Serial.printf("✅ Meter %s: I1=%d (No voltage data yet)\n", 
+                                slave.name.c_str(), node.getResponseBuffer(0));
+                }
+                
+                Obj["mqtt_topic"] = slave.mqttTopic;
+                success = true;
+            }
+            else if (slave.name.indexOf("Voltage") >= 0) {
+                // Store voltage data globally
+                currentVoltageData.phaseA = convertRegisterToVoltage(node.getResponseBuffer(0));
+                currentVoltageData.phaseB = convertRegisterToVoltage(node.getResponseBuffer(1));
+                currentVoltageData.phaseC = convertRegisterToVoltage(node.getResponseBuffer(2));
+                currentVoltageData.phaseVoltageMean = convertRegisterToVoltage(node.getResponseBuffer(3));
+                currentVoltageData.zeroSequenceVoltage = convertRegisterToVoltage(node.getResponseBuffer(4));
+                currentVoltageData.hasData = true;
+                
+                JsonObject Obj = root[slave.name].to<JsonObject>();
+                Obj["id"] = slave.id;
+                Obj["name"] = slave.name;
+                
+                JsonObject basicParams = Obj.createNestedObject("BasicParams");
+                basicParams["PhaseA"] = currentVoltageData.phaseA;
+                basicParams["PhaseB"] = currentVoltageData.phaseB;
+                basicParams["PhaseC"] = currentVoltageData.phaseC;
+                basicParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
+                basicParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
+                
+                Obj["mqtt_topic"] = slave.mqttTopic;
+                success = true;
+                Serial.printf("✅ Voltage stored: A=%.1fV, B=%.1fV, C=%.1fV\n", 
+                            currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
+            }
+            else {
+                // Unknown devices
+                JsonObject Obj = root[slave.name].to<JsonObject>();
+                Obj["id"] = slave.id;
+                Obj["name"] = slave.name;
+                Obj["type"] = "unknown";
+                Obj["mqtt_topic"] = "Lora/error";
+
+                // Add raw register data since we don't know the format
+                JsonArray rawData = Obj.createNestedArray("raw_data");
+                for (int j = 0; j < slave.numReg; j++) {
+                    rawData.add(node.getResponseBuffer(j));
+                }
+                
+                success = true;
+                Serial.printf("✅ Unknown device %d: %d registers read\n", slave.id, slave.numReg);
+            }
+    
+    // Publish if successful
+    if (success) {
+        String output;
+        serializeJson(doc, output);    
+        publishMessage(slave.mqttTopic.c_str(), output.c_str());
+    } else {
+        Serial.printf("❌ No valid data from slave %d\n", slave.id);
+        String output = "Failed";
+        String topic = "Lora/error";
+        publishMessage(topic.c_str(), output.c_str());
+    }
+    
+    waitingForResponse = false;
+}
+
+// Check if we should move to next cycle
+void checkCycleCompletion() {
+    if (currentSlaveIndex >= slaveCount) {
+        currentState = STATE_WAITING;
+        Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
+    } else {
+        currentState = STATE_START_QUERY;
+    }
+}
+
+// Non-blocking state machine
 void updateNonBlockingQuery() {
     unsigned long currentTime = millis();
     
-     switch (currentState) {
+    switch (currentState) {
         case STATE_IDLE:
             // Start first query cycle
-            currentState = STATE_QUERYING;
+            currentState = STATE_START_QUERY;
             currentSlaveIndex = 0;
             lastActionTime = currentTime;
-            Serial.println("🚀 Starting query cycle");
+            waitingForResponse = false;
+            Serial.println("🚀 Starting NON-BLOCKING query cycle");
             break;
             
-        case STATE_QUERYING:
+        case STATE_START_QUERY:
             if (currentTime - lastActionTime >= QUERY_INTERVAL) {
                 lastActionTime = currentTime;
                 
-                // Query current slave
-                modbus_readAllDataJSON();
-                currentSlaveIndex++;
-                
-                if (currentSlaveIndex >= slaveCount) {
-                    // All slaves queried, wait for poll interval
-                    currentState = STATE_WAITING;
-                    Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
+                // Start querying current slave
+                if (startNonBlockingQuery()) {
+                    currentState = STATE_WAIT_RESPONSE;
+                    Serial.printf("⏳ Waiting for slave %d response...\n", slaves[currentSlaveIndex].id);
+                } else {
+                    // Failed to start query, move to next slave
+                    Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
+                    currentSlaveIndex++;
+                    checkCycleCompletion();
                 }
             }
+            break;
+            
+        case STATE_WAIT_RESPONSE:
+            // Check for timeout OR response
+            if (currentTime - queryStartTime > timeoutDuration) {
+                // ✅ ACTUAL TIMEOUT - SKIP THIS SLAVE!
+                Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
+                             slaves[currentSlaveIndex].id, timeoutDuration);
+                waitingForResponse = false;
+                currentSlaveIndex++;
+                currentState = STATE_START_QUERY;
+                checkCycleCompletion();
+            }
+            else if (checkNonBlockingResponse()) {
+                // Response received successfully
+                currentState = STATE_PROCESS_DATA;
+            }
+            break;
+            
+        case STATE_PROCESS_DATA:
+            // Process the received data
+            processNonBlockingData();
+            currentSlaveIndex++;
+            currentState = STATE_START_QUERY;
+            checkCycleCompletion();
             break;
             
         case STATE_WAITING:
             if (currentTime - lastActionTime >= pollInterval) {
                 // Poll interval elapsed, start new cycle
-                currentState = STATE_QUERYING;
+                currentState = STATE_START_QUERY;
                 currentSlaveIndex = 0;
                 lastActionTime = currentTime;
-                Serial.println("🔄 Starting new query cycle");
+                waitingForResponse = false;
+                Serial.println("🔄 Starting new NON-BLOCKING query cycle");
             }
             break;
     }
-}
-
-String modbus_readAllDataJSON() {
-    JsonDocument doc;
-    JsonObject root = doc.to<JsonObject>();
-    
-    SensorSlave slave = slaves[currentSlaveIndex];
-    
-    if (slave.name.indexOf("Sensor") >= 0) {
-        // Read sensor data
-        node.begin(slave.id, Serial);
-        
-        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-            JsonObject Obj = root[slave.name].to<JsonObject>();
-            
-            Obj["id"] = slave.id;
-            Obj["name"] = slave.name;
-            
-            Obj["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0));
-            Obj["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1));
-            
-            Obj["mqtt_topic"] = slave.mqttTopic;
-        } else {
-            Serial.println("Reading Sensor Failed");
-        }  
-
-    } else if (slave.name.indexOf("Meter") >= 0) {
-        node.begin(slave.id, Serial);
-        
-        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-            JsonObject Obj = root[slave.name].to<JsonObject>();
-            
-            Obj["id"] = slave.id;
-            Obj["name"] = slave.name;
-            
-            JsonObject basicParams = Obj.createNestedObject("BasicParams");
-            basicParams["Current1"] = node.getResponseBuffer(0);
-            basicParams["Current2"] = node.getResponseBuffer(1);
-            basicParams["Current3"] = node.getResponseBuffer(2);
-            basicParams["ZeroPhaseCurrent"] = node.getResponseBuffer(3);
-            basicParams["ActiveP1"] = node.getResponseBuffer(4);
-            basicParams["ActiveP2"] = node.getResponseBuffer(5);
-            basicParams["ActiveP3"] = node.getResponseBuffer(6);
-            basicParams["3PhaseActiveP"] = node.getResponseBuffer(7);
-            basicParams["ReactiveP1"] = node.getResponseBuffer(8);
-            basicParams["ReactiveP2"] = node.getResponseBuffer(9);
-            basicParams["ReactiveP3"] = node.getResponseBuffer(10);
-            basicParams["3PhaseReactiveP"] = node.getResponseBuffer(11);
-            basicParams["ApparentP1"] = node.getResponseBuffer(12);
-            basicParams["ApparentP2"] = node.getResponseBuffer(13);
-            basicParams["ApparentP3"] = node.getResponseBuffer(14);
-            basicParams["3PhaseApparentP"] = node.getResponseBuffer(15);
-            basicParams["PowerF1"] = node.getResponseBuffer(16);
-            basicParams["PowerF2"] = node.getResponseBuffer(17);
-            basicParams["PowerF3"] = node.getResponseBuffer(18);
-            basicParams["3PhasePowerF"] = node.getResponseBuffer(19);
-            
-            // ✅ ADD: Include voltage data if available
-            if (hasVoltageData()) {
-                JsonObject voltageParams = Obj.createNestedObject("Voltage");
-                voltageParams["PhaseA"] = currentVoltageData.phaseA;
-                voltageParams["PhaseB"] = currentVoltageData.phaseB;
-                voltageParams["PhaseC"] = currentVoltageData.phaseC;
-                voltageParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
-                voltageParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
-                
-                Serial.printf("✅ Meter %s with Voltage: I1=%d, V=%.1f/%.1f/%.1f\n", 
-                            slave.name.c_str(),
-                            node.getResponseBuffer(0),
-                            currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
-            } else {
-                Serial.printf("✅ Meter %s: I1=%d (No voltage data yet)\n", 
-                            slave.name.c_str(), node.getResponseBuffer(0));
-            }
-            
-            Obj["mqtt_topic"] = slave.mqttTopic;
-            
-        } else {
-            Serial.println("❌ Reading Meter Failed");
-        }  
-        
-    } else if (slave.name.indexOf("Voltage") >= 0) {
-        node.begin(slave.id, Serial);
-        
-        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-            // ✅ STORE voltage data globally
-            currentVoltageData.phaseA = convertRegisterToVoltage(node.getResponseBuffer(0));
-            currentVoltageData.phaseB = convertRegisterToVoltage(node.getResponseBuffer(1));
-            currentVoltageData.phaseC = convertRegisterToVoltage(node.getResponseBuffer(2));
-            currentVoltageData.phaseVoltageMean = convertRegisterToVoltage(node.getResponseBuffer(3));
-            currentVoltageData.zeroSequenceVoltage = convertRegisterToVoltage(node.getResponseBuffer(4));
-            currentVoltageData.hasData = true;
-            
-            JsonObject Obj = root[slave.name].to<JsonObject>();
-            Obj["id"] = slave.id;
-            Obj["name"] = slave.name;
-            
-            JsonObject basicParams = Obj.createNestedObject("BasicParams");
-            basicParams["PhaseA"] = currentVoltageData.phaseA;
-            basicParams["PhaseB"] = currentVoltageData.phaseB;
-            basicParams["PhaseC"] = currentVoltageData.phaseC;
-            basicParams["PhaseVoltageMean"] = currentVoltageData.phaseVoltageMean;
-            basicParams["ZeroSequenceVoltage"] = currentVoltageData.zeroSequenceVoltage;
-            
-            Obj["mqtt_topic"] = slave.mqttTopic;
-            
-            Serial.printf("✅ Voltage stored: A=%.1fV, B=%.1fV, C=%.1fV\n", 
-                        currentVoltageData.phaseA, currentVoltageData.phaseB, currentVoltageData.phaseC);
-                        
-        } else {
-            Serial.println("❌ Reading Voltage Failed");
-        }  
-        
-    } else {
-        // Handle unknown/other devices
-        node.begin(slave.id, Serial);
-        
-        if (node.readHoldingRegisters(slave.startReg, slave.numReg) == node.ku8MBSuccess) {
-            JsonObject Obj = root[slave.name].to<JsonObject>();
-            
-            Obj["id"] = slave.id;
-            Obj["name"] = slave.name;
-            Obj["type"] = "unknown";  // ✅ Mark as unknown type
-            Obj["mqtt_topic"] = slave.mqttTopic;
-
-            slave.mqttTopic = "Lora/Error";
-            
-            // Add raw register data since we don't know the format
-            JsonArray rawData = Obj.createNestedArray("raw_data");
-            for (int j = 0; j < slave.numReg; j++) {
-                rawData.add(node.getResponseBuffer(j));
-            }
-            
-            Serial.printf("⚠️ Unknown device type: %s, returning raw data\n", slave.name.c_str());
-            
-        } else {
-            Serial.println("Reading Unknown Device Failed");
-        }
-    }
-    
-    String output;
-    serializeJson(doc, output);    
-
-    publishMessage(slave.mqttTopic.c_str(), output.c_str());
-
-    return output;
 }
 
 bool modbus_reloadSlaves() {
@@ -278,12 +333,13 @@ bool modbus_reloadSlaves() {
     // Reset query state when reloading slaves
     currentState = STATE_IDLE;
     currentSlaveIndex = 0;
+    waitingForResponse = false;
 
     // Get the slaves array
     JsonArray slavesArray = config["slaves"];
     int newSlaveCount = slavesArray.size();
     
-    // ✅ CRITICAL FIX: Free old memory before allocating new
+    // Free old memory before allocating new
     if (slaves != nullptr) {
         delete[] slaves;
         slaves = nullptr;
