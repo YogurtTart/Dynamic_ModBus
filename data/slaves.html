@@ -81,6 +81,18 @@
                                        min="1" 
                                        max="125">
                             </div>
+
+                            <!-- ✅ ADDED: Divider Input -->
+                            <div class="input-group compact">
+                                <label for="divider" class="input-label">Divider</label>
+                                <input type="number" 
+                                       id="divider" 
+                                       class="text-input"
+                                       placeholder="1.0"
+                                       min="0.001" 
+                                       max="1000.0"
+                                       step="0.001">
+                            </div>
                         </div>
 
                         <div class="input-group">
@@ -99,34 +111,82 @@
                                    placeholder="modbus/slave1/data">
                         </div>
 
-                        <div class="action-bar compact">
+                        <!-- Horizontal Buttons -->
+                        <div class="action-bar horizontal-buttons">
                             <button type="button" class="btn btn-primary" onclick="addSlave()">
                                 <span class="btn-icon">➕</span>
                                 Add Slave Device
                             </button>
+                            <button type="button" class="btn btn-secondary" onclick="loadSlaveConfig()">
+                                <span class="btn-icon">📥</span>
+                                Load Config
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="saveSlaveConfig()">
+                                <span class="btn-icon">💾</span>
+                                Save Config
+                            </button>
                         </div>
                     </form>
+
+                    <!-- System Statistics below the form -->
+                    <div class="stats-panel compact-stats">
+                        <h4 class="stats-title">System Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Unique Slave IDs</span>
+                                <span class="stat-value" id="slaveCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Entries</span>
+                                <span class="stat-value" id="totalEntries">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Poll Interval</span>
+                                <span class="stat-value" id="currentPollInterval">10s</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Query Timeout</span>
+                                <span class="stat-value" id="currentQueryTimeout">2000ms</span>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
-                <section class="config-panel" aria-labelledby="config-management-heading">
+                <section class="config-panel" aria-labelledby="timing-heading">
                     <header class="panel-header">
-                        <h3 id="config-management-heading" class="panel-title">
-                            <span class="panel-icon">⚙️</span>
-                            Configuration Management
+                        <h3 id="timing-heading" class="panel-title">
+                            <span class="panel-icon">⏱️</span>
+                            Timing Configuration
                         </h3>
                     </header>
 
-                    <div class="action-stack">
-                        <button class="btn btn-secondary full-width" onclick="loadSlaveConfig()">
-                            <span class="btn-icon">📥</span>
-                            Load Slave Configuration
-                        </button>
-                        <button class="btn btn-secondary full-width" onclick="saveSlaveConfig()">
-                            <span class="btn-icon">💾</span>
-                            Save Slave Configuration
-                        </button>
+                    <!-- Query Timeout Settings -->
+                    <div class="polling-section">
+                        <h4 class="section-title">Query Timeout Settings</h4>
+                        <div class="input-group">
+                            <label for="query_timeout" class="input-label">Query Timeout (seconds)</label>
+                            <input type="number" 
+                                   id="query_timeout" 
+                                   class="text-input"
+                                   placeholder="2.0"
+                                   min="0.5" 
+                                   max="10.0"
+                                   step="0.1">
+                            <div class="input-help">Time to wait for slave response before skipping (0.5-10.0 seconds)</div>
+                        </div>
+                        <div class="action-stack">
+                            <button class="btn btn-secondary full-width" onclick="loadQueryTimeout()">
+                                <span class="btn-icon">📥</span>
+                                Load Timeout
+                            </button>
+                            <button class="btn btn-primary full-width" onclick="saveQueryTimeout()">
+                                <span class="btn-icon">⏰</span>
+                                Save Timeout
+                            </button>
+                        </div>
                     </div>
 
+                    <!-- Poll Interval Settings -->
                     <div class="polling-section">
                         <h4 class="section-title">Polling Settings</h4>
                         <div class="input-group">
@@ -149,24 +209,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <div class="stats-panel">
-                        <h4 class="stats-title">System Statistics</h4>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <span class="stat-label">Unique Slave IDs</span>
-                                <span class="stat-value" id="slaveCount">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Total Entries</span>
-                                <span class="stat-value" id="totalEntries">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Poll Interval</span>
-                                <span class="stat-value" id="currentPollInterval">10s</span>
-                            </div>
-                        </div>
-                    </div>
                 </section>
             </div>
 
@@ -187,6 +229,7 @@
                                 <th scope="col">Name</th>
                                 <th scope="col">Start Reg</th>
                                 <th scope="col">Count Reg</th>
+                                <th scope="col">Divider</th>
                                 <th scope="col">MQTT Topic</th>
                                 <th scope="col">Actions</th>
                             </tr>
