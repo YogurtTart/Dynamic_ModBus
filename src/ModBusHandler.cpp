@@ -13,6 +13,7 @@ unsigned long lastQueryTime = 0;
 uint8_t currentSlaveIndex = 0;
 bool queryInProgress = false;
 unsigned long pollInterval = 10000;
+unsigned long timeoutDuration = 1000;
 
 enum QueryState { 
     STATE_IDLE, 
@@ -270,6 +271,9 @@ bool modbus_reloadSlaves() {
     
     int newIntervalSeconds = loadPollInterval();
     updatePollInterval(newIntervalSeconds);
+
+    int newTimeoutSeconds = loadTimeout();
+    updateTimeout(newTimeoutSeconds);
     
     // Reset query state when reloading slaves
     currentState = STATE_IDLE;
@@ -302,6 +306,11 @@ bool modbus_reloadSlaves() {
     
     Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
     return true;
+}
+
+void updateTimeout(int newTimeoutSeconds) {
+    timeoutDuration = newTimeoutSeconds * 1000; // Convert to milliseconds
+    Serial.printf("⏱️  Timeout updated to: %d seconds (%lu ms)\n", newTimeoutSeconds, timeoutDuration);
 }
 
 void updatePollInterval(int newIntervalSeconds) {

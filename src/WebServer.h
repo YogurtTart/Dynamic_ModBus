@@ -15,5 +15,7 @@ void handleSaveSlaves();
 void handleGetSlaves();
 void handleSavePollInterval();
 void handleGetPollInterval();
+void handleSaveTimeout();   
+void handleGetTimeout();   
 
 String getContentType(String filename);

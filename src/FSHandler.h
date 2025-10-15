@@ -12,3 +12,5 @@ bool saveSlaveConfig(const JsonDocument& config);
 bool loadSlaveConfig(JsonDocument& config);
 bool savePollInterval(int interval);
 int loadPollInterval();
+bool saveTimeout(int timeoutSeconds);  
+int loadTimeout();  

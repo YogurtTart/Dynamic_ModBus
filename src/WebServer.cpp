@@ -21,6 +21,8 @@ void setupWebServer() {
     server.on("/getslaves", HTTP_GET, handleGetSlaves);
     server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
     server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
+    server.on("/savetimeout", HTTP_POST, handleSaveTimeout);    
+    server.on("/gettimeout", HTTP_GET, handleGetTimeout);       
     
     server.begin();
     Serial.println("✅ HTTP server started successfully");
@@ -28,6 +30,12 @@ void setupWebServer() {
     Serial.println("   GET  /         - Configuration page");
     Serial.println("   GET  /getwifi  - Get current WiFi settings");
     Serial.println("   POST /savewifi - Save new WiFi settings");
+    Serial.println("   GET  /getslaves - Get slave configuration");     
+    Serial.println("   POST /saveslaves - Save slave configuration");  
+    Serial.println("   GET  /getpollinterval - Get poll interval");     
+    Serial.println("   POST /savepollinterval - Save poll interval");    
+    Serial.println("   GET  /gettimeout - Get current timeout");         
+    Serial.println("   POST /savetimeout - Save new timeout");           
 }
 
 void handleRoot() {
@@ -228,4 +236,48 @@ String getContentType(String filename) {
     if (filename.endsWith(".ico")) return "image/x-icon";
     if (filename.endsWith(".json")) return "application/json";
     return "text/plain";
+}
+
+// Update in WebServer.cpp
+void handleSaveTimeout() {
+    Serial.println("💾 POST /savetimeout - Saving timeout");
+    
+    String body = server.arg("plain");
+    Serial.printf("📥 Received timeout: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    int timeout = doc["timeout"] | 1;
+    
+    // Save using centralized FSHandler
+    if (saveTimeout(timeout)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.printf("✅ Timeout saved: %d seconds\n", timeout);
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save timeout");
+    }
+}
+
+void handleGetTimeout() {
+    Serial.println("📡 GET /gettimeout - Returning timeout");
+    
+    // Load using centralized FSHandler
+    int timeout = loadTimeout();
+    
+    StaticJsonDocument<128> doc;
+    doc["timeout"] = timeout;
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+    Serial.printf("✅ Sent timeout: %d seconds\n", timeout);
 }

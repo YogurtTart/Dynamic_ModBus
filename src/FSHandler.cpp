@@ -148,3 +148,48 @@ int loadPollInterval() {
     Serial.printf("✅ Poll interval loaded: %d seconds\n", interval);
     return interval;
 }
+
+
+bool saveTimeout(int timeoutSeconds) {
+    Serial.printf("💾 Saving timeout (%d seconds) to LittleFS...\n", timeoutSeconds);
+    
+    StaticJsonDocument<128> doc;
+    doc["timeout"] = timeoutSeconds;
+    
+    String jsonString;
+    serializeJson(doc, jsonString);
+    
+    bool success = writeFile("/timeout.json", jsonString);
+    if (success) {
+        Serial.println("✅ Timeout saved successfully");
+    } else {
+        Serial.println("❌ Failed to save timeout");
+    }
+    return success;
+}
+
+int loadTimeout() {
+    Serial.println("📖 Loading timeout from LittleFS...");
+    
+    if (!fileExists("/timeout.json")) {
+        Serial.println("⚠️  No timeout found, using default (5 seconds)");
+        return 5;
+    }
+    
+    String jsonString = readFile("/timeout.json");
+    if (jsonString.length() == 0) {
+        Serial.println("❌ Empty timeout file, using default");
+        return 5;
+    }
+    
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, jsonString);
+    if (error) {
+        Serial.printf("❌ Failed to parse timeout: %s, using default\n", error.c_str());
+        return 5;
+    }
+    
+    int timeout = doc["timeout"] | 1; // Default to 1 seconds if not found
+    Serial.printf("✅ Timeout loaded: %d seconds\n", timeout);
+    return timeout;
+}

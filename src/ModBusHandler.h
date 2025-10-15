@@ -38,3 +38,4 @@ bool modbus_reloadSlaves();
 void updateNonBlockingQuery();
 float convertRegisterToVoltage(uint16_t regVal);
 void updatePollInterval(int newIntervalSeconds);
+void updateTimeout(int newTimeoutSeconds);

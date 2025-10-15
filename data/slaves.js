@@ -1,6 +1,6 @@
 let slaves = [];
 let pollInterval = 10;
-let timeout = 1000;
+let timeout = 1;
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
@@ -202,11 +202,10 @@ async function loadPollInterval() {
     }
 }
 
-// Timeout Functions
 async function saveTimeout() {
     const timeoutValue = document.getElementById('timeout').value;
-    if (!timeoutValue || timeoutValue < 100) {
-        showStatus('Please enter a valid timeout (min 100ms)', 'error');
+    if (!timeoutValue || timeoutValue < 1) {
+        showStatus('Please enter a valid timeout (min 1 second)', 'error');
         return;
     }
     
@@ -225,7 +224,7 @@ async function saveTimeout() {
         
         if (response.ok) {
             timeout = parseInt(timeoutValue);
-            showStatus(`Timeout saved: ${timeout} milliseconds`, 'success');
+            showStatus(`Timeout saved: ${timeout} seconds`, 'success');
         } else {
             showStatus('Error saving timeout', 'error');
         }
@@ -239,10 +238,10 @@ async function loadTimeout() {
         const response = await fetch('/gettimeout');
         if (response.ok) {
             const config = await response.json();
-            timeout = config.timeout || 1000;
+            timeout = config.timeout || 1;
             
             document.getElementById('timeout').value = timeout;
-            showStatus(`Timeout loaded: ${timeout} milliseconds`, 'success');
+            showStatus(`Timeout loaded: ${timeout} seconds`, 'success');
         } else {
             showStatus('Error loading timeout', 'error');
         }
