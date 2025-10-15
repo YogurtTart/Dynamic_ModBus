@@ -75,10 +75,12 @@ body.dark-mode {
     padding: var(--space-lg) var(--space-xl);
 }
 
-.header-content {
+header-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
 }
 
 .app-title {
@@ -118,11 +120,14 @@ body.dark-mode {
 .main-nav {
     background: var(--surface-color);
     border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .nav-container {
     display: flex;
-    padding: 0 var(--space-xl);
+    padding: 0 var(--space-md);
+    min-width: min-content;
 }
 
 .nav-item {
@@ -135,6 +140,8 @@ body.dark-mode {
     border-bottom: 2px solid transparent;
     transition: all 0.2s ease;
     font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .nav-item:hover {
@@ -150,6 +157,7 @@ body.dark-mode {
 
 .nav-icon {
     font-size: var(--text-lg);
+    flex-shrink: 0;
 }
 
 /* Main Content */
@@ -673,5 +681,56 @@ body.dark-mode {
     .data-table th:nth-child(5),
     .data-table td:nth-child(5) {
         width: 120px;
+    }
+}
+
+/* Dual buttons layout */
+.dual-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-md);
+}
+
+/* Adjust table column widths for new divider column */
+.data-table th:nth-child(5),
+.data-table td:nth-child(5) {
+    /* Divider column */
+    width: 80px;
+    text-align: center;
+}
+
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) {
+    /* MQTT Topic column */
+    width: 150px;
+    min-width: 120px;
+}
+
+.data-table th:nth-child(7),
+.data-table td:nth-child(7) {
+    /* Actions column */
+    width: 80px;
+    text-align: center;
+    min-width: 70px;
+}
+
+/* Stats panel in slave management */
+.config-panel .stats-panel {
+    margin-top: var(--space-lg);
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+}
+
+/* Responsive adjustments for dual buttons */
+@media (max-width: 768px) {
+    .dual-buttons {
+        grid-template-columns: 1fr;
+    }
+    
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        width: 60px;
     }
 }

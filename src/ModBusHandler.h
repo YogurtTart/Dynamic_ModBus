@@ -7,6 +7,8 @@
 #include "FSHandler.h"
 #include "MQTTHandler.h"
 
+extern int slaveCount;
+
 struct SensorSlave {
     uint8_t id;
     uint16_t startReg;

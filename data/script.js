@@ -46,5 +46,22 @@ async function saveSettings() {
     }
 }
 
+// Navigation functions for the new pages
+function navigateToSettings() {
+    window.location.href = '/settings.html';
+}
+
+function navigateToDebug() {
+    window.location.href = '/debug.html';
+}
+
+function navigateToSlaves() {
+    window.location.href = '/slaves.html';
+}
+
+function navigateToWifi() {
+    window.location.href = '/';
+}
+
 // Load settings when page loads
 document.addEventListener('DOMContentLoaded', loadSettings);

@@ -1,5 +1,6 @@
 let slaves = [];
 let pollInterval = 10;
+let timeout = 1000;
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
@@ -27,10 +28,11 @@ function addSlave() {
     const slaveId = document.getElementById('slave_id').value;
     const startReg = document.getElementById('start_reg').value;
     const numReg = document.getElementById('num_reg').value;
+    const divider = document.getElementById('divider').value;
     const slaveName = document.getElementById('slave_name').value;
     const mqttTopic = document.getElementById('mqtt_topic').value;
 
-    if (!slaveId || !startReg || !numReg || !slaveName || !mqttTopic) {
+    if (!slaveId || !startReg || !numReg || !divider || !slaveName || !mqttTopic) {
         showStatus('Please fill all fields', 'error');
         return;
     }
@@ -39,6 +41,7 @@ function addSlave() {
         id: parseInt(slaveId),
         startReg: parseInt(startReg),
         numReg: parseInt(numReg),
+        divider: parseFloat(divider),
         name: slaveName,
         mqttTopic: mqttTopic
     };
@@ -54,6 +57,7 @@ function clearSlaveForm() {
     document.getElementById('slave_id').value = '';
     document.getElementById('start_reg').value = '';
     document.getElementById('num_reg').value = '';
+    document.getElementById('divider').value = '';
     document.getElementById('slave_name').value = '';
     document.getElementById('mqtt_topic').value = '';
 }
@@ -85,6 +89,7 @@ function updateSlavesList() {
             <td>${slave.name}</td>
             <td>${slave.startReg}</td>
             <td>${slave.numReg}</td>
+            <td>${slave.divider}</td>
             <td><code>${slave.mqttTopic}</code></td>
             <td>
                 <button class="btn btn-small btn-warning" onclick="deleteSlave(${index})" title="Delete slave">
@@ -197,8 +202,58 @@ async function loadPollInterval() {
     }
 }
 
-// Load both configurations when page loads
+// Timeout Functions
+async function saveTimeout() {
+    const timeoutValue = document.getElementById('timeout').value;
+    if (!timeoutValue || timeoutValue < 100) {
+        showStatus('Please enter a valid timeout (min 100ms)', 'error');
+        return;
+    }
+    
+    const config = {
+        timeout: parseInt(timeoutValue)
+    };
+
+    try {
+        const response = await fetch('/savetimeout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            timeout = parseInt(timeoutValue);
+            showStatus(`Timeout saved: ${timeout} milliseconds`, 'success');
+        } else {
+            showStatus('Error saving timeout', 'error');
+        }
+    } catch (error) {
+        showStatus('Error saving timeout: ' + error, 'error');
+    }
+}
+
+async function loadTimeout() {
+    try {
+        const response = await fetch('/gettimeout');
+        if (response.ok) {
+            const config = await response.json();
+            timeout = config.timeout || 1000;
+            
+            document.getElementById('timeout').value = timeout;
+            showStatus(`Timeout loaded: ${timeout} milliseconds`, 'success');
+        } else {
+            showStatus('Error loading timeout', 'error');
+        }
+    } catch (error) {
+        showStatus('Error loading timeout: ' + error, 'error');
+    }
+}
+
+// Load all configurations when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadSlaveConfig();
     loadPollInterval();
+    loadTimeout();
 });

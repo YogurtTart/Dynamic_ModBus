@@ -74,8 +74,10 @@ void loop() {
     if (!mqttClient.connected()) reconnectMQTT();
     mqttClient.loop();
 
-
-    updateNonBlockingQuery();
+    if(slaveCount > 0){
+        updateNonBlockingQuery();
+    }
+    
 
 
     // ----------------- Handle Web Server -----------------

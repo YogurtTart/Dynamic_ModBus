@@ -28,6 +28,14 @@
                     <span class="nav-icon">🔧</span>
                     <span class="nav-text">Modbus Slaves</span>
                 </a>
+                <a href="/settings.html" class="nav-item" data-tab="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+                <a href="/debug.html" class="nav-item" data-tab="debug">
+                    <span class="nav-icon">🐛</span>
+                    <span class="nav-text">Debug</span>
+                </a>
             </div>
         </nav>
 
@@ -81,6 +89,17 @@
                                        min="1" 
                                        max="125">
                             </div>
+                            
+                            <div class="input-group compact">
+                                <label for="divider" class="input-label">Divider</label>
+                                <input type="number" 
+                                       id="divider" 
+                                       class="text-input"
+                                       placeholder="1"
+                                       min="1" 
+                                       max="1000"
+                                       step="0.1">
+                            </div>
                         </div>
 
                         <div class="input-group">
@@ -99,31 +118,64 @@
                                    placeholder="modbus/slave1/data">
                         </div>
 
-                        <div class="action-bar compact">
+                        <div class="action-bar compact dual-buttons">
                             <button type="button" class="btn btn-primary" onclick="addSlave()">
                                 <span class="btn-icon">➕</span>
                                 Add Slave Device
                             </button>
+                            <button type="button" class="btn btn-secondary" onclick="loadSlaveConfig()">
+                                <span class="btn-icon">📥</span>
+                                Load Slave
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="saveSlaveConfig()">
+                                <span class="btn-icon">💾</span>
+                                Save Slave
+                            </button>
                         </div>
                     </form>
+
+                    <!-- Moved Statistics Panel Here -->
+                    <div class="stats-panel">
+                        <h4 class="stats-title">System Statistics</h4>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-label">Unique Slave IDs</span>
+                                <span class="stat-value" id="slaveCount">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Entries</span>
+                                <span class="stat-value" id="totalEntries">0</span>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <section class="config-panel" aria-labelledby="config-management-heading">
                     <header class="panel-header">
                         <h3 id="config-management-heading" class="panel-title">
-                            <span class="panel-icon">⚙️</span>
-                            Configuration Management
+                            <span class="panel-icon">⏱️</span>
+                            Timeout Settings
                         </h3>
                     </header>
 
+                    <div class="input-group">
+                        <label for="timeout" class="input-label">Timeout (milliseconds)</label>
+                        <input type="number" 
+                               id="timeout" 
+                               class="text-input"
+                               placeholder="1000"
+                               min="100" 
+                               max="10000"
+                               step="100">
+                    </div>
                     <div class="action-stack">
-                        <button class="btn btn-secondary full-width" onclick="loadSlaveConfig()">
+                        <button class="btn btn-secondary full-width" onclick="loadTimeout()">
                             <span class="btn-icon">📥</span>
-                            Load Slave Configuration
+                            Load Timeout
                         </button>
-                        <button class="btn btn-secondary full-width" onclick="saveSlaveConfig()">
+                        <button class="btn btn-primary full-width" onclick="saveTimeout()">
                             <span class="btn-icon">💾</span>
-                            Save Slave Configuration
+                            Save Timeout
                         </button>
                     </div>
 
@@ -149,24 +201,6 @@
                             </button>
                         </div>
                     </div>
-
-                    <div class="stats-panel">
-                        <h4 class="stats-title">System Statistics</h4>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <span class="stat-label">Unique Slave IDs</span>
-                                <span class="stat-value" id="slaveCount">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Total Entries</span>
-                                <span class="stat-value" id="totalEntries">0</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Poll Interval</span>
-                                <span class="stat-value" id="currentPollInterval">10s</span>
-                            </div>
-                        </div>
-                    </div>
                 </section>
             </div>
 
@@ -187,6 +221,7 @@
                                 <th scope="col">Name</th>
                                 <th scope="col">Start Reg</th>
                                 <th scope="col">Count Reg</th>
+                                <th scope="col">Divider</th>
                                 <th scope="col">MQTT Topic</th>
                                 <th scope="col">Actions</th>
                             </tr>

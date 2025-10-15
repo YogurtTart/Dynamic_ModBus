@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - ESP8266 Configuration Portal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">ESP8266 Configuration Portal</h1>
+                <div class="system-status">
+                    <span class="status-indicator online"></span>
+                    <span class="status-text">System Online</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <div class="nav-container">
+                <a href="/" class="nav-item" data-tab="wifi">
+                    <span class="nav-icon">📶</span>
+                    <span class="nav-text">WiFi Configuration</span>
+                </a>
+                <a href="/slaves.html" class="nav-item" data-tab="slaves">
+                    <span class="nav-icon">🔧</span>
+                    <span class="nav-text">Modbus Slaves</span>
+                </a>
+                <a href="/settings.html" class="nav-item active" data-tab="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </a>
+                <a href="/debug.html" class="nav-item" data-tab="debug">
+                    <span class="nav-icon">🐛</span>
+                    <span class="nav-text">Debug</span>
+                </a>
+            </div>
+        </nav>
+        
+
+        <footer class="app-footer">
+            <div class="footer-content">
+                <!-- Empty footer as requested -->
+            </div>
+        </footer>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>
