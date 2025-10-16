@@ -28,7 +28,7 @@ unsigned long lastActionTime = 0;
 unsigned long queryStartTime = 0;
 bool waitingForResponse = false;
 
-#define QUERY_INTERVAL 500  // .5 seconds between slaves
+#define QUERY_INTERVAL 200  // .2 seconds between slaves
 
 
 void preTransmission() { 
@@ -82,7 +82,17 @@ bool startNonBlockingQuery() {
     SensorSlave slave = slaves[currentSlaveIndex];
     
     node.begin(slave.id, Serial);
+
+    node.preTransmission(preTransmission);
+    node.postTransmission(postTransmission);
+
+    node.clearResponseBuffer();
+    node.clearTransmitBuffer();
+
+    delay(300);
+
     uint8_t result = node.readHoldingRegisters(slave.startReg, slave.numReg);
+    
     
     queryStartTime = millis();
     waitingForResponse = true;
@@ -99,8 +109,6 @@ void processNonBlockingData() {
     JsonDocument doc;
     JsonObject root = doc.to<JsonObject>();
     bool success = false;
-    
-    // Check if the query was successful by examining response code
 
             if (slave.name.indexOf("Sensor") >= 0) {
                 JsonObject Obj = root[slave.name].to<JsonObject>();
@@ -192,7 +200,8 @@ void processNonBlockingData() {
                 Obj["id"] = slave.id;
                 Obj["name"] = slave.name;
                 Obj["type"] = "unknown";
-                Obj["mqtt_topic"] = "Lora/error";
+                Obj["mqtt_topic"] = "Lora/NameError";
+                slave.mqttTopic = "Lora/NameError";
 
                 // Add raw register data since we don't know the format
                 JsonArray rawData = Obj.createNestedArray("raw_data");
@@ -263,6 +272,7 @@ void updateNonBlockingQuery() {
                     String output;
                     serializeJson(doc, output);
                     publishMessage("Lora/error", output.c_str()); //!!!!!!!!!!!!!!!!!!!!!!!!!! Change topic here for failed query starts
+                    
 
                     currentSlaveIndex++;
                     checkCycleCompletion();
