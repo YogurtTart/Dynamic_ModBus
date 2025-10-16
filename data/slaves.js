@@ -1,6 +1,7 @@
 let slaves = [];
 let pollInterval = 10;
 let timeout = 1;
+let slaveStats = new Map();
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
@@ -258,9 +259,196 @@ async function loadTimeout() {
     }
 }
 
+function deleteSlaveStats(slaveId, slaveName) {
+    const key = `${slaveId}-${slaveName}`;
+    slaveStats.delete(key);
+    updateStatsTable();
+}
+
+// Update existing functions to maintain statistics
+function addSlave() {
+    const slaveId = document.getElementById('slave_id').value;
+    const startReg = document.getElementById('start_reg').value;
+    const numReg = document.getElementById('num_reg').value;
+    const divider = document.getElementById('divider').value;
+    const slaveName = document.getElementById('slave_name').value;
+    const mqttTopic = document.getElementById('mqtt_topic').value;
+
+    if (!slaveId || !startReg || !numReg || !divider || !slaveName || !mqttTopic) {
+        showStatus('Please fill all fields', 'error');
+        return;
+    }
+
+    // Check for duplicate ID + Name combination
+    const duplicateExists = slaves.some(slave => 
+        slave.id === parseInt(slaveId) && slave.name === slaveName
+    );
+    
+    if (duplicateExists) {
+        showStatus(`Error: Slave ID ${slaveId} already has name "${slaveName}"`, 'error');
+        return;
+    }
+
+    const slave = {
+        id: parseInt(slaveId),
+        startReg: parseInt(startReg),
+        numReg: parseInt(numReg),
+        divider: parseFloat(divider),
+        name: slaveName,
+        mqttTopic: mqttTopic
+    };
+
+    slaves.push(slave);
+    sortSlavesByID();
+    updateSlavesList();
+    initializeSlaveStats(); // Initialize stats for new slave
+    clearSlaveForm();
+    showStatus('Modbus slave added successfully!', 'success');
+}
+
+function deleteSlave(index) {
+    if (confirm('Are you sure you want to delete this Modbus slave?')) {
+        const slave = slaves[index];
+        slaves.splice(index, 1);
+        deleteSlaveStats(slave.id, slave.name); // Remove stats for deleted slave
+        updateSlavesList();
+        showStatus('Modbus slave deleted successfully!', 'success');
+    }
+}
+
+function updateSlavesList() {
+    const list = document.getElementById('slavesTableBody');
+    const emptyState = document.getElementById('emptySlavesState');
+    const slaveCount = document.getElementById('slaveCount');
+    const slaveCountBadge = document.getElementById('slaveCountBadge');
+    
+    // Update statistics
+    document.getElementById('totalEntries').textContent = slaves.length;
+    const uniqueSlaveCount = countUniqueSlaves();
+    slaveCount.textContent = uniqueSlaveCount;
+    slaveCountBadge.textContent = slaves.length;
+    
+    if (slaves.length === 0) {
+        list.innerHTML = '';
+        emptyState.style.display = 'block';
+        // Also clear stats when no slaves
+        slaveStats.clear();
+        updateStatsTable();
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    
+    // Display the sorted slaves (array is already sorted)
+    list.innerHTML = slaves.map((slave, index) => `
+        <tr>
+            <td><strong>${slave.id}</strong></td>
+            <td>${slave.name}</td>
+            <td>${slave.startReg}</td>
+            <td>${slave.numReg}</td>
+            <td>${slave.divider}</td>
+            <td><code>${slave.mqttTopic}</code></td>
+            <td>
+                <button class="btn btn-small btn-warning" onclick="deleteSlave(${index})" title="Delete slave">
+                    🗑️ Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // Initialize stats when slaves list updates
+    initializeSlaveStats();
+}
+
+
+// Statistics functions
+function initializeSlaveStats() {
+    slaveStats.clear();
+    // Initialize stats for existing slaves
+    slaves.forEach(slave => {
+        const key = `${slave.id}-${slave.name}`;
+        if (!slaveStats.has(key)) {
+            slaveStats.set(key, {
+                slaveId: slave.id,
+                slaveName: slave.name,
+                totalQueries: 0,
+                success: 0,
+                timeout: 0,
+                failed: 0
+            });
+        }
+    });
+    updateStatsTable();
+}
+
+function updateSlaveStats(slaveId, slaveName, type) {
+    const key = `${slaveId}-${slaveName}`;
+    
+    if (!slaveStats.has(key)) {
+        slaveStats.set(key, {
+            slaveId: slave.id,
+            slaveName: slave.name,
+            totalQueries: 0,
+            success: 0,
+            timeout: 0,
+            failed: 0
+        });
+    }
+    
+    const stats = slaveStats.get(key);
+    stats.totalQueries++;
+    
+    switch(type) {
+        case 'success':
+            stats.success++;
+            break;
+        case 'timeout':
+            stats.timeout++;
+            break;
+        case 'failed':
+            stats.failed++;
+            break;
+    }
+    
+    updateStatsTable();
+}
+
+function updateStatsTable() {
+    const tbody = document.getElementById('statsTableBody');
+    const emptyState = document.getElementById('emptyStatsState');
+    const statsCountBadge = document.getElementById('statsCountBadge');
+    
+    const statsArray = Array.from(slaveStats.values())
+        .sort((a, b) => a.slaveId - b.slaveId);
+    
+    statsCountBadge.textContent = statsArray.length;
+    
+    if (statsArray.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    
+    tbody.innerHTML = statsArray.map(stats => `
+        <tr>
+            <td><strong>${stats.slaveId}</strong></td>
+            <td>${stats.slaveName}</td>
+            <td>${stats.totalQueries}</td>
+            <td>${stats.success}</td>
+            <td>${stats.timeout}</td>
+            <td>${stats.failed}</td>
+        </tr>
+    `).join('');
+}
+
 // Load all configurations when page loads
 document.addEventListener('DOMContentLoaded', function() {
     loadSlaveConfig();
     loadPollInterval();
     loadTimeout();
+    // Initialize stats after slaves are loaded
+    setTimeout(initializeSlaveStats, 1000);
 });
+

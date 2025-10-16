@@ -734,3 +734,36 @@ header-content {
         width: 60px;
     }
 }
+
+/* Slave Stats Panel */
+.slave-stats-panel {
+    background: #1a2435;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-top: var(--space-xl);
+}
+
+/* Adjust table column widths for stats table - now 6 columns */
+.data-table th:nth-child(3),
+.data-table td:nth-child(3),
+.data-table th:nth-child(4),
+.data-table td:nth-child(4),
+.data-table th:nth-child(5),
+.data-table td:nth-child(5),
+.data-table th:nth-child(6),
+.data-table td:nth-child(6) {
+    width: 100px;
+    text-align: center;
+}
+
+/* Make stats table more compact */
+.slave-stats-panel .data-table td {
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-sm);
+}
+
+.slave-stats-panel .data-table th {
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-sm);
+}

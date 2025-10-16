@@ -233,6 +233,38 @@
                     </div>
                 </div>
             </section>
+            <!-- Add this after the existing slave list panel -->
+            <section class="slave-stats-panel" aria-labelledby="slave-stats-heading">
+                <header class="panel-header">
+                    <h3 id="slave-stats-heading" class="panel-title">
+                        <span class="panel-icon">📊</span>
+                        Query Statistics (Live)
+                        <span class="badge" id="statsCountBadge">0</span>
+                    </h3>
+                </header>
+
+                <div class="table-container">
+                    <table class="data-table" aria-describedby="slave-stats-heading">
+                        <thead>
+                            <tr>
+                                <th scope="col">Slave ID</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Total Queries</th>
+                                <th scope="col">Success</th>
+                                <th scope="col">Timeout</th>
+                                <th scope="col">Failed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="statsTableBody">
+                        </tbody>
+                    </table>
+                    <div class="empty-state" id="emptyStatsState">
+                        <div class="empty-icon">📊</div>
+                        <h4>No Statistics Available</h4>
+                        <p>Statistics will appear here as queries are executed</p>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer class="app-footer">
