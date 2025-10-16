@@ -29,11 +29,10 @@ function addSlave() {
     const slaveId = document.getElementById('slave_id').value;
     const startReg = document.getElementById('start_reg').value;
     const numReg = document.getElementById('num_reg').value;
-    const divider = document.getElementById('divider').value;
     const slaveName = document.getElementById('slave_name').value;
     const mqttTopic = document.getElementById('mqtt_topic').value;
 
-    if (!slaveId || !startReg || !numReg || !divider || !slaveName || !mqttTopic) {
+    if (!slaveId || !startReg || !numReg || !slaveName || !mqttTopic) {
         showStatus('Please fill all fields', 'error');
         return;
     }
@@ -52,7 +51,6 @@ function addSlave() {
         id: parseInt(slaveId),
         startReg: parseInt(startReg),
         numReg: parseInt(numReg),
-        divider: parseFloat(divider),
         name: slaveName,
         mqttTopic: mqttTopic
     };
@@ -68,7 +66,6 @@ function clearSlaveForm() {
     document.getElementById('slave_id').value = '';
     document.getElementById('start_reg').value = '';
     document.getElementById('num_reg').value = '';
-    document.getElementById('divider').value = '';
     document.getElementById('slave_name').value = '';
     document.getElementById('mqtt_topic').value = '';
 }
@@ -100,7 +97,6 @@ function updateSlavesList() {
             <td>${slave.name}</td>
             <td>${slave.startReg}</td>
             <td>${slave.numReg}</td>
-            <td>${slave.divider}</td>
             <td><code>${slave.mqttTopic}</code></td>
             <td>
                 <button class="btn btn-small btn-warning" onclick="deleteSlave(${index})" title="Delete slave">
