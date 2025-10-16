@@ -174,7 +174,6 @@ async function savePollInterval() {
         
         if (response.ok) {
             pollInterval = parseInt(interval);
-            document.getElementById('currentPollInterval').textContent = pollInterval + 's';
             showStatus(`Poll interval saved: ${pollInterval} seconds`, 'success');
         } else {
             showStatus('Error saving poll interval', 'error');
@@ -192,7 +191,6 @@ async function loadPollInterval() {
             pollInterval = config.pollInterval || 10;
             
             document.getElementById('poll_interval').value = pollInterval;
-            document.getElementById('currentPollInterval').textContent = pollInterval + 's';
             showStatus(`Poll interval loaded: ${pollInterval} seconds`, 'success');
         } else {
             showStatus('Error loading poll interval', 'error');
