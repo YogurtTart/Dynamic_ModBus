@@ -92,23 +92,6 @@ bool startNonBlockingQuery() {
     return (result == node.ku8MBSuccess);
 }
 
-// Check if response is ready
-bool checkNonBlockingResponse() {
-    if (!waitingForResponse) return false;
-    
-    // Check if Modbus transaction is complete by checking response buffer
-    // If we have data in the first buffer, the transaction is complete
-    if (node.getResponseBuffer(0) != 0xFFFF) { // 0xFFFF typically means empty buffer
-        return true;
-    }
-    
-    // Alternative: Check if we've received any response
-    // This depends on your ModbusMaster library implementation
-    // You might need to check node.available() or other methods
-    
-    return false;
-}
-
 // Process the received data
 void processNonBlockingData() {
     SensorSlave slave = slaves[currentSlaveIndex];
@@ -271,6 +254,16 @@ void updateNonBlockingQuery() {
                 } else {
                     // Failed to start query, move to next slave
                     Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
+
+                    JsonDocument doc;
+                    doc["id"] = slaves[currentSlaveIndex].id;
+                    doc["name"] = slaves[currentSlaveIndex].name;
+                    doc["error"] = "Failed to start Modbus query";
+                    
+                    String output;
+                    serializeJson(doc, output);
+                    publishMessage("Lora/error", output.c_str()); //!!!!!!!!!!!!!!!!!!!!!!!!!! Change topic here for failed query starts
+
                     currentSlaveIndex++;
                     checkCycleCompletion();
                 }
@@ -285,10 +278,9 @@ void updateNonBlockingQuery() {
                              slaves[currentSlaveIndex].id, timeoutDuration);
                 waitingForResponse = false;
                 currentSlaveIndex++;
-                currentState = STATE_START_QUERY;
                 checkCycleCompletion();
             }
-            else if (checkNonBlockingResponse()) {
+            else if (node.getResponseBuffer(0) != 0xFFFF) {  // Check if Modbus transaction is complete by checking response buffer , If we have data in the first buffer, the transaction is complete
                 // Response received successfully
                 currentState = STATE_PROCESS_DATA;
             }
@@ -298,7 +290,6 @@ void updateNonBlockingQuery() {
             // Process the received data
             processNonBlockingData();
             currentSlaveIndex++;
-            currentState = STATE_START_QUERY;
             checkCycleCompletion();
             break;
             

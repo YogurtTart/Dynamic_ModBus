@@ -42,5 +42,4 @@ void updateTimeout(int newTimeoutSeconds);
 
 // ✅ NEW: Non-blocking functions
 bool startNonBlockingQuery();
-bool checkNonBlockingResponse();
 void processNonBlockingData();
