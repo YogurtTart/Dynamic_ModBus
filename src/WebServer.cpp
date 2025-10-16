@@ -22,7 +22,9 @@ void setupWebServer() {
     server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
     server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
     server.on("/savetimeout", HTTP_POST, handleSaveTimeout);    
-    server.on("/gettimeout", HTTP_GET, handleGetTimeout);       
+    server.on("/gettimeout", HTTP_GET, handleGetTimeout);      
+    server.on("/getstatistics", HTTP_GET, handleGetStatistics);   
+    server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
     
     server.begin();
     Serial.println("✅ HTTP server started successfully");
@@ -35,7 +37,8 @@ void setupWebServer() {
     Serial.println("   GET  /getpollinterval - Get poll interval");     
     Serial.println("   POST /savepollinterval - Save poll interval");    
     Serial.println("   GET  /gettimeout - Get current timeout");         
-    Serial.println("   POST /savetimeout - Save new timeout");           
+    Serial.println("   POST /savetimeout - Save new timeout");  
+    Serial.println("   GET  /getstatistics - Get query statistics");          
 }
 
 void handleRoot() {
@@ -280,4 +283,36 @@ void handleGetTimeout() {
     serializeJson(doc, response);
     server.send(200, "application/json", response);
     Serial.printf("✅ Sent timeout: %d seconds\n", timeout);
+}
+
+void handleGetStatistics() {
+    Serial.println("📊 GET /getstatistics - Returning query statistics");
+    
+    String statsJSON = getStatisticsJSON();
+    server.send(200, "application/json", statsJSON);
+    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJSON.length());
+}
+
+void handleRemoveSlaveStats() {
+    Serial.println("🗑️ POST /removeslavestats - Removing slave statistics");
+    
+    String body = server.arg("plain");
+    Serial.printf("📥 Received remove request: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    uint8_t slaveId = doc["slaveId"];
+    const char* slaveName = doc["slaveName"];
+    
+    removeSlaveStatistic(slaveId, slaveName);
+    server.send(200, "application/json", "{\"status\":\"success\"}");
+    Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
 }

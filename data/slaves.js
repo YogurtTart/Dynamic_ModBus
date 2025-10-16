@@ -113,8 +113,11 @@ function updateSlavesList() {
 
 function deleteSlave(index) {
     if (confirm('Are you sure you want to delete this Modbus slave?')) {
+        const slave = slaves[index];
         slaves.splice(index, 1);
         updateSlavesList();
+        // Remove statistics from backend
+        removeSlaveStats(slave.id, slave.name);
         showStatus('Modbus slave deleted successfully!', 'success');
     }
 }
@@ -259,188 +262,58 @@ async function loadTimeout() {
     }
 }
 
-function deleteSlaveStats(slaveId, slaveName) {
-    const key = `${slaveId}-${slaveName}`;
-    slaveStats.delete(key);
-    updateStatsTable();
+// Statistics functions - REAL-TIME FROM BACKEND
+let statsPollInterval = null;
+
+function startStatsPolling() {
+    // Poll every 2 seconds for real-time updates from backend
+    statsPollInterval = setInterval(fetchStatistics, 2000);
 }
 
-// Update existing functions to maintain statistics
-function addSlave() {
-    const slaveId = document.getElementById('slave_id').value;
-    const startReg = document.getElementById('start_reg').value;
-    const numReg = document.getElementById('num_reg').value;
-    const divider = document.getElementById('divider').value;
-    const slaveName = document.getElementById('slave_name').value;
-    const mqttTopic = document.getElementById('mqtt_topic').value;
-
-    if (!slaveId || !startReg || !numReg || !divider || !slaveName || !mqttTopic) {
-        showStatus('Please fill all fields', 'error');
-        return;
-    }
-
-    // Check for duplicate ID + Name combination
-    const duplicateExists = slaves.some(slave => 
-        slave.id === parseInt(slaveId) && slave.name === slaveName
-    );
-    
-    if (duplicateExists) {
-        showStatus(`Error: Slave ID ${slaveId} already has name "${slaveName}"`, 'error');
-        return;
-    }
-
-    const slave = {
-        id: parseInt(slaveId),
-        startReg: parseInt(startReg),
-        numReg: parseInt(numReg),
-        divider: parseFloat(divider),
-        name: slaveName,
-        mqttTopic: mqttTopic
-    };
-
-    slaves.push(slave);
-    sortSlavesByID();
-    updateSlavesList();
-    initializeSlaveStats(); // Initialize stats for new slave
-    clearSlaveForm();
-    showStatus('Modbus slave added successfully!', 'success');
-}
-
-function deleteSlave(index) {
-    if (confirm('Are you sure you want to delete this Modbus slave?')) {
-        const slave = slaves[index];
-        slaves.splice(index, 1);
-        deleteSlaveStats(slave.id, slave.name); // Remove stats for deleted slave
-        updateSlavesList();
-        showStatus('Modbus slave deleted successfully!', 'success');
-    }
-}
-
-function updateSlavesList() {
-    const list = document.getElementById('slavesTableBody');
-    const emptyState = document.getElementById('emptySlavesState');
-    const slaveCount = document.getElementById('slaveCount');
-    const slaveCountBadge = document.getElementById('slaveCountBadge');
-    
-    // Update statistics
-    document.getElementById('totalEntries').textContent = slaves.length;
-    const uniqueSlaveCount = countUniqueSlaves();
-    slaveCount.textContent = uniqueSlaveCount;
-    slaveCountBadge.textContent = slaves.length;
-    
-    if (slaves.length === 0) {
-        list.innerHTML = '';
-        emptyState.style.display = 'block';
-        // Also clear stats when no slaves
-        slaveStats.clear();
-        updateStatsTable();
-        return;
-    }
-    
-    emptyState.style.display = 'none';
-    
-    // Display the sorted slaves (array is already sorted)
-    list.innerHTML = slaves.map((slave, index) => `
-        <tr>
-            <td><strong>${slave.id}</strong></td>
-            <td>${slave.name}</td>
-            <td>${slave.startReg}</td>
-            <td>${slave.numReg}</td>
-            <td>${slave.divider}</td>
-            <td><code>${slave.mqttTopic}</code></td>
-            <td>
-                <button class="btn btn-small btn-warning" onclick="deleteSlave(${index})" title="Delete slave">
-                    🗑️ Delete
-                </button>
-            </td>
-        </tr>
-    `).join('');
-    
-    // Initialize stats when slaves list updates
-    initializeSlaveStats();
-}
-
-
-// Statistics functions
-function initializeSlaveStats() {
-    slaveStats.clear();
-    // Initialize stats for existing slaves
-    slaves.forEach(slave => {
-        const key = `${slave.id}-${slave.name}`;
-        if (!slaveStats.has(key)) {
-            slaveStats.set(key, {
-                slaveId: slave.id,
-                slaveName: slave.name,
-                totalQueries: 0,
-                success: 0,
-                timeout: 0,
-                failed: 0
-            });
+async function fetchStatistics() {
+    try {
+        const response = await fetch('/getstatistics');
+        if (response.ok) {
+            const statsArray = await response.json();
+            updateStatsDisplay(statsArray);
         }
-    });
-    updateStatsTable();
+    } catch (error) {
+        console.log('Error fetching statistics:', error);
+    }
 }
 
-function updateSlaveStats(slaveId, slaveName, type) {
-    const key = `${slaveId}-${slaveName}`;
-    
-    if (!slaveStats.has(key)) {
-        slaveStats.set(key, {
-            slaveId: slave.id,
-            slaveName: slave.name,
-            totalQueries: 0,
-            success: 0,
-            timeout: 0,
-            failed: 0
-        });
-    }
-    
-    const stats = slaveStats.get(key);
-    stats.totalQueries++;
-    
-    switch(type) {
-        case 'success':
-            stats.success++;
-            break;
-        case 'timeout':
-            stats.timeout++;
-            break;
-        case 'failed':
-            stats.failed++;
-            break;
-    }
-    
-    updateStatsTable();
-}
-
-function updateStatsTable() {
+function updateStatsDisplay(statsArray) {
     const tbody = document.getElementById('statsTableBody');
     const emptyState = document.getElementById('emptyStatsState');
     const statsCountBadge = document.getElementById('statsCountBadge');
     
-    const statsArray = Array.from(slaveStats.values())
-        .sort((a, b) => a.slaveId - b.slaveId);
-    
-    statsCountBadge.textContent = statsArray.length;
-    
-    if (statsArray.length === 0) {
+    if (statsArray && statsArray.length > 0) {
+        emptyState.style.display = 'none';
+        statsCountBadge.textContent = statsArray.length;
+        
+        // Sort by slave ID and update table with backend data
+        const sortedStats = [...statsArray].sort((a, b) => a.slaveId - b.slaveId);
+        
+        tbody.innerHTML = sortedStats.map(stats => `
+            <tr>
+                <td><strong>${stats.slaveId}</strong></td>
+                <td>${stats.slaveName}</td>
+                <td>${stats.totalQueries}</td>
+                <td>${stats.success}</td>
+                <td>${stats.timeout}</td>
+                <td>${stats.failed}</td>
+            </tr>
+        `).join('');
+    } else {
         tbody.innerHTML = '';
         emptyState.style.display = 'block';
-        return;
+        statsCountBadge.textContent = '0';
     }
-    
-    emptyState.style.display = 'none';
-    
-    tbody.innerHTML = statsArray.map(stats => `
-        <tr>
-            <td><strong>${stats.slaveId}</strong></td>
-            <td>${stats.slaveName}</td>
-            <td>${stats.totalQueries}</td>
-            <td>${stats.success}</td>
-            <td>${stats.timeout}</td>
-            <td>${stats.failed}</td>
-        </tr>
-    `).join('');
+}
+
+function initializeSlaveStats() {
+    // Just fetch initial stats from backend
+    fetchStatistics();
 }
 
 // Load all configurations when page loads
@@ -448,7 +321,31 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSlaveConfig();
     loadPollInterval();
     loadTimeout();
-    // Initialize stats after slaves are loaded
-    setTimeout(initializeSlaveStats, 1000);
+    // Start real-time statistics polling from backend
+    startStatsPolling();
 });
 
+async function removeSlaveStats(slaveId, slaveName) {
+    const config = {
+        slaveId: slaveId,
+        slaveName: slaveName
+    };
+
+    try {
+        const response = await fetch('/removeslavestats', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(config)
+        });
+        
+        if (response.ok) {
+            console.log(`Removed statistics for slave ${slaveId}: ${slaveName}`);
+        } else {
+            console.log('Error removing slave statistics');
+        }
+    } catch (error) {
+        console.log('Error removing slave statistics: ' + error);
+    }
+}

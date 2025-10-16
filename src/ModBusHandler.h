@@ -10,6 +10,8 @@
 extern int slaveCount;
 extern unsigned long timeoutDuration; 
 
+#define MAX_STATISTICS_SLAVES 20 //amount of slave allowed to show in statistics
+
 struct SensorSlave {
     uint8_t id;
     uint16_t startReg;
@@ -25,6 +27,16 @@ struct VoltageData {
     float phaseVoltageMean;
     float zeroSequenceVoltage;
     bool hasData = false;
+};
+
+// Add to ModBusHandler.h
+struct SlaveStatistics {
+  uint8_t slaveId;
+  char slaveName[32];
+  uint32_t totalQueries;
+  uint32_t successCount;
+  uint32_t timeoutCount;
+  uint32_t failedCount;
 };
 
 bool hasVoltageData();
@@ -43,3 +55,8 @@ void updateTimeout(int newTimeoutSeconds);
 // ✅ NEW: Non-blocking functions
 bool startNonBlockingQuery();
 void processNonBlockingData();
+
+void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout);
+String getStatisticsJSON();
+void removeSlaveStatistic(uint8_t slaveId, const char* slaveName);
+

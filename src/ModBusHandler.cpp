@@ -30,6 +30,9 @@ bool waitingForResponse = false;
 
 #define QUERY_INTERVAL 200  // .2 seconds between slaves
 
+SlaveStatistics slaveStats[MAX_STATISTICS_SLAVES];
+uint8_t slaveStatsCount = 0;
+
 
 void preTransmission() { 
     digitalWrite(MAX485_DE, HIGH); 
@@ -264,6 +267,8 @@ void updateNonBlockingQuery() {
                     // Failed to start query, move to next slave
                     Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
 
+                     updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, false);
+
                     JsonDocument doc;
                     doc["id"] = slaves[currentSlaveIndex].id;
                     doc["name"] = slaves[currentSlaveIndex].name;
@@ -286,6 +291,9 @@ void updateNonBlockingQuery() {
                 // ✅ ACTUAL TIMEOUT - SKIP THIS SLAVE!
                 Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
                              slaves[currentSlaveIndex].id, timeoutDuration);
+
+                updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, true);
+        
                 waitingForResponse = false;
                 currentSlaveIndex++;
                 checkCycleCompletion();
@@ -299,6 +307,8 @@ void updateNonBlockingQuery() {
         case STATE_PROCESS_DATA:
             // Process the received data
             processNonBlockingData();
+            updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), true, false);
+
             currentSlaveIndex++;
             checkCycleCompletion();
             break;
@@ -379,4 +389,74 @@ void updatePollInterval(int newIntervalSeconds) {
     }
     
     Serial.printf("🔄 Poll interval updated to: %d seconds (%lu ms)\n", newIntervalSeconds, pollInterval);
+}
+
+void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout) {
+    // Quick validation
+    if (slaveId == 0 || slaveName == NULL) return;
+    
+    // Find existing stats for this slave
+    for (int i = 0; i < slaveStatsCount; i++) {
+        if (slaveStats[i].slaveId == slaveId && strcmp(slaveStats[i].slaveName, slaveName) == 0) {
+            slaveStats[i].totalQueries++;
+            if (success) {
+                slaveStats[i].successCount++;
+            } else if (timeout) {
+                slaveStats[i].timeoutCount++;
+            } else {
+                slaveStats[i].failedCount++;
+            }
+            return;
+        }
+    }
+    
+    // Create new stats entry if not found and we have space
+    if (slaveStatsCount < MAX_STATISTICS_SLAVES) {
+        SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
+        newStat->slaveId = slaveId;
+        strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
+        newStat->slaveName[sizeof(newStat->slaveName) - 1] = '\0';
+        newStat->totalQueries = 1;
+        newStat->successCount = success ? 1 : 0;
+        newStat->timeoutCount = timeout ? 1 : 0;
+        newStat->failedCount = (!success && !timeout) ? 1 : 0;
+        slaveStatsCount++;
+    }
+}
+
+String getStatisticsJSON() {
+    JsonDocument doc;
+    JsonArray statsArray = doc.to<JsonArray>();
+    
+    for (int i = 0; i < slaveStatsCount; i++) {
+        JsonObject statObj = statsArray.add<JsonObject>();
+        statObj["slaveId"] = slaveStats[i].slaveId;
+        statObj["slaveName"] = slaveStats[i].slaveName;
+        statObj["totalQueries"] = slaveStats[i].totalQueries;
+        statObj["success"] = slaveStats[i].successCount;
+        statObj["timeout"] = slaveStats[i].timeoutCount;
+        statObj["failed"] = slaveStats[i].failedCount;
+    }
+    
+    String output;
+    serializeJson(doc, output);
+    return output;
+}
+
+void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
+    // Quick validation
+    if (slaveId == 0 || slaveName == NULL) return;
+    
+    // Find and remove the statistic
+    for (int i = 0; i < slaveStatsCount; i++) {
+        if (slaveStats[i].slaveId == slaveId && strcmp(slaveStats[i].slaveName, slaveName) == 0) {
+            // Shift all subsequent elements left
+            for (int j = i; j < slaveStatsCount - 1; j++) {
+                slaveStats[j] = slaveStats[j + 1];
+            }
+            slaveStatsCount--;
+            Serial.printf("📊 Removed statistics for slave %d: %s\n", slaveId, slaveName);
+            return;
+        }
+    }
 }
