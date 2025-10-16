@@ -37,6 +37,16 @@ function addSlave() {
         return;
     }
 
+    // Check for duplicate ID + Name combination
+    const duplicateExists = slaves.some(slave => 
+        slave.id === parseInt(slaveId) && slave.name === slaveName
+    );
+    
+    if (duplicateExists) {
+        showStatus(`Error: Slave ID ${slaveId} already has name "${slaveName}"`, 'error');
+        return;
+    }
+
     const slave = {
         id: parseInt(slaveId),
         startReg: parseInt(startReg),
