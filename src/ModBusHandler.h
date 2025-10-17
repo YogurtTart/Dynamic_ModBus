@@ -18,15 +18,21 @@ struct SensorSlave {
     uint16_t numReg;
     String name;
     String mqttTopic;
-};
-
-struct VoltageData {
-    float phaseA;
-    float phaseB;
-    float phaseC;
-    float phaseVoltageMean;
-    float zeroSequenceVoltage;
-    bool hasData = false;
+    
+    // For Sensor devices
+    float tempdivider;
+    float humiddivider;
+    
+    // For Meter devices - CT/PT/divider for each parameter
+    struct {
+        float ct;
+        float pt;
+        float divider;
+    } ACurrent, BCurrent, CCurrent, ZeroPhaseCurrent,
+      AActiveP, BActiveP, CActiveP, Total3PActiveP,
+      AReactiveP, BReactiveP, CReactiveP, Total3PReactiveP,
+      AApparentP, BApparentP, CApparentP, Total3PApparentP,
+      APowerF, BPowerF, CPowerF, Total3PPowerF;
 };
 
 // Add to ModBusHandler.h
@@ -38,8 +44,6 @@ struct SlaveStatistics {
   uint32_t timeoutCount;
   uint32_t failedCount;
 };
-
-bool hasVoltageData();
 
 // Function declarations
 bool initModbus();

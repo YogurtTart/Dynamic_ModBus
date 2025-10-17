@@ -55,6 +55,34 @@ function addSlave() {
         mqttTopic: mqttTopic
     };
 
+    // Add additional values based on device name
+    if (slaveName.includes('Sensor')) {
+        slave.tempdivider = 1; // Default divider value
+        slave.humiddivider = 1; // Default divider value
+    } else if (slaveName.includes('Meter')) {
+        // Add 19 meter-specific values
+        slave.ACurrent = { ct: 1, pt: 1, divider: 1 };
+        slave.BCurrent = { ct: 1, pt: 1, divider: 1 };
+        slave.CCurrent = { ct: 1, pt: 1, divider: 1 };
+        slave.ZeroPhaseCurrent = { ct: 1, pt: 1, divider: 1 };
+        slave.AActiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.BActiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.CActiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.Total3PActiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.AReactiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.BReactiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.CReactiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.Total3PReactiveP = { ct: 1, pt: 1, divider: 1 };
+        slave.AApparentP = { ct: 1, pt: 1, divider: 1 };
+        slave.BApparentP = { ct: 1, pt: 1, divider: 1 };
+        slave.CApparentP = { ct: 1, pt: 1, divider: 1 };
+        slave.Total3PApparentP = { ct: 1, pt: 1, divider: 1 };
+        slave.APowerF = { ct: 1, pt: 1, divider: 1 };
+        slave.BPowerF = { ct: 1, pt: 1, divider: 1 };
+        slave.CPowerF = { ct: 1, pt: 1, divider: 1 };
+        slave.Total3PPowerF = { ct: 1, pt: 1, divider: 1 };
+    }
+
     slaves.push(slave);
     sortSlavesByID(); // Sort after adding
     updateSlavesList();
