@@ -195,6 +195,24 @@ void processNonBlockingData() {
     }
     else if (slave.name.indexOf("Voltage") >= 0) {
         
+        // ✅ NEW: Voltage device processing
+        JsonObject Obj = root[slave.name].to<JsonObject>();
+        Obj["id"] = slave.id;
+        Obj["name"] = slave.name;
+        
+        // Apply voltage formulas
+        JsonObject trueValues = Obj.createNestedObject("TrueValues");
+        
+        // Voltage values (starting from register 0 for voltage devices)
+        trueValues["AVoltage"] = calculateVoltage(node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
+        trueValues["BVoltage"] = calculateVoltage(node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
+        trueValues["CVoltage"] = calculateVoltage(node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
+        trueValues["PhaseVoltageMean"] = calculateVoltage(node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
+        trueValues["ZeroSequenceVoltage"] = calculateVoltage(node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
+        
+        Obj["mqtt_topic"] = slave.mqttTopic;
+        success = true;
+    
     } else {
         // Unknown devices
         JsonObject Obj = root[slave.name].to<JsonObject>();
@@ -407,6 +425,27 @@ bool modbus_reloadSlaves() {
             LOAD_METER_PARAM(Total3PPowerF);
             
             #undef LOAD_METER_PARAM
+        } else if (slaves[i].name.indexOf("Voltage") >= 0) {
+            // Load PT/divider values for each voltage parameter
+            #define LOAD_VOLTAGE_PARAM(field) \
+                if (slaveObj.containsKey(#field)) { \
+                    slaves[i].field.pt = slaveObj[#field]["pt"] | 1.0f; \
+                    slaves[i].field.divider = slaveObj[#field]["divider"] | 1.0f; \
+                } else { \
+                    slaves[i].field.pt = 1.0f; \
+                    slaves[i].field.divider = 1.0f; \
+                }
+            
+            LOAD_VOLTAGE_PARAM(AVoltage);
+            LOAD_VOLTAGE_PARAM(BVoltage);
+            LOAD_VOLTAGE_PARAM(CVoltage);
+            LOAD_VOLTAGE_PARAM(PhaseVoltageMean);
+            LOAD_VOLTAGE_PARAM(ZeroSequenceVoltage);
+            
+            #undef LOAD_VOLTAGE_PARAM
+            
+            Serial.printf("✅ Voltage Slave: ID=%d, Name=%s\n", 
+                         slaves[i].id, slaves[i].name.c_str());
         }
         
         Serial.printf("✅ Slave: ID=%d, Name=%s, TempDiv=%.1f, HumidDiv=%.1f\n", 

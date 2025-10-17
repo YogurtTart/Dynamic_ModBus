@@ -33,6 +33,11 @@ struct SensorSlave {
       AReactiveP, BReactiveP, CReactiveP, Total3PReactiveP,
       AApparentP, BApparentP, CApparentP, Total3PApparentP,
       APowerF, BPowerF, CPowerF, Total3PPowerF;
+
+      struct {
+        float pt;
+        float divider;
+    } AVoltage, BVoltage, CVoltage, PhaseVoltageMean, ZeroSequenceVoltage;
 };
 
 // Add to ModBusHandler.h

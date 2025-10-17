@@ -81,6 +81,13 @@ function addSlave() {
         slave.BPowerF = { ct: 1, pt: 1, divider: 1 };
         slave.CPowerF = { ct: 1, pt: 1, divider: 1 };
         slave.Total3PPowerF = { ct: 1, pt: 1, divider: 1 };
+    } else if (slaveName.includes('Voltage')) {
+        // ✅ NEW: Voltage device - separate from Meter
+        slave.AVoltage = { pt: 1.0, divider: 1.0 };
+        slave.BVoltage = { pt: 1.0, divider: 1.0 };
+        slave.CVoltage = { pt: 1.0, divider: 1.0 };
+        slave.PhaseVoltageMean = { pt: 1.0, divider: 1.0 };
+        slave.ZeroSequenceVoltage = { pt: 1.0, divider: 1.0 };
     }
 
     slaves.push(slave);
