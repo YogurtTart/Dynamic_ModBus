@@ -37,7 +37,6 @@ void preTransmission() {
     digitalWrite(MAX485_DE, HIGH); 
 }
 
-
 void postTransmission() { 
     digitalWrite(MAX485_DE, LOW); 
 }
@@ -213,6 +212,26 @@ void processNonBlockingData() {
         Obj["mqtt_topic"] = slave.mqttTopic;
         success = true;
     
+    }  else if (slave.name.indexOf("Energy") >= 0) {
+        // Single-phase energy meter processing
+        JsonObject Obj = root[slave.name].to<JsonObject>();
+        Obj["id"] = slave.id;
+        Obj["name"] = slave.name;
+        
+        JsonObject trueValues = Obj["TrueValues"].to<JsonObject>();
+        
+        // Read 32-bit energy values (each spans 2 registers)
+        // Total active energy - addresses 16640-16641
+        trueValues["TotalActiveEnergy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
+        
+        // Import active energy - addresses 16642-16643  
+        trueValues["ImportActiveEnergy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
+        
+        // Export active energy - addresses 16644-16645
+        trueValues["ExportActiveEnergy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
+        
+        Obj["mqtt_topic"] = slave.mqttTopic;
+        success = true;
     } else {
         // Unknown devices
         JsonObject Obj = root[slave.name].to<JsonObject>();
@@ -379,8 +398,7 @@ bool modbus_reloadSlaves() {
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
         
-        // Initialize the slave struct to zero first
-        memset(&slaves[i], 0, sizeof(SensorSlave)); // <-- ADD THIS LINE
+        slaves[i] = SensorSlave{};
         
         // Load basic fields
         slaves[i].id = slaveObj["id"];
@@ -446,6 +464,14 @@ bool modbus_reloadSlaves() {
             
             Serial.printf("✅ Voltage Slave: ID=%d, Name=%s\n", 
                          slaves[i].id, slaves[i].name.c_str());
+        } else if (slaves[i].name.indexOf("Energy") >= 0) {
+            // Load divider values for energy parameters
+            slaves[i].totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
+            slaves[i].importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f; 
+            slaves[i].exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
+            
+            Serial.printf("✅ Energy Meter Slave: ID=%d, Name=%s\n", 
+                        slaves[i].id, slaves[i].name.c_str());
         }
         
         Serial.printf("✅ Slave: ID=%d, Name=%s, TempDiv=%.1f, HumidDiv=%.1f\n", 
@@ -545,4 +571,24 @@ void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
 
 void clearJsonDocument(JsonDocument& doc) {
     doc.clear();
+}
+
+// Add to ModBusHandler.cpp - 32-bit register reading functions
+uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord) {
+    return ((uint32_t)highWord << 16) | lowWord;
+}
+
+float convertEnergyRegister(uint32_t rawValue, float divider = 1.0) {
+    // Apply 0.01 scaling factor as per your specification
+    return (rawValue / 100.0f) / divider;
+}
+
+float readEnergyValue(uint16_t regIndex, float divider) {
+    // Your implementation here
+    uint16_t highWord = node.getResponseBuffer(regIndex);
+    uint16_t lowWord = node.getResponseBuffer(regIndex + 1);
+    
+    // Combine into 32-bit value and apply divider
+    uint32_t value = ((uint32_t)highWord << 16) | lowWord;
+    return (value / 100.0f) / divider;
 }

@@ -88,6 +88,11 @@ function addSlave() {
         slave.CVoltage = { pt: 1.0, divider: 1.0 };
         slave.PhaseVoltageMean = { pt: 1.0, divider: 1.0 };
         slave.ZeroSequenceVoltage = { pt: 1.0, divider: 1.0 };
+    } else if (slaveName.includes('Energy')) {
+    // Single-phase energy meter with 32-bit energy values
+    slave.totalActiveEnergy = { divider: 1.0 };
+    slave.importActiveEnergy = { divider: 1.0 };
+    slave.exportActiveEnergy = { divider: 1.0 };
     }
 
     slaves.push(slave);

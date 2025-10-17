@@ -38,6 +38,10 @@ struct SensorSlave {
         float pt;
         float divider;
     } AVoltage, BVoltage, CVoltage, PhaseVoltageMean, ZeroSequenceVoltage;
+
+    struct {
+    float divider;
+    } totalActiveEnergy, importActiveEnergy, exportActiveEnergy;
 };
 
 // Add to ModBusHandler.h
@@ -68,4 +72,7 @@ void processNonBlockingData();
 void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout);
 String getStatisticsJSON();
 void removeSlaveStatistic(uint8_t slaveId, const char* slaveName);
+
+uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord);
+float readEnergyValue(uint16_t regIndex, float divider);
 
