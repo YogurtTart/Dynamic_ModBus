@@ -5,6 +5,9 @@
 
 extern ESP8266WebServer server;
 
+extern bool debugEnabled;
+extern void addDebugMessage(const char* topic, const char* message);
+
 void setupWebServer();
 void handleRoot();
 void handleSaveWifi();
@@ -21,5 +24,9 @@ void handleGetStatistics();
 void handleRemoveSlaveStats();
 void handleGetSlaveConfig();
 void handleUpdateSlaveConfig();
+
+void handleToggleDebug();
+void handleGetDebugState();
+void handleGetDebugMessages();
 
 String getContentType(String filename);

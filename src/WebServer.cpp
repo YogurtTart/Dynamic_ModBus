@@ -5,6 +5,12 @@
 #include <ArduinoJson.h>
 
 ESP8266WebServer server(80);
+bool debugEnabled = false;
+
+const int MAX_DEBUG_MESSAGES = 30;
+String debugMessages[MAX_DEBUG_MESSAGES];
+int debugMessageCount = 0;
+int debugMessageIndex = 0;
 
 void setupWebServer() {
     Serial.println("🌐 Initializing Web Server on port 80...");
@@ -27,6 +33,9 @@ void setupWebServer() {
     server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
     server.on("/getslaveconfig", HTTP_POST, handleGetSlaveConfig);
     server.on("/updateslaveconfig", HTTP_POST, handleUpdateSlaveConfig);
+    server.on("/toggledebug", HTTP_POST, handleToggleDebug);
+    server.on("/getdebugstate", HTTP_GET, handleGetDebugState);
+    server.on("/getdebugmessages", HTTP_GET, handleGetDebugMessages);
     
     server.begin();
     Serial.println("✅ HTTP server started successfully");
@@ -456,4 +465,69 @@ void handleUpdateSlaveConfig() {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save configuration\"}");
         Serial.println("❌ Failed to save updated slave configuration");
     }
+}
+
+void handleToggleDebug() {
+    String body = server.arg("plain");
+    StaticJsonDocument<128> doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        server.send(400, "application/json", "{\"status\":\"error\"}");
+        return;
+    }
+    
+    debugEnabled = doc["enabled"] | false;
+    server.send(200, "application/json", "{\"status\":\"success\"}");
+    
+    Serial.printf("🔧 Debug mode %s\n", debugEnabled ? "ENABLED" : "DISABLED");
+}
+
+void handleGetDebugState() {
+    StaticJsonDocument<128> doc;
+    doc["enabled"] = debugEnabled;
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+}
+
+void handleGetDebugMessages() {
+    // Return stored debug messages as JSON array
+    String response = "[";
+    for (int i = 0; i < debugMessageCount; i++) {
+        response += debugMessages[i];
+        if (i < debugMessageCount - 1) response += ",";
+    }
+    response += "]";
+    
+    // Clear messages after reading
+    debugMessageCount = 0;
+    debugMessageIndex = 0;
+    
+    server.send(200, "application/json", response);
+}
+
+void addDebugMessage(const char* topic, const char* message) {
+    if (!debugEnabled) return;
+    
+    // Create JSON message for web interface
+    StaticJsonDocument<512> doc;
+    doc["topic"] = topic;
+    doc["message"] = message;
+    doc["timestamp"] = millis();
+    
+    String jsonMessage;
+    serializeJson(doc, jsonMessage);
+    
+    // Store in circular buffer
+    debugMessages[debugMessageIndex] = jsonMessage;
+    debugMessageIndex = (debugMessageIndex + 1) % MAX_DEBUG_MESSAGES;
+    
+    // Track actual count
+    if (debugMessageCount < MAX_DEBUG_MESSAGES) {
+        debugMessageCount++;
+    }
+    
+    Serial.printf("📢 DEBUG [%s]: %s\n", topic, message);
 }

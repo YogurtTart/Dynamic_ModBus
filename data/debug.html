@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+</html><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -39,10 +39,46 @@
             </div>
         </nav>
 
-        <footer class="app-footer">
-            <div class="footer-content">
-                <!-- Empty footer as requested -->
+        <main class="main-content">
+            <div class="content-header">
+                <h2>Debug Console</h2>
+                <p class="content-description">
+                    When enabled, MQTT messages are published AND displayed here for debugging.
+                </p>
             </div>
+
+            <!-- Simple Toggle -->
+            <div class="debug-controls">
+                <label class="toggle-label">
+                    <span>Debug Mode:</span>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="debugEnabled">
+                        <span class="toggle-slider"></span>
+                    </div>
+                    <span id="debugStatus">OFF</span>
+                </label>
+                <p class="section-description">
+                    ON: Messages go to MQTT + Web Console | OFF: Messages go to MQTT only
+                </p>
+            </div>
+
+            <!-- Console -->
+            <div class="config-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <span class="nav-icon">📋</span>
+                        Live MQTT Messages
+                    </h3>
+                    <button class="btn btn-secondary" id="clearConsole" style="margin-top: 8px;">Clear</button>
+                </div>
+                <div class="debug-console" id="debugConsole">
+                    <div class="console-line">Debug mode is OFF. Enable to see MQTT messages here.</div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <div class="footer-content"></div>
         </footer>
     </div>
 

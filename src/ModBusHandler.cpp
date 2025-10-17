@@ -256,11 +256,21 @@ void processNonBlockingData() {
         String output;
         serializeJson(doc, output);    
         publishMessage(slave.mqttTopic.c_str(), output.c_str());
+
+    if (debugEnabled) {
+        addDebugMessage(slave.mqttTopic.c_str(), output.c_str());
+        }
+
     } else {
         Serial.printf("❌ No valid data from slave %d\n", slave.id);
         String output = "Failed";
         String topic = "Lora/error";
         publishMessage(topic.c_str(), output.c_str());
+
+    if (debugEnabled) {
+        addDebugMessage(topic.c_str(), output.c_str());
+    }
+
     }
     
     waitingForResponse = false;

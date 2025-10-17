@@ -6,6 +6,7 @@
 #include <LittleFS.h>
 #include "FSHandler.h"
 #include "MQTTHandler.h"
+#include "WebServer.h"
 
 extern int slaveCount;
 extern unsigned long timeoutDuration; 
