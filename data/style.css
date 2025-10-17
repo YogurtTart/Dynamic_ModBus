@@ -767,3 +767,171 @@ header-content {
     padding: var(--space-sm) var(--space-md);
     font-size: var(--text-sm);
 }
+
+/* ===== SETTINGS PAGE SPECIFIC STYLES ===== */
+
+/* Search Form Styles */
+.search-form {
+    background: var(--surface-color);
+}
+
+/* Textarea specific styles for JSON editor */
+.text-input[type="text"],
+.text-input[type="number"],
+.text-input[type="password"] {
+    min-height: auto;
+}
+
+/* Configuration Editor Textarea */
+#config_editor {
+    font-family: 'Courier New', monospace;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    white-space: pre;
+    tab-size: 2;
+    resize: vertical;
+    min-height: 300px;
+    background: #0a0f1c;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--text-primary);
+}
+
+#config_editor:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    outline: none;
+}
+
+#config_editor::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Info Panel Styles */
+.section-description {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+}
+
+.section-description p {
+    margin-bottom: var(--space-sm);
+}
+
+.section-description p:last-child {
+    margin-bottom: 0;
+}
+
+.section-description strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Edit Section Transition */
+#editSection {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Compact action bar for settings */
+.action-bar.compact {
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--border-color);
+    margin-top: var(--space-lg);
+}
+
+/* Form row adjustments for settings */
+.settings-form .form-row {
+    margin-bottom: var(--space-lg);
+}
+
+/* Status message enhancements for settings */
+.status-message.info {
+    display: block;
+    background: #1e3a8a;
+    color: #93c5fd;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Responsive adjustments for settings page */
+@media (max-width: 768px) {
+    #config_editor {
+        min-height: 250px;
+        font-size: var(--text-xs);
+    }
+    
+    .configuration-layout {
+        grid-template-columns: 1fr;
+        gap: var(--space-lg);
+    }
+}
+
+/* Loading state for search button */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 1s ease infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success state visual feedback */
+.config-panel.success-highlight {
+    border-color: var(--success-color);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    transition: all 0.3s ease;
+}
+
+/* Error state for form inputs */
+.text-input.error {
+    border-color: var(--error-color);
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Instructions styling */
+.instructions {
+    background: #1a2435;
+    border-left: 4px solid var(--primary-color);
+    padding: var(--space-md);
+    margin: var(--space-lg) 0;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.instructions h4 {
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-base);
+}
+
+.instructions ol {
+    color: var(--text-secondary);
+    padding-left: var(--space-lg);
+    margin: 0;
+}
+
+.instructions li {
+    margin-bottom: var(--space-sm);
+}
+
+.instructions li:last-child {
+    margin-bottom: 0;
+}
