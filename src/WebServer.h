@@ -19,5 +19,7 @@ void handleSaveTimeout();
 void handleGetTimeout();   
 void handleGetStatistics();
 void handleRemoveSlaveStats();
+void handleGetSlaveConfig();
+void handleUpdateSlaveConfig();
 
 String getContentType(String filename);

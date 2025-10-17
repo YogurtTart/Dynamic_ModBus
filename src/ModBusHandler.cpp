@@ -55,8 +55,8 @@ float convertRegisterToHumidity(uint16_t regVal, float divider = 1.0) {
     return (regVal * 0.1) / divider;
 }
 
-float convertRegisterToVoltage(uint16_t regVal) {
-    return regVal * 0.1;
+float convertRegisterToVoltage(uint16_t regVal, float pt, float divider = 1.0) {
+    return (regVal * pt /100) / divider;
 }
 
 // Formula calculation functions
@@ -126,6 +126,8 @@ void processNonBlockingData() {
     SensorSlave slave = slaves[currentSlaveIndex];
     
     JsonDocument doc;
+    doc.clear();
+
     JsonObject root = doc.to<JsonObject>();
     bool success = false;
 
@@ -192,7 +194,7 @@ void processNonBlockingData() {
         success = true;
     }
     else if (slave.name.indexOf("Voltage") >= 0) {
-    
+        
     } else {
         // Unknown devices
         JsonObject Obj = root[slave.name].to<JsonObject>();
@@ -352,19 +354,64 @@ bool modbus_reloadSlaves() {
         slaves = nullptr;
     }
     
-    // Allocate new memory
-    slaves = new SensorSlave[newSlaveCount];
+    // Allocate new memory and INITIALIZE TO ZERO
+    slaves = new SensorSlave[newSlaveCount](); // <-- ADD PARENTHESES TO INITIALIZE TO ZERO
     slaveCount = newSlaveCount;
     
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
+        
+        // Initialize the slave struct to zero first
+        memset(&slaves[i], 0, sizeof(SensorSlave)); // <-- ADD THIS LINE
+        
+        // Load basic fields
         slaves[i].id = slaveObj["id"];
         slaves[i].startReg = slaveObj["startReg"]; 
         slaves[i].numReg = slaveObj["numReg"];
         slaves[i].name = slaveObj["name"].as<String>();
         slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
         
-        Serial.printf("✅ Slave: ID=%d, Name=%s\n", slaves[i].id, slaves[i].name.c_str());
+        // ✅ CRITICAL FIX: Load divider values for Sensor devices
+        if (slaves[i].name.indexOf("Sensor") >= 0) {
+            slaves[i].tempdivider = slaveObj["tempdivider"] | 1.0f;  // Default to 1.0 if not found
+            slaves[i].humiddivider = slaveObj["humiddivider"] | 1.0f; // Default to 1.0 if not found
+        }
+        
+        // ✅ CRITICAL FIX: Load meter parameters for Meter devices
+        else if (slaves[i].name.indexOf("Meter") >= 0) {
+            // Load CT/PT/divider values for each meter parameter
+            #define LOAD_METER_PARAM(field) \
+                slaves[i].field.ct = slaveObj[#field]["ct"] | 1.0f; \
+                slaves[i].field.pt = slaveObj[#field]["pt"] | 1.0f; \
+                slaves[i].field.divider = slaveObj[#field]["divider"] | 1.0f;
+            
+            LOAD_METER_PARAM(ACurrent);
+            LOAD_METER_PARAM(BCurrent);
+            LOAD_METER_PARAM(CCurrent);
+            LOAD_METER_PARAM(ZeroPhaseCurrent);
+            LOAD_METER_PARAM(AActiveP);
+            LOAD_METER_PARAM(BActiveP);
+            LOAD_METER_PARAM(CActiveP);
+            LOAD_METER_PARAM(Total3PActiveP);
+            LOAD_METER_PARAM(AReactiveP);
+            LOAD_METER_PARAM(BReactiveP);
+            LOAD_METER_PARAM(CReactiveP);
+            LOAD_METER_PARAM(Total3PReactiveP);
+            LOAD_METER_PARAM(AApparentP);
+            LOAD_METER_PARAM(BApparentP);
+            LOAD_METER_PARAM(CApparentP);
+            LOAD_METER_PARAM(Total3PApparentP);
+            LOAD_METER_PARAM(APowerF);
+            LOAD_METER_PARAM(BPowerF);
+            LOAD_METER_PARAM(CPowerF);
+            LOAD_METER_PARAM(Total3PPowerF);
+            
+            #undef LOAD_METER_PARAM
+        }
+        
+        Serial.printf("✅ Slave: ID=%d, Name=%s, TempDiv=%.1f, HumidDiv=%.1f\n", 
+                     slaves[i].id, slaves[i].name.c_str(), 
+                     slaves[i].tempdivider, slaves[i].humiddivider);
     }
     
     Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
@@ -455,4 +502,8 @@ void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
             return;
         }
     }
+}
+
+void clearJsonDocument(JsonDocument& doc) {
+    doc.clear();
 }

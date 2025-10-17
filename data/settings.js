@@ -24,24 +24,24 @@ async function searchSlaveConfig() {
     try {
         showStatus('Searching for slave configuration...', 'success');
         
-        // First, load all slaves to find the specific one
-        const response = await fetch('/getslaves');
+        // Search for specific slave using new endpoint
+        const response = await fetch('/getslaveconfig', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                slaveId: parseInt(slaveId),
+                slaveName: slaveName
+            })
+        });
+
         if (!response.ok) {
-            throw new Error('Failed to load slave configuration');
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to find slave configuration');
         }
 
-        const config = await response.json();
-        const slaves = config.slaves || [];
-        
-        // Find the specific slave
-        const foundSlave = slaves.find(slave => 
-            slave.id === parseInt(slaveId) && slave.name === slaveName
-        );
-
-        if (!foundSlave) {
-            showStatus(`Slave ID ${slaveId} with name "${slaveName}" not found`, 'error');
-            return;
-        }
+        const slaveConfig = await response.json();
 
         // Store current slave info
         currentSlaveId = parseInt(slaveId);
@@ -49,7 +49,7 @@ async function searchSlaveConfig() {
 
         // Display the configuration for editing
         const editor = document.getElementById('config_editor');
-        editor.value = JSON.stringify(foundSlave, null, 2);
+        editor.value = JSON.stringify(slaveConfig, null, 2);
         
         // Show the edit section
         document.getElementById('editSection').style.display = 'block';
@@ -86,50 +86,35 @@ async function saveEditedConfig() {
             return;
         }
 
-        // Load current slaves configuration
-        const response = await fetch('/getslaves');
-        if (!response.ok) {
-            throw new Error('Failed to load current slave configuration');
-        }
-
-        const currentConfig = await response.json();
-        const slaves = currentConfig.slaves || [];
-        
-        // Find and update the specific slave
-        const slaveIndex = slaves.findIndex(slave => 
-            slave.id === currentSlaveId && slave.name === currentSlaveName
-        );
-
-        if (slaveIndex === -1) {
-            showStatus('Original slave configuration not found - it may have been modified', 'error');
+        // Ensure we're updating the correct slave
+        if (parsedConfig.id !== currentSlaveId || parsedConfig.name !== currentSlaveName) {
+            showStatus('Cannot change Slave ID or Name during edit', 'error');
             return;
         }
 
-        // Replace the slave configuration
-        slaves[slaveIndex] = parsedConfig;
-
-        // Save updated configuration
-        const saveResponse = await fetch('/saveslaves', {
+        // Save the updated configuration using new endpoint
+        const saveResponse = await fetch('/updateslaveconfig', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ slaves: slaves })
+            body: JSON.stringify(parsedConfig)
         });
 
         if (saveResponse.ok) {
-            showStatus('Slave configuration updated successfully!', 'success');
-            
-            // Update current references
-            currentSlaveId = parsedConfig.id;
-            currentSlaveName = parsedConfig.name;
+            const result = await saveResponse.json();
+            showStatus(result.message || 'Slave configuration updated successfully!', 'success');
             
             // Clear search form
             document.getElementById('search_slave_id').value = '';
             document.getElementById('search_slave_name').value = '';
             
+            // Hide edit section
+            document.getElementById('editSection').style.display = 'none';
+            
         } else {
-            throw new Error('Failed to save configuration');
+            const errorData = await saveResponse.json();
+            throw new Error(errorData.message || 'Failed to save configuration');
         }
 
     } catch (error) {

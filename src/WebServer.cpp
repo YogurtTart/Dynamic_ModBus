@@ -25,6 +25,8 @@ void setupWebServer() {
     server.on("/gettimeout", HTTP_GET, handleGetTimeout);      
     server.on("/getstatistics", HTTP_GET, handleGetStatistics);   
     server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
+    server.on("/getslaveconfig", HTTP_POST, handleGetSlaveConfig);
+    server.on("/updateslaveconfig", HTTP_POST, handleUpdateSlaveConfig);
     
     server.begin();
     Serial.println("✅ HTTP server started successfully");
@@ -315,4 +317,143 @@ void handleRemoveSlaveStats() {
     removeSlaveStatistic(slaveId, slaveName);
     server.send(200, "application/json", "{\"status\":\"success\"}");
     Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
+}
+
+// Add these function declarations in WebServer.h and implementations in WebServer.cpp
+
+void handleGetSlaveConfig() {
+    Serial.println("🔍 POST /getslaveconfig - Searching for specific slave");
+    
+    String body = server.arg("plain");
+    if (body.length() == 0) {
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Empty request body\"}");
+        return;
+    }
+    
+    Serial.printf("📥 Received search request: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    uint8_t slaveId = doc["slaveId"];
+    const char* slaveName = doc["slaveName"];
+    
+    Serial.printf("🔎 Searching for slave ID: %d, Name: %s\n", slaveId, slaveName);
+    
+    // Load slave configuration
+    JsonDocument configDoc;
+    if (!loadSlaveConfig(configDoc)) {
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
+        return;
+    }
+    
+    JsonArray slavesArray = configDoc["slaves"];
+    bool slaveFound = false;
+    JsonObject foundSlave;
+    
+    // Search for the specific slave
+    for (JsonObject slave : slavesArray) {
+        if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
+            foundSlave = slave;
+            slaveFound = true;
+            break;
+        }
+    }
+    
+    if (!slaveFound) {
+        Serial.printf("❌ Slave not found: ID=%d, Name=%s\n", slaveId, slaveName);
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
+        return;
+    }
+    
+    // Return the found slave configuration
+    String response;
+    serializeJson(foundSlave, response);
+    server.send(200, "application/json", response);
+    Serial.printf("✅ Found slave configuration for ID %d: %s\n", slaveId, slaveName);
+}
+
+void handleUpdateSlaveConfig() {
+    Serial.println("💾 POST /updateslaveconfig - Updating specific slave");
+    
+    String body = server.arg("plain");
+    if (body.length() == 0) {
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Empty request body\"}");
+        return;
+    }
+    
+    Serial.printf("📥 Received update request: %s\n", body.c_str());
+    
+    // Parse the incoming JSON
+    JsonDocument updateDoc;
+    DeserializationError error = deserializeJson(updateDoc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return;
+    }
+    
+    // Validate required fields using new method
+    if (!updateDoc["id"].is<int>() || !updateDoc["name"].is<const char*>()) {
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing required fields: id and name\"}");
+        return;
+    }
+    
+    uint8_t slaveId = updateDoc["id"];
+    const char* slaveName = updateDoc["name"];
+    
+    Serial.printf("🔄 Updating slave ID: %d, Name: %s\n", slaveId, slaveName);
+    
+    // Load current slave configuration
+    JsonDocument configDoc;
+    if (!loadSlaveConfig(configDoc)) {
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
+        return;
+    }
+    
+    JsonArray slavesArray = configDoc["slaves"];
+    bool slaveFound = false;
+    int slaveIndex = -1;
+    
+    // Find the specific slave
+    for (int i = 0; i < slavesArray.size(); i++) {
+        JsonObject slave = slavesArray[i];
+        if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
+            slaveIndex = i;
+            slaveFound = true;
+            break;
+        }
+    }
+    
+    if (!slaveFound) {
+        Serial.printf("❌ Slave not found for update: ID=%d, Name=%s\n", slaveId, slaveName);
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
+        return;
+    }
+    
+    // Replace the slave object with the updated one
+    slavesArray[slaveIndex].clear();
+    for (JsonPair kv : updateDoc.as<JsonObject>()) {
+        slavesArray[slaveIndex][kv.key()] = kv.value();
+    }
+    
+    // Save the updated configuration
+    if (saveSlaveConfig(configDoc)) {
+        server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Slave configuration updated successfully\"}");
+        Serial.printf("✅ Successfully updated slave ID %d: %s\n", slaveId, slaveName);
+        
+        // Reload slaves in Modbus handler
+        modbus_reloadSlaves();
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save configuration\"}");
+        Serial.println("❌ Failed to save updated slave configuration");
+    }
 }
