@@ -1018,3 +1018,72 @@ input:checked + .toggle-slider:before {
     margin-bottom: 8px;
     word-wrap: break-word;
 }
+
+/* ===== IP INFORMATION STYLES ===== */
+.ip-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.ip-info-group {
+    background: #0f172a;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+}
+
+.ip-info-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+}
+
+.ip-info-icon {
+    font-size: var(--text-lg);
+}
+
+.ip-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.ip-info-item:last-child {
+    border-bottom: none;
+}
+
+.ip-label {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.ip-value {
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.status-connected {
+    color: var(--success-color);
+}
+
+.status-disconnected {
+    color: var(--error-color);
+}
+
+/* Responsive IP grid */
+@media (max-width: 768px) {
+    .ip-info-grid {
+        grid-template-columns: 1fr;
+    }
+}

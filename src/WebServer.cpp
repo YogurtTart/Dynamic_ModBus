@@ -22,6 +22,7 @@ void setupWebServer() {
     server.on("/", HTTP_GET, handleRoot);
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
     server.on("/getwifi", HTTP_GET, handleGetWifi);
+    server.on("/getipinfo", HTTP_GET, handleGetIPInfo);
     server.on("/slaves.html", HTTP_GET, handleSlavesPage);
     server.on("/saveslaves", HTTP_POST, handleSaveSlaves);
     server.on("/getslaves", HTTP_GET, handleGetSlaves);
@@ -530,4 +531,35 @@ void addDebugMessage(const char* topic, const char* message) {
     }
     
     Serial.printf("📢 DEBUG [%s]: %s\n", topic, message);
+}
+
+
+void handleGetIPInfo() {
+    Serial.println("📡 GET /getipinfo - Returning IP information");
+    
+    StaticJsonDocument<512> doc;
+    
+    // STA IP info
+    if (WiFi.status() == WL_CONNECTED) {
+        doc["sta_ip"] = WiFi.localIP().toString();
+        doc["sta_subnet"] = WiFi.subnetMask().toString();
+        doc["sta_gateway"] = WiFi.gatewayIP().toString();
+        doc["sta_connected"] = true;
+    } else {
+        doc["sta_ip"] = "Not connected";
+        doc["sta_subnet"] = "N/A";
+        doc["sta_gateway"] = "N/A";
+        doc["sta_connected"] = false;
+    }
+    
+    // AP IP info
+    doc["ap_ip"] = WiFi.softAPIP().toString();
+    doc["ap_connected_clients"] = WiFi.softAPgetStationNum();
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+    Serial.printf("✅ Sent IP info - STA: %s, AP: %s\n", 
+                  doc["sta_ip"].as<const char*>(), 
+                  doc["ap_ip"].as<const char*>());
 }

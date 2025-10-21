@@ -123,7 +123,7 @@
                     </section>
                 </div>
 
-                <div class="action-bar">
+                <div class="action-bar" style="margin-bottom: 20px;">
                     <button type="button" 
                             class="btn btn-secondary" 
                             onclick="loadSettings()">
@@ -138,6 +138,69 @@
                     </button>
                 </div>
             </form>
+
+            <!-- Add this after the form sections, before the action bar -->
+            <section class="form-section" aria-labelledby="ip-heading">
+                <header class="section-header">
+                    <h3 id="ip-heading" class="section-title">
+                        <span class="section-icon">🌐</span>
+                        Network Status
+                    </h3>
+                    <p class="section-description">Current device IP addresses</p>
+                </header>
+                
+                <div class="ip-info-grid">
+                    <div class="ip-info-group">
+                        <h4 class="ip-info-title">
+                            <span class="ip-info-icon">🖧</span>
+                            Station Mode (STA)
+                        </h4>
+                        <div class="ip-info-item">
+                            <span class="ip-label">IP Address:</span>
+                            <span id="sta_ip" class="ip-value">Loading...</span>
+                        </div>
+                        <div class="ip-info-item">
+                            <span class="ip-label">Subnet Mask:</span>
+                            <span id="sta_subnet" class="ip-value">Loading...</span>
+                        </div>
+                        <div class="ip-info-item">
+                            <span class="ip-label">Gateway:</span>
+                            <span id="sta_gateway" class="ip-value">Loading...</span>
+                        </div>
+                        <div class="ip-info-item">
+                            <span class="ip-label">Status:</span>
+                            <span id="sta_status" class="ip-value status-connected">Connected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="ip-info-group">
+                        <h4 class="ip-info-title">
+                            <span class="ip-info-icon">📡</span>
+                            Access Point (AP)
+                        </h4>
+                        <div class="ip-info-item">
+                            <span class="ip-label">IP Address:</span>
+                            <span id="ap_ip" class="ip-value">Loading...</span>
+                        </div>
+                        <div class="ip-info-item">
+                            <span class="ip-label">Connected Clients:</span>
+                            <span id="ap_clients" class="ip-value">Loading...</span>
+                        </div>
+                        <div class="ip-info-item">
+                            <span class="ip-label">Status:</span>
+                            <span class="ip-value status-connected">Active</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="action-bar compact">
+                    <button type="button" class="btn btn-secondary" onclick="refreshIPInfo()">
+                        <span class="btn-icon">↻</span>
+                        Refresh IP Info
+                    </button>
+                </div>
+            </section>
+
         </main>
 
         <footer class="app-footer">

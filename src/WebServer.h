@@ -24,6 +24,7 @@ void handleGetStatistics();
 void handleRemoveSlaveStats();
 void handleGetSlaveConfig();
 void handleUpdateSlaveConfig();
+void handleGetIPInfo();
 
 void handleToggleDebug();
 void handleGetDebugState();

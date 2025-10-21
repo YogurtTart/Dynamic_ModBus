@@ -63,5 +63,52 @@ function navigateToWifi() {
     window.location.href = '/';
 }
 
+// Add these functions to script.js
+
+async function loadIPInfo() {
+    try {
+        const response = await fetch('/getipinfo');
+        const data = await response.json();
+        
+        // Update STA information
+        document.getElementById('sta_ip').textContent = data.sta_ip;
+        document.getElementById('sta_subnet').textContent = data.sta_subnet;
+        document.getElementById('sta_gateway').textContent = data.sta_gateway;
+        
+        const staStatus = document.getElementById('sta_status');
+        if (data.sta_connected) {
+            staStatus.textContent = 'Connected';
+            staStatus.className = 'ip-value status-connected';
+        } else {
+            staStatus.textContent = 'Disconnected';
+            staStatus.className = 'ip-value status-disconnected';
+        }
+        
+        // Update AP information
+        document.getElementById('ap_ip').textContent = data.ap_ip;
+        document.getElementById('ap_clients').textContent = 
+            data.ap_connected_clients + ' client(s)';
+            
+    } catch (error) {
+        console.error('Error loading IP info:', error);
+        showStatus('Error loading network status', 'error');
+    }
+}
+
+async function refreshIPInfo() {
+    showStatus('Refreshing network status...', 'info');
+    await loadIPInfo();
+    showStatus('Network status updated', 'success');
+}
+
+// Update the DOMContentLoaded event to also load IP info
+document.addEventListener('DOMContentLoaded', function() {
+    loadSettings();
+    loadIPInfo(); // Load IP info on page load
+    
+    // Auto-refresh IP info every 30 seconds
+    setInterval(loadIPInfo, 30000);
+});
+
 // Load settings when page loads
 document.addEventListener('DOMContentLoaded', loadSettings);
