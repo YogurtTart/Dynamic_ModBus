@@ -25,6 +25,7 @@ function showStatus(message, type) {
         }, 300);
     }, 5000);
 }
+
 // Helper functions
 function sortSlavesByID() {
     slaves.sort((a, b) => a.id - b.id);
@@ -334,14 +335,18 @@ function updateStatsDisplay(statsArray) {
     const emptyState = document.getElementById('emptyStatsState');
     const statsCountBadge = document.getElementById('statsCountBadge');
     
-    if (statsArray && statsArray.length > 0) {
+    // Filter and sort statistics
+    const filteredStats = (statsArray || [])
+        .filter(stats => slaves.some(slave => 
+            slave.id === stats.slaveId && slave.name === stats.slaveName
+        ))
+        .sort((a, b) => a.slaveId - b.slaveId);
+    
+    if (filteredStats.length > 0) {
         emptyState.style.display = 'none';
-        statsCountBadge.textContent = statsArray.length;
+        statsCountBadge.textContent = filteredStats.length;
         
-        // Sort by slave ID and update table with backend data
-        const sortedStats = [...statsArray].sort((a, b) => a.slaveId - b.slaveId);
-        
-        tbody.innerHTML = sortedStats.map(stats => `
+        tbody.innerHTML = filteredStats.map(stats => `
             <tr>
                 <td><strong>${stats.slaveId}</strong></td>
                 <td>${stats.slaveName}</td>
@@ -389,6 +394,8 @@ async function removeSlaveStats(slaveId, slaveName) {
         
         if (response.ok) {
             console.log(`Removed statistics for slave ${slaveId}: ${slaveName}`);
+            // Refresh statistics display after removal
+            fetchStatistics();
         } else {
             console.log('Error removing slave statistics');
         }

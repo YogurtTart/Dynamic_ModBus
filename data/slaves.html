@@ -253,6 +253,41 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Info Panel -->
+            <section class="config-panel" aria-labelledby="info-heading">
+                <header class="panel-header">
+                    <h3 id="info-heading" class="panel-title">
+                        <span class="panel-icon">ℹ️</span>
+                        How to Use
+                    </h3>
+                </header>
+                
+                <div class="section-description">
+                    <p><strong>Modbus Slave Configuration:</strong></p>
+                    <p><strong>Step 1:</strong> Enter Slave ID  and descriptive Slave Name</p>
+                    <p><strong>Step 2:</strong> Set Start Register address and Number of Registers</p>
+                    <p><strong>Step 3:</strong> Select MQTT Topic for data publishing</p>
+                    <p><strong>Step 4:</strong> Click "Add Slave Device" to add to configuration</p>
+                    <p><strong>Step 5:</strong> Click "Save Slave" to confirm configuration and store into LittleFS file.</p>
+                    <br>
+                    <p><strong>System Statistics:</strong></p>
+                    <p><strong>Unique Slave IDs:</strong> Amount of different Slaves ID saved.</p>
+                    <p><strong>Total Entries:</strong> Total amount of Slaves added.</p>
+                    <br>
+                    <p><strong>Global Settings:</strong></p>
+                    <p><strong>Poll Interval:</strong> Set how often to query slaves (in seconds)</p>
+                    <p><strong>Timeout:</strong> Set response timeout for slave devices (in seconds)</p>
+                    <br>
+                    <p><strong>Query Statistics:</strong></p>
+                    <p><strong>Success:</strong> Able to send and receive query</p>
+                    <p><strong>Timeout:</strong> Able to send query but did not receive message after x seconds</p>
+                    <p><strong>Failed:</strong> Failed to send query at the start</p>
+                    <br>
+                    <p><strong>Note:</strong> Click "Load Slave", "Load Timeout", or "Load Poll Interval" to reload most recent saved settings</p>
+                    <p><strong>Note:</strong> When deleting a slave, must click "Save Slave" to confirm the delete.</p>
+                </div>
+            </section>
         </main>
 
         <footer class="app-footer">
