@@ -5,15 +5,26 @@ let slaveStats = new Map();
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
+    
+    // Remove any existing hiding class
+    status.classList.remove('hiding');
+    
+    // Set message content and styling
     status.textContent = message;
     status.className = 'status-message ' + type;
+    
+    // Show the message with animation
     status.style.display = 'block';
     
+    // Auto-hide after 5 seconds with animation
     setTimeout(() => {
-        status.style.display = 'none';
+        status.classList.add('hiding');
+        setTimeout(() => {
+            status.style.display = 'none';
+            status.classList.remove('hiding');
+        }, 300);
     }, 5000);
 }
-
 // Helper functions
 function sortSlavesByID() {
     slaves.sort((a, b) => a.id - b.id);
@@ -302,8 +313,8 @@ async function loadTimeout() {
 let statsPollInterval = null;
 
 function startStatsPolling() {
-    // Poll every 2 seconds for real-time updates from backend
-    statsPollInterval = setInterval(fetchStatistics, 2000);
+    // Poll every 5 seconds for real-time updates from backend
+    statsPollInterval = setInterval(fetchStatistics, 5000);
 }
 
 async function fetchStatistics() {

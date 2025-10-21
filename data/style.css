@@ -185,15 +185,23 @@ header-content {
     font-size: var(--text-base);
 }
 
-/* Status Messages - More Obvious */
+/* ===== FLOATING STATUS MESSAGE STYLES ===== */
 .status-message {
-    padding: var(--space-md);
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: var(--space-md) var(--space-lg);
     border-radius: var(--radius-md);
-    margin-bottom: var(--space-lg);
     font-weight: 600;
-    display: none;
+    box-shadow: var(--shadow-lg);
     border: 2px solid;
     font-size: var(--text-base);
+    z-index: 10000;
+    max-width: 90%;
+    text-align: center;
+    animation: slideDown 0.3s ease-out;
+    display: none;
 }
 
 .status-message.success {
@@ -201,7 +209,7 @@ header-content {
     background: #064e3b;
     color: #6ee7b7;
     border-color: #10b981;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
 }
 
 .status-message.error {
@@ -209,7 +217,87 @@ header-content {
     background: #7f1d1d;
     color: #fca5a5;
     border-color: #ef4444;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+}
+
+.status-message.info {
+    display: block;
+    background: #1e3a8a;
+    color: #93c5fd;
+    border-color: #3b82f6;
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
+.status-message.warning {
+    display: block;
+    background: #78350f;
+    color: #fed7aa;
+    border-color: #f59e0b;
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(-50%) translateY(-100%);
+        opacity: 0;
+    }
+}
+
+.status-message.hiding {
+    animation: slideUp 0.3s ease-in forwards;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .status-message {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        transform: none;
+        max-width: none;
+        margin: 0;
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideUp {
+        from {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+    }
+    
+    .status-message.hiding {
+        animation: slideUp 0.3s ease-in forwards;
+    }
 }
 
 /* Forms */

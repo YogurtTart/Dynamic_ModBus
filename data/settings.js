@@ -3,12 +3,24 @@ let currentSlaveName = null;
 
 function showStatus(message, type) {
     const status = document.getElementById('status');
+    
+    // Remove any existing hiding class
+    status.classList.remove('hiding');
+    
+    // Set message content and styling
     status.textContent = message;
     status.className = 'status-message ' + type;
+    
+    // Show the message with animation
     status.style.display = 'block';
     
+    // Auto-hide after 5 seconds with animation
     setTimeout(() => {
-        status.style.display = 'none';
+        status.classList.add('hiding');
+        setTimeout(() => {
+            status.style.display = 'none';
+            status.classList.remove('hiding');
+        }, 300);
     }, 5000);
 }
 
