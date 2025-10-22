@@ -1,0 +1,48 @@
+/* ===== SETTINGS PAGE SPECIFIC STYLES ===== */
+
+/* Search Form Styles */
+.search-form {
+    background: var(--surface-color);
+}
+
+/* Textarea specific styles for JSON editor */
+.text-input[type="text"],
+.text-input[type="number"],
+.text-input[type="password"] {
+    min-height: auto;
+}
+
+/* Configuration Editor Textarea */
+#config_editor {
+    font-family: 'Courier New', monospace;
+    font-size: var(--text-sm);
+    line-height: 1.4;
+    white-space: pre;
+    tab-size: 2;
+    resize: vertical;
+    min-height: 300px;
+    background: #0a0f1c;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    color: var(--text-primary);
+}
+
+#config_editor:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+    outline: none;
+}
+
+#config_editor::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Responsive adjustments for settings page */
+@media (max-width: 768px) {
+    #config_editor {
+        min-height: 250px;
+        font-size: var(--text-xs);
+    }
+}

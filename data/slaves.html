@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modbus Slave Configuration</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="slaves.css">
 </head>
 <body class="dark-mode">
     <div class="app-container">
@@ -140,31 +141,28 @@
                 </section>
 
                 <section class="config-panel" aria-labelledby="config-management-heading">
-                    <header class="panel-header">
-                        <h3 id="config-management-heading" class="panel-title">
-                            <span class="panel-icon">⏱️</span>
-                            Timeout Settings
-                        </h3>
-                    </header>
 
-                    <!-- Update in slaves.html -->
-                    <div class="input-group">
-                        <label for="timeout" class="input-label">Timeout </label>
-                        <input type="number" 
-                            id="timeout" 
-                            class="text-input"
-                            placeholder="1"
-                            step="1">
-                    </div>
-                    <div class="action-stack">
-                        <button class="btn btn-secondary full-width" onclick="loadTimeout()">
-                            <span class="btn-icon">📥</span>
-                            Load Timeout
-                        </button>
-                        <button class="btn btn-primary full-width" onclick="saveTimeout()">
-                            <span class="btn-icon">💾</span>
-                            Save Timeout
-                        </button>
+                    <!-- Updated Timeout Settings to match Polling Settings -->
+                    <div class="polling-section">
+                        <h4 class="section-title">Timeout Settings</h4>
+                        <div class="input-group">
+                            <label for="timeout" class="input-label">Timeout (seconds)</label>
+                            <input type="number" 
+                                id="timeout" 
+                                class="text-input"
+                                placeholder="1"
+                                step="1">
+                        </div>
+                        <div class="action-stack">
+                            <button class="btn btn-secondary full-width" onclick="loadTimeout()">
+                                <span class="btn-icon">📥</span>
+                                Load Timeout
+                            </button>
+                            <button class="btn btn-primary full-width" onclick="saveTimeout()">
+                                <span class="btn-icon">💾</span>
+                                Save Timeout
+                            </button>
+                        </div>
                     </div>
 
                     <div class="polling-section">
@@ -172,9 +170,9 @@
                         <div class="input-group">
                             <label for="poll_interval" class="input-label">Poll Interval (seconds)</label>
                             <input type="number" 
-                                   id="poll_interval" 
-                                   class="text-input"
-                                   placeholder="10">
+                                id="poll_interval" 
+                                class="text-input"
+                                placeholder="10">
                         </div>
                         <div class="action-stack">
                             <button class="btn btn-secondary full-width" onclick="loadPollInterval()">
