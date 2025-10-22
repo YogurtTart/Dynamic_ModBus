@@ -63,15 +63,15 @@ float calculateCurrent(uint16_t registerValue, float ct, float divider = 1.0) {
     return (registerValue * ct / 10000.0) / divider;
 }
 
-float calculateSinglePhasePower(uint16_t registerValue, float pt, float ct, float divider = 1.0) {
+float calculateSinglePhasePower(int16_t  registerValue, float pt, float ct, float divider = 1.0) {
     return (registerValue * pt * ct / 100.0) / divider;
 }
 
-float calculateThreePhasePower(uint16_t registerValue, float pt, float ct, float divider = 1.0) {
+float calculateThreePhasePower(int16_t  registerValue, float pt, float ct, float divider = 1.0) {
     return (registerValue * pt * ct / 10.0) / divider;
 }
 
-float calculatePowerFactor(uint16_t registerValue, float divider = 1.0) {
+float calculatePowerFactor(int16_t  registerValue, float divider = 1.0) {
     return (registerValue / 10000.0) / divider;
 }
 
@@ -154,11 +154,11 @@ void processNonBlockingData() {
         JsonObject trueValues = Obj.createNestedObject("TrueValues");
         
         // Current values
-        trueValues["ACurrent"] = calculateCurrent(node.getResponseBuffer(0), slave.ACurrent.ct, slave.ACurrent.divider);
-        trueValues["BCurrent"] = calculateCurrent(node.getResponseBuffer(1), slave.BCurrent.ct, slave.BCurrent.divider);
-        trueValues["CCurrent"] = calculateCurrent(node.getResponseBuffer(2), slave.CCurrent.ct, slave.CCurrent.divider);
-        trueValues["ZeroPhaseCurrent"] = calculateCurrent(node.getResponseBuffer(3), slave.ZeroPhaseCurrent.ct, slave.ZeroPhaseCurrent.divider);
-        
+        trueValues["ACurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(0), slave.ACurrent.ct, slave.ACurrent.divider);
+        trueValues["BCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(1), slave.BCurrent.ct, slave.BCurrent.divider);
+        trueValues["CCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(2), slave.CCurrent.ct, slave.CCurrent.divider);
+        trueValues["ZeroPhaseCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(3), slave.ZeroPhaseCurrent.ct, slave.ZeroPhaseCurrent.divider);
+                
         // Single phase active power
         trueValues["AActiveP"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.AActiveP.pt, slave.AActiveP.ct, slave.AActiveP.divider);
         trueValues["BActiveP"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.BActiveP.pt, slave.BActiveP.ct, slave.BActiveP.divider);
@@ -203,12 +203,12 @@ void processNonBlockingData() {
         JsonObject trueValues = Obj.createNestedObject("TrueValues");
         
         // Voltage values (starting from register 0 for voltage devices)
-        trueValues["AVoltage"] = calculateVoltage(node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
-        trueValues["BVoltage"] = calculateVoltage(node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
-        trueValues["CVoltage"] = calculateVoltage(node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
-        trueValues["PhaseVoltageMean"] = calculateVoltage(node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
-        trueValues["ZeroSequenceVoltage"] = calculateVoltage(node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
-        
+        trueValues["AVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
+        trueValues["BVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
+        trueValues["CVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
+        trueValues["PhaseVoltageMean"] = calculateVoltage((uint16_t)node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
+        trueValues["ZeroSequenceVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
+                
         Obj["mqtt_topic"] = slave.mqttTopic;
         success = true;
     
