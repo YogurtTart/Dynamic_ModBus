@@ -12,7 +12,9 @@ class DebugConsole {
         this.loadDebugState();
         this.bindEvents();
         this.startMessagePolling();
-        // Don't load stored messages here - wait for debug state to load
+        // Load stored messages regardless of debug state
+        this.loadStoredMessages();
+        this.loadStoredConsoleMessages();
     }
 
     bindEvents() {
@@ -36,13 +38,6 @@ class DebugConsole {
             this.isEnabled = data.enabled;
             this.updateToggle();
             this.updateStatusMessages();
-            
-            // Load stored messages when debug state is loaded (happens on page load)
-            if (this.isEnabled && !this.hasLoadedStoredMessages) {
-                this.loadStoredMessages();
-                this.loadStoredConsoleMessages();
-                this.hasLoadedStoredMessages = true;
-            }
         } catch (error) {
             this.addMessage('Error loading debug state');
         }
@@ -61,14 +56,6 @@ class DebugConsole {
                 this.updateToggle();
                 this.updateStatusMessages();
                 this.addMessage(`Debug ${enabled ? 'ENABLED - MQTT + Console' : 'DISABLED - MQTT only'}`);
-                
-                if (enabled && !this.hasLoadedStoredMessages) {
-                    this.loadStoredMessages();
-                    this.loadStoredConsoleMessages();
-                    this.hasLoadedStoredMessages = true;
-                } else if (!enabled) {
-                    this.hasLoadedStoredMessages = false;
-                }
             }
         } catch (error) {
             this.addMessage('Error toggling debug mode');
@@ -272,7 +259,7 @@ class DebugConsole {
     }
 
     loadStoredMessages() {
-        if (!this.isEnabled) return;
+        // REMOVED: if (!this.isEnabled) return - Now loads regardless of debug state
         
         try {
             const stored = localStorage.getItem('mqttDebugMessages');
@@ -297,7 +284,8 @@ class DebugConsole {
     }
 
     addMessage(message, saveToStorage = true) {
-        if (!this.isEnabled) return;
+        // Only add NEW messages if debug is enabled, but stored messages always show
+        if (!this.isEnabled && saveToStorage) return;
 
         const consoleElement = document.getElementById('debugConsole');
         if (!consoleElement) return;
@@ -323,8 +311,8 @@ class DebugConsole {
 
         consoleElement.scrollTop = consoleElement.scrollHeight;
 
-        // Save to console storage if this is a new message
-        if (saveToStorage) {
+        // Save to console storage if this is a new message and debug is enabled
+        if (saveToStorage && this.isEnabled) {
             this.saveConsoleMessageToStorage(message);
         }
     }
@@ -358,7 +346,7 @@ class DebugConsole {
     }
 
     loadStoredConsoleMessages() {
-        if (!this.isEnabled) return;
+        // REMOVED: if (!this.isEnabled) return - Now loads regardless of debug state
         
         try {
             const stored = localStorage.getItem('mqttConsoleMessages');
