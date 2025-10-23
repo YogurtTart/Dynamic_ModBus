@@ -40,14 +40,14 @@
             <div class="content-header">
                 <h2>Debug Console</h2>
                 <p class="content-description">
-                    When enabled, MQTT messages are published AND displayed here for debugging.
+                    Monitor MQTT messages in real-time. Table shows structured data, console shows raw JSON.
                 </p>
             </div>
 
-            <!-- Simple Toggle -->
+            <!-- Simple Debug Toggle -->
             <div class="debug-controls">
                 <label class="toggle-label">
-                    <span>Debug Mode:</span>
+                    <span>MQTT Debug Mode:</span>
                     <div class="toggle-switch">
                         <input type="checkbox" id="debugEnabled">
                         <span class="toggle-slider"></span>
@@ -55,21 +55,52 @@
                     <span id="debugStatus">OFF</span>
                 </label>
                 <p class="section-description">
-                    ON: Messages go to MQTT + Web Console | OFF: Messages go to MQTT only
+                    ON: Messages go to MQTT + Web Interface | OFF: Messages go to MQTT only
                 </p>
             </div>
 
-            <!-- Console -->
+            <!-- Dynamic Data Table - Always Visible -->
+            <div class="config-panel">
+                <div class="panel-header">
+                    <h3 class="panel-title">
+                        <span class="nav-icon">📊</span>
+                        Live Data Table
+                    </h3>
+                    <button class="btn btn-secondary" id="clearTable" style="margin-top: 8px;">Clear Table</button>
+                </div>
+                <div class="table-container">
+                    <table class="data-table" id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Device</th>
+                                <th>ID</th>
+                                <th>Topic</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="5" class="no-data">MQTT Debug Mode is OFF. Enable to see data.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Console - Always shows when debug mode is on -->
             <div class="config-panel">
                 <div class="panel-header">
                     <h3 class="panel-title">
                         <span class="nav-icon">📋</span>
-                        Live MQTT Messages
+                        Raw MQTT Messages
                     </h3>
-                    <button class="btn btn-secondary" id="clearConsole" style="margin-top: 8px;">Clear</button>
+                    <div class="panel-actions">
+                        <button class="btn btn-secondary" id="clearConsole" style="margin-top: 8px;">Clear Table</button>
+                    </div>
                 </div>
                 <div class="debug-console" id="debugConsole">
-                    <div class="console-line">Debug mode is OFF. Enable to see MQTT messages here.</div>
+                    <div class="console-line">MQTT Debug Mode is OFF. Enable to see messages.</div>
                 </div>
             </div>
 
@@ -83,11 +114,25 @@
                 </header>
                 
                 <div class="section-description">
-                    <p><strong>Step 1:</strong> Enter the Slave ID and Slave Name exactly as configured</p>
-                    <p><strong>Step 2:</strong> Click "Search Configuration" to load the slave data</p>
-                    <p><strong>Step 3:</strong> Edit the JSON configuration in the text area</p>
-                    <p><strong>Step 4:</strong> Click "Save Changes" to update the configuration</p>
-                    <p><strong>Note:</strong> The configuration will be validated before saving</p>
+                    <p><strong>Debug Console - How to Use</strong></p>
+                    
+                    <p><strong>Getting Started:</strong></p>
+                    <p>• Toggle <strong>MQTT Debug Mode</strong> to ON to begin message capture</p>
+                    <p>• Both table and console will automatically display incoming data</p>
+                    <br>
+                    <p><strong>Understanding the Display:</strong></p>
+                    <p>• <strong>Live Data Table</strong> - Structured view showing device, ID, topic, and parsed values</p>
+                    <p>• <strong>Raw MQTT Messages</strong> - Complete JSON payloads as received from devices</p>
+                    <br>
+                    <p><strong>Data Persistence:</strong></p>
+                    <p>• Debug mode only updates and loads when in debug page</p>
+                    <p>• Last 30 messages are stored and reloaded when returning</p>
+                    <p>• Timestamps show actual message receipt time, not viewing time</p>
+                    <br>
+                    <p><strong>Managing Data:</strong></p>
+                    <p>• Use <strong>Clear Table</strong> to reset the structured data view</p>
+                    <p>• System automatically removes oldest messages after 30 new ones</p>
+        
                 </div>
             </section>
         </main>

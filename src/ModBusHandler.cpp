@@ -125,152 +125,89 @@ void processNonBlockingData() {
     SensorSlave slave = slaves[currentSlaveIndex];
     
     JsonDocument doc;
-    doc.clear();
-
-    JsonObject root = doc.to<JsonObject>();
+    JsonObject root = doc.to<JsonObject>(); // Direct root object
+    
     bool success = false;
 
-    if (slave.name.indexOf("Sensor") >= 0) {
-    JsonObject Obj = root[slave.name].to<JsonObject>();
-    Obj["id"] = slave.id;
-    Obj["name"] = slave.name;
-    
-    Obj["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), slave.tempdivider);
-    Obj["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), slave.humiddivider);
-    Obj["mqtt_topic"] = slave.mqttTopic;
-    
-    // Include divider in output for reference
-    Obj["tempdivider"] = slave.tempdivider;
-    Obj["humiddivider"] = slave.humiddivider;
-    
-    success = true;
+    // Common fields for all devices
+    root["id"] = slave.id;
+    root["name"] = slave.name;
+    root["mqtt_topic"] = slave.mqttTopic;
+    root["timestamp"] = millis();
 
-} else if (slave.name.indexOf("Meter") >= 0) {
-        JsonObject Obj = root[slave.name].to<JsonObject>();
-        Obj["id"] = slave.id;
-        Obj["name"] = slave.name;
-        
-        // Apply formulas using helper functions
-        JsonObject trueValues = Obj.createNestedObject("TrueValues");
-        
+    if (slave.name.indexOf("Sensor") >= 0) {
+        root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), slave.tempdivider);
+        root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), slave.humiddivider);
+        success = true;
+
+    } else if (slave.name.indexOf("Meter") >= 0) {
         // Current values
-        trueValues["ACurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(0), slave.ACurrent.ct, slave.ACurrent.divider);
-        trueValues["BCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(1), slave.BCurrent.ct, slave.BCurrent.divider);
-        trueValues["CCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(2), slave.CCurrent.ct, slave.CCurrent.divider);
-        trueValues["ZeroPhaseCurrent"] = calculateCurrent((uint16_t)node.getResponseBuffer(3), slave.ZeroPhaseCurrent.ct, slave.ZeroPhaseCurrent.divider);
-                
+        root["A_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(0), slave.ACurrent.ct, slave.ACurrent.divider);
+        root["B_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(1), slave.BCurrent.ct, slave.BCurrent.divider);
+        root["C_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(2), slave.CCurrent.ct, slave.CCurrent.divider);
+        root["Zero_Phase_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(3), slave.ZeroPhaseCurrent.ct, slave.ZeroPhaseCurrent.divider);
+        
         // Single phase active power
-        trueValues["AActiveP"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.AActiveP.pt, slave.AActiveP.ct, slave.AActiveP.divider);
-        trueValues["BActiveP"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.BActiveP.pt, slave.BActiveP.ct, slave.BActiveP.divider);
-        trueValues["CActiveP"] = calculateSinglePhasePower(node.getResponseBuffer(6), slave.CActiveP.pt, slave.CActiveP.ct, slave.CActiveP.divider);
+        root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.AActiveP.pt, slave.AActiveP.ct, slave.AActiveP.divider);
+        root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.BActiveP.pt, slave.BActiveP.ct, slave.BActiveP.divider);
+        root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), slave.CActiveP.pt, slave.CActiveP.ct, slave.CActiveP.divider);
         
         // Three phase active power
-        trueValues["Total3PActiveP"] = calculateThreePhasePower(node.getResponseBuffer(7), slave.Total3PActiveP.pt, slave.Total3PActiveP.ct, slave.Total3PActiveP.divider);
+        root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), slave.Total3PActiveP.pt, slave.Total3PActiveP.ct, slave.Total3PActiveP.divider);
         
         // Single phase reactive power
-        trueValues["AReactiveP"] = calculateSinglePhasePower(node.getResponseBuffer(8), slave.AReactiveP.pt, slave.AReactiveP.ct, slave.AReactiveP.divider);
-        trueValues["BReactiveP"] = calculateSinglePhasePower(node.getResponseBuffer(9), slave.BReactiveP.pt, slave.BReactiveP.ct, slave.BReactiveP.divider);
-        trueValues["CReactiveP"] = calculateSinglePhasePower(node.getResponseBuffer(10), slave.CReactiveP.pt, slave.CReactiveP.ct, slave.CReactiveP.divider);
+        root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), slave.AReactiveP.pt, slave.AReactiveP.ct, slave.AReactiveP.divider);
+        root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), slave.BReactiveP.pt, slave.BReactiveP.ct, slave.BReactiveP.divider);
+        root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), slave.CReactiveP.pt, slave.CReactiveP.ct, slave.CReactiveP.divider);
         
         // Three phase reactive power
-        trueValues["Total3PReactiveP"] = calculateThreePhasePower(node.getResponseBuffer(11), slave.Total3PReactiveP.pt, slave.Total3PReactiveP.ct, slave.Total3PReactiveP.divider);
+        root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), slave.Total3PReactiveP.pt, slave.Total3PReactiveP.ct, slave.Total3PReactiveP.divider);
         
         // Single phase apparent power
-        trueValues["AApparentP"] = calculateSinglePhasePower(node.getResponseBuffer(12), slave.AApparentP.pt, slave.AApparentP.ct, slave.AApparentP.divider);
-        trueValues["BApparentP"] = calculateSinglePhasePower(node.getResponseBuffer(13), slave.BApparentP.pt, slave.BApparentP.ct, slave.BApparentP.divider);
-        trueValues["CApparentP"] = calculateSinglePhasePower(node.getResponseBuffer(14), slave.CApparentP.pt, slave.CApparentP.ct, slave.CApparentP.divider);
+        root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), slave.AApparentP.pt, slave.AApparentP.ct, slave.AApparentP.divider);
+        root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), slave.BApparentP.pt, slave.BApparentP.ct, slave.BApparentP.divider);
+        root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), slave.CApparentP.pt, slave.CApparentP.ct, slave.CApparentP.divider);
         
         // Three phase apparent power
-        trueValues["Total3PApparentP"] = calculateThreePhasePower(node.getResponseBuffer(15), slave.Total3PApparentP.pt, slave.Total3PApparentP.ct, slave.Total3PApparentP.divider);
+        root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), slave.Total3PApparentP.pt, slave.Total3PApparentP.ct, slave.Total3PApparentP.divider);
         
         // Power factor
-        trueValues["APowerF"] = calculatePowerFactor(node.getResponseBuffer(16), slave.APowerF.divider);
-        trueValues["BPowerF"] = calculatePowerFactor(node.getResponseBuffer(17), slave.BPowerF.divider);
-        trueValues["CPowerF"] = calculatePowerFactor(node.getResponseBuffer(18), slave.CPowerF.divider);
-        trueValues["Total3PPowerF"] = calculatePowerFactor(node.getResponseBuffer(19), slave.Total3PPowerF.divider);
+        root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), slave.APowerF.divider);
+        root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), slave.BPowerF.divider);
+        root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), slave.CPowerF.divider);
+        root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), slave.Total3PPowerF.divider);
         
-        Obj["mqtt_topic"] = slave.mqttTopic;
         success = true;
-    }
-    else if (slave.name.indexOf("Voltage") >= 0) {
-        
-        // ✅ NEW: Voltage device processing
-        JsonObject Obj = root[slave.name].to<JsonObject>();
-        Obj["id"] = slave.id;
-        Obj["name"] = slave.name;
-        
-        // Apply voltage formulas
-        JsonObject trueValues = Obj.createNestedObject("TrueValues");
-        
-        // Voltage values (starting from register 0 for voltage devices)
-        trueValues["AVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
-        trueValues["BVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
-        trueValues["CVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
-        trueValues["PhaseVoltageMean"] = calculateVoltage((uint16_t)node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
-        trueValues["ZeroSequenceVoltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
-                
-        Obj["mqtt_topic"] = slave.mqttTopic;
+
+    } else if (slave.name.indexOf("Voltage") >= 0) {
+        root["A_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
+        root["B_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
+        root["C_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
+        root["Phase_Voltage_Mean"] = calculateVoltage((uint16_t)node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
+        root["Zero_Sequence_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
         success = true;
     
-    }  else if (slave.name.indexOf("Energy") >= 0) {
-        // Single-phase energy meter processing
-        JsonObject Obj = root[slave.name].to<JsonObject>();
-        Obj["id"] = slave.id;
-        Obj["name"] = slave.name;
-        
-        JsonObject trueValues = Obj["TrueValues"].to<JsonObject>();
-        
-        // Read 32-bit energy values (each spans 2 registers)
-        // Total active energy - addresses 16640-16641
-        trueValues["TotalActiveEnergy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
-        
-        // Import active energy - addresses 16642-16643  
-        trueValues["ImportActiveEnergy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
-        
-        // Export active energy - addresses 16644-16645
-        trueValues["ExportActiveEnergy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
-        
-        Obj["mqtt_topic"] = slave.mqttTopic;
+    } else if (slave.name.indexOf("Energy") >= 0) {
+        root["Total_Active_Energy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
+        root["Import_Active_Energy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
+        root["Export_Active_Energy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
         success = true;
+
     } else {
-        // Unknown devices
-        JsonObject Obj = root[slave.name].to<JsonObject>();
-        Obj["id"] = slave.id;
-        Obj["name"] = slave.name;
-        Obj["type"] = "unknown";
-        Obj["mqtt_topic"] = "Lora/NameError";
-        slave.mqttTopic = "Lora/NameError";
-
-        // Add raw register data since we don't know the format
-        JsonArray rawData = Obj.createNestedArray("raw_data");
-        for (int j = 0; j < slave.numReg; j++) {
-            rawData.add(node.getResponseBuffer(j));
-        }
-        
-        success = true;
-        Serial.printf("✅ Unknown device %d: %d registers read\n", slave.id, slave.numReg);
+        root["error"] = "Unknown device type";
     }
     
-    // Publish if successful
-    if (success) {
-        String output;
-        serializeJson(doc, output);    
-        publishMessage(slave.mqttTopic.c_str(), output.c_str());
+    String output;
+    serializeJson(doc, output);
 
+    // Publishing
+    publishMessage(slave.mqttTopic.c_str(), output.c_str());
     if (debugEnabled) {
         addDebugMessage(slave.mqttTopic.c_str(), output.c_str());
-        }
-
-    } else {
-        Serial.printf("❌ No valid data from slave %d\n", slave.id);
-        String output = "Failed";
-        String topic = "Lora/error";
-        publishMessage(topic.c_str(), output.c_str());
-
-    if (debugEnabled) {
-        addDebugMessage(topic.c_str(), output.c_str());
     }
-
+    
+    if (!success) {
+        Serial.printf("❌ No valid data from slave %d\n", slave.id);
     }
     
     waitingForResponse = false;
@@ -301,6 +238,7 @@ void updateNonBlockingQuery() {
             break;
             
         case STATE_START_QUERY:
+
             if (currentTime - lastActionTime >= QUERY_INTERVAL) {
                 lastActionTime = currentTime;
                 
@@ -314,15 +252,21 @@ void updateNonBlockingQuery() {
 
                     updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, false);
 
+                    // FLAT STRUCTURE: Create error message
                     JsonDocument doc;
-                    doc["id"] = slaves[currentSlaveIndex].id;
-                    doc["name"] = slaves[currentSlaveIndex].name;
-                    doc["error"] = "Failed to start Modbus query";
-                    
+                    JsonObject root = doc.to<JsonObject>();
+                    root["id"] = slaves[currentSlaveIndex].id;
+                    root["name"] = slaves[currentSlaveIndex].name;
+                    root["error"] = "Failed to start Modbus query";
+                    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
+
                     String output;
                     serializeJson(doc, output);
-                    publishMessage("Lora/error", output.c_str()); //!!!!!!!!!!!!!!!!!!!!!!!!!! Change topic here for failed query starts
-                    
+                    publishMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
+
+                    if (debugEnabled) {
+                        addDebugMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
+                    }
 
                     currentSlaveIndex++;
                     checkCycleCompletion();
@@ -335,10 +279,26 @@ void updateNonBlockingQuery() {
             if (currentTime - queryStartTime > timeoutDuration) {
                 // ✅ ACTUAL TIMEOUT - SKIP THIS SLAVE!
                 Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
-                             slaves[currentSlaveIndex].id, timeoutDuration);
+                            slaves[currentSlaveIndex].id, timeoutDuration);
 
                 updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, true);
-        
+
+                // FLAT STRUCTURE: Create timeout error message
+                JsonDocument doc;
+                JsonObject root = doc.to<JsonObject>();
+                root["id"] = slaves[currentSlaveIndex].id;
+                root["name"] = slaves[currentSlaveIndex].name;
+                root["error"] = "Modbus timeout - no response from device";
+                root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
+                
+                String output;
+                serializeJson(doc, output);
+                publishMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
+                
+                if (debugEnabled) {
+                    addDebugMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
+                }
+
                 waitingForResponse = false;
                 currentSlaveIndex++;
                 checkCycleCompletion();
