@@ -1,9 +1,10 @@
 class DebugConsole {
     constructor() {
         this.isEnabled = false;
-        this.maxTableRows = 30; //live data table
-        this.maxConsoleMessages = 30;  // Limit for raw MQTT console
-        this.maxStoredMessages = 30; //For localStorage
+        this.maxTableRows = 30; // live data table
+        this.maxConsoleMessages = 30; // Limit for raw MQTT console
+        this.maxStoredMessages = 30; // For localStorage
+        this.hasLoadedStoredMessages = false; // Track if we've loaded stored messages
         this.init();
     }
 
@@ -11,7 +12,7 @@ class DebugConsole {
         this.loadDebugState();
         this.bindEvents();
         this.startMessagePolling();
-        this.loadStoredMessages();
+        // Don't load stored messages here - wait for debug state to load
     }
 
     bindEvents() {
@@ -35,6 +36,13 @@ class DebugConsole {
             this.isEnabled = data.enabled;
             this.updateToggle();
             this.updateStatusMessages();
+            
+            // Load stored messages when debug state is loaded (happens on page load)
+            if (this.isEnabled && !this.hasLoadedStoredMessages) {
+                this.loadStoredMessages();
+                this.loadStoredConsoleMessages();
+                this.hasLoadedStoredMessages = true;
+            }
         } catch (error) {
             this.addMessage('Error loading debug state');
         }
@@ -54,8 +62,12 @@ class DebugConsole {
                 this.updateStatusMessages();
                 this.addMessage(`Debug ${enabled ? 'ENABLED - MQTT + Console' : 'DISABLED - MQTT only'}`);
                 
-                if (enabled) {
+                if (enabled && !this.hasLoadedStoredMessages) {
                     this.loadStoredMessages();
+                    this.loadStoredConsoleMessages();
+                    this.hasLoadedStoredMessages = true;
+                } else if (!enabled) {
+                    this.hasLoadedStoredMessages = false;
                 }
             }
         } catch (error) {
@@ -199,6 +211,7 @@ class DebugConsole {
         const tableBody = document.getElementById('tableBody');
         if (!tableBody) return;
 
+        // Clear placeholder if it exists
         if (tableBody.querySelector('.no-data')) {
             tableBody.innerHTML = '';
         }
@@ -224,6 +237,7 @@ class DebugConsole {
             this.saveMessageToStorage(messageData);
         }
 
+        // Remove oldest rows if exceeding limit
         while (tableBody.children.length > this.maxTableRows) {
             tableBody.removeChild(tableBody.lastChild);
         }
@@ -237,11 +251,14 @@ class DebugConsole {
                 receivedAt: new Date().toISOString()
             };
             
-            currentMessages.push(timestampedMessage);
-            const toSave = currentMessages.slice(-this.maxStoredMessages);
+            // Add new message to the beginning of the array (newest first)
+            currentMessages.unshift(timestampedMessage);
+            
+            // Keep only the latest messages (up to maxStoredMessages)
+            const toSave = currentMessages.slice(0, this.maxStoredMessages);
             localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
         } catch (error) {
-            console.log('Storage save error');
+            console.log('Storage save error for table data');
         }
     }
 
@@ -261,27 +278,35 @@ class DebugConsole {
             const stored = localStorage.getItem('mqttDebugMessages');
             if (stored) {
                 const messages = JSON.parse(stored);
+                console.log(`Loading ${messages.length} stored table messages`);
                 
-                this.clearTable(true);
+                // Only clear if we have placeholder text, otherwise keep existing data
+                const tableBody = document.getElementById('tableBody');
+                if (tableBody && tableBody.querySelector('.no-data')) {
+                    tableBody.innerHTML = '';
+                }
                 
+                // Add stored messages to table without saving them again
                 messages.forEach(msg => {
                     this.addTableRow(msg, false);
                 });
             }
         } catch (error) {
-            console.log('No stored messages');
+            console.log('No stored table messages');
         }
     }
 
-    addMessage(message) {
+    addMessage(message, saveToStorage = true) {
         if (!this.isEnabled) return;
 
         const consoleElement = document.getElementById('debugConsole');
         if (!consoleElement) return;
 
         // Clear "waiting for messages" placeholder
+        const firstChild = consoleElement.children[0];
         if (consoleElement.children.length === 1 && 
-            consoleElement.textContent.includes('MQTT Debug Mode is OFF')) {
+            firstChild && firstChild.textContent && 
+            firstChild.textContent.includes('Waiting for messages')) {
             consoleElement.innerHTML = '';
         }
 
@@ -291,18 +316,81 @@ class DebugConsole {
         messageElement.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
         consoleElement.appendChild(messageElement);
 
-        // ENFORCE CONSOLE LIMIT (missing in current code)
+        // ENFORCE CONSOLE LIMIT
         while (consoleElement.children.length > this.maxConsoleMessages) {
             consoleElement.removeChild(consoleElement.firstChild);
         }
 
         consoleElement.scrollTop = consoleElement.scrollHeight;
+
+        // Save to console storage if this is a new message
+        if (saveToStorage) {
+            this.saveConsoleMessageToStorage(message);
+        }
+    }
+
+    saveConsoleMessageToStorage(message) {
+        try {
+            const currentMessages = this.getStoredConsoleMessages();
+            const timestampedMessage = {
+                message: message,
+                timestamp: new Date().toISOString()
+            };
+            
+            // Add new message to the beginning of the array (newest first)
+            currentMessages.unshift(timestampedMessage);
+            
+            // Keep only the latest messages (up to maxConsoleMessages)
+            const toSave = currentMessages.slice(0, this.maxConsoleMessages);
+            localStorage.setItem('mqttConsoleMessages', JSON.stringify(toSave));
+        } catch (error) {
+            console.log('Storage save error for console messages');
+        }
+    }
+
+    getStoredConsoleMessages() {
+        try {
+            const stored = localStorage.getItem('mqttConsoleMessages');
+            return stored ? JSON.parse(stored) : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    loadStoredConsoleMessages() {
+        if (!this.isEnabled) return;
+        
+        try {
+            const stored = localStorage.getItem('mqttConsoleMessages');
+            if (stored) {
+                const messages = JSON.parse(stored);
+                console.log(`Loading ${messages.length} stored console messages`);
+                
+                // Clear console and add stored messages
+                const consoleElement = document.getElementById('debugConsole');
+                if (consoleElement) {
+                    consoleElement.innerHTML = '';
+                    
+                    messages.forEach(msg => {
+                        const messageElement = document.createElement('div');
+                        messageElement.className = 'console-line';
+                        messageElement.textContent = `[${new Date(msg.timestamp).toLocaleTimeString()}] ${msg.message}`;
+                        consoleElement.appendChild(messageElement);
+                    });
+                    
+                    consoleElement.scrollTop = consoleElement.scrollHeight;
+                }
+            }
+        } catch (error) {
+            console.log('No stored console messages');
+        }
     }
 
     clearConsole() {
         const consoleElement = document.getElementById('debugConsole');
         if (consoleElement) {
             consoleElement.innerHTML = '';
+            localStorage.removeItem('mqttConsoleMessages');
             this.updateStatusMessages();
         }
     }
@@ -312,6 +400,7 @@ class DebugConsole {
         if (tableBody) {
             tableBody.innerHTML = '';
             localStorage.removeItem('mqttDebugMessages');
+            this.hasLoadedStoredMessages = false; // Reset the flag
             if (!silent) {
                 this.updateStatusMessages();
             }
@@ -343,7 +432,6 @@ class DebugConsole {
             const messages = await response.json();
             
             messages.forEach(msg => {
-                const currentTime = new Date().toLocaleTimeString();
                 this.addMessage(`MQTT [${msg.topic}]: ${msg.message}`);
                 this.addTableRow(msg);
             });
