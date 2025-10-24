@@ -15,6 +15,7 @@ struct WifiParams {
   char STApassword[32];
   char APWifiID[32];
   char APpassword[32];
+  char mqttServer[64]; 
 };
 
 // ---------- Global Parameter ----------

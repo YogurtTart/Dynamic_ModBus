@@ -68,3 +68,10 @@
         grid-template-columns: 1fr;
     }
 }
+
+.input-description {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    margin-top: var(--space-xs);
+    font-style: italic;
+}

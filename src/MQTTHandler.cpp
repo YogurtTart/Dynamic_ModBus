@@ -1,7 +1,7 @@
 #include "MQTTHandler.h"
 #include <Arduino.h>
 
-const char* mqttServer = "192.168.31.66";
+//const char* mqttServer = "192.168.31.66";
 const uint16_t mqttPort = 1883;
 const char* mqttTopicPub ="Lora/receive";
 unsigned long previousMQTTReconnect = 0;
@@ -26,7 +26,15 @@ void checkMQTT() {
 }
 
 void reconnectMQTT() {
-    Serial.print("🔌 Attempting MQTT connection...");
+    
+    mqttClient.setServer(currentParams.mqttServer, mqttPort);
+
+    Serial.print("🔌 Attempting MQTT connection to ");
+    Serial.print(currentParams.mqttServer);
+    Serial.print(":");
+    Serial.print(mqttPort);
+    Serial.println("...");
+    
     if (mqttClient.connect("ESP8266_LoRa_Client")) {
         Serial.println("✅ connected");
     } else {

@@ -1,8 +1,9 @@
 #pragma once
 #include <PubSubClient.h>
 #include <WiFiClient.h>
+#include "EEEProm.h"
 
-extern const char* mqttServer;
+//extern const char* mqttServer;
 extern const uint16_t mqttPort;
 extern const char* mqttTopicPub;
 extern unsigned long previousMQTTReconnect;

@@ -118,6 +118,32 @@
                                    minlength="8">
                         </div>
                     </section>
+                    <!-- Add this after the AP section and before the Network Status section -->
+                    <section class="form-section" aria-labelledby="mqtt-heading">
+                        <header class="section-header">
+                            <h3 id="mqtt-heading" class="section-title">
+                                <span class="section-icon">📡</span>
+                                MQTT Server Configuration
+                            </h3>
+                            <p class="section-description">Configure MQTT broker connection</p>
+                        </header>
+                        
+                        <div class="input-group">
+                            <label for="mqtt_server" class="input-label">
+                                MQTT Server Address
+                                <span class="required">*</span>
+                            </label>
+                            <input type="text" 
+                                id="mqtt_server" 
+                                name="mqtt_server" 
+                                class="text-input"
+                                placeholder="192.168.1.100 or mqtt.example.com"
+                                aria-required="true">
+                            <div class="input-description">
+                                Enter IP address or hostname of your MQTT broker
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
                 <div class="action-bar" style="margin-bottom: 20px;">

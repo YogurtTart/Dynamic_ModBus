@@ -18,6 +18,7 @@
 //     strcpy(defaultParams.STApassword, "202040406060808010102020");
 //     strcpy(defaultParams.APWifiID, "ESP8266_AP");
 //     strcpy(defaultParams.APpassword, "12345678");
+//     strcpy(defaultParams.mqttServer, "192.168.31.66");
     
 //     // Write to EEPROM
 //     EEPROM.put(WIFI_PARAMS_ADDR, defaultParams);
@@ -54,7 +55,7 @@ void setup() {
     Serial.println("📡 Setting up WiFi...");
     setupWiFi();
 
-    mqttClient.setServer(mqttServer, mqttPort);
+    //mqttClient.setServer(mqttServer, mqttPort);
     
     Serial.println("🌐 Starting Web Server...");
     setupWebServer();

@@ -173,6 +173,7 @@ void handleGetWifi() {
     doc["sta_password"] = currentParams.STApassword;
     doc["ap_ssid"] = currentParams.APWifiID;
     doc["ap_password"] = currentParams.APpassword;
+    doc["mqtt_server"] = currentParams.mqttServer;
     
     String response;
     serializeJson(doc, response);
@@ -187,12 +188,14 @@ void handleSaveWifi() {
     String sta_password = server.arg("sta_password");
     String ap_ssid = server.arg("ap_ssid");
     String ap_password = server.arg("ap_password");
+    String mqtt_server = server.arg("mqtt_server");
     
     Serial.printf("📥 Received data:\n");
     Serial.printf("   STA SSID: %s\n", sta_ssid.c_str());
     Serial.printf("   STA Pass: %s\n", sta_password.c_str());
     Serial.printf("   AP SSID: %s\n", ap_ssid.c_str());
     Serial.printf("   AP Pass: %s\n", ap_password.c_str());
+    Serial.printf("   MQTT Server: %s\n", mqtt_server.c_str());
     
     WifiParams newParams;
     
@@ -204,12 +207,14 @@ void handleSaveWifi() {
     strncpy(newParams.STApassword, sta_password.c_str(), sizeof(newParams.STApassword) - 1);
     strncpy(newParams.APWifiID, ap_ssid.c_str(), sizeof(newParams.APWifiID) - 1);
     strncpy(newParams.APpassword, ap_password.c_str(), sizeof(newParams.APpassword) - 1);
+    strncpy(newParams.mqttServer, mqtt_server.c_str(), sizeof(newParams.mqttServer) - 1);
     
     // Ensure null termination
     newParams.STAWifiID[sizeof(newParams.STAWifiID) - 1] = '\0';
     newParams.STApassword[sizeof(newParams.STApassword) - 1] = '\0';
     newParams.APWifiID[sizeof(newParams.APWifiID) - 1] = '\0';
     newParams.APpassword[sizeof(newParams.APpassword) - 1] = '\0';
+    newParams.mqttServer[sizeof(newParams.mqttServer) - 1] = '\0';
     
     // Pass to saveWifi
     saveWifi(newParams);

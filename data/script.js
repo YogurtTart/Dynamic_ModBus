@@ -30,6 +30,7 @@ async function loadSettings() {
         document.getElementById('sta_password').value = data.sta_password || '';
         document.getElementById('ap_ssid').value = data.ap_ssid || '';
         document.getElementById('ap_password').value = data.ap_password || '';
+        document.getElementById('mqtt_server').value = data.mqtt_server || '';
         
         showStatus('WiFi settings loaded successfully!', 'success');
     } catch (error) {
@@ -43,6 +44,7 @@ async function saveSettings() {
     formData.append('sta_password', document.getElementById('sta_password').value);
     formData.append('ap_ssid', document.getElementById('ap_ssid').value);
     formData.append('ap_password', document.getElementById('ap_password').value);
+    formData.append('mqtt_server', document.getElementById('mqtt_server').value);
     
     try {
         const response = await fetch('/savewifi', {
