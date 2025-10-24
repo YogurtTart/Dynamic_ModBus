@@ -70,16 +70,15 @@ void loop() {
     server.handleClient();    // Handle web requests
     checkWiFi();              // Check WiFi connection
 
-    // ----------------- Keep MQTT Alive -----------------
-    if (!mqttClient.connected()) reconnectMQTT();
-    mqttClient.loop();
+    // ----------------- Handle MQTT only if STA is connected -----------------
+    if (WiFi.status() == WL_CONNECTED) {
+        checkMQTT();          // Check and maintain MQTT connection
+    } 
 
     if(slaveCount > 0){
         updateNonBlockingQuery();
     }
     
-
-
     // ----------------- Handle Web Server -----------------
     server.handleClient();
 

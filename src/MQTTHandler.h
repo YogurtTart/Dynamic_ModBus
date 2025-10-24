@@ -13,3 +13,4 @@ extern PubSubClient mqttClient;
 
 void reconnectMQTT();
 void publishMessage(const char* topic, const char* payload);
+void checkMQTT(); 

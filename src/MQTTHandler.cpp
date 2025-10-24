@@ -5,23 +5,34 @@ const char* mqttServer = "192.168.31.66";
 const uint16_t mqttPort = 1883;
 const char* mqttTopicPub ="Lora/receive";
 unsigned long previousMQTTReconnect = 0;
-const unsigned long mqttReconnectInterval = 5000;
+const unsigned long mqttReconnectInterval = 20000;  // 10 seconds
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-void reconnectMQTT() {
+void checkMQTT() {
     unsigned long now = millis();
-    if (!mqttClient.connected() && now - previousMQTTReconnect > mqttReconnectInterval) {
-        previousMQTTReconnect = now;
-        Serial.print("Attempting MQTT connection...");
-        if (mqttClient.connect("ESP8266_LoRa_Client")) {
-            Serial.println("connected");
-        } else {
-            Serial.print("failed, rc=");
-            Serial.print(mqttClient.state());
-            Serial.println(" try again later");
+    
+    // Only check MQTT connection every 10 seconds when not connected
+    if (!mqttClient.connected()) {
+        if (now - previousMQTTReconnect >= mqttReconnectInterval) {
+            previousMQTTReconnect = now;
+            reconnectMQTT();
         }
+    } else {
+        // Process MQTT messages when connected
+        mqttClient.loop();
+    }
+}
+
+void reconnectMQTT() {
+    Serial.print("🔌 Attempting MQTT connection...");
+    if (mqttClient.connect("ESP8266_LoRa_Client")) {
+        Serial.println("✅ connected");
+    } else {
+        Serial.print("❌ failed, rc=");
+        Serial.print(mqttClient.state());
+        Serial.println(" try again in 10 seconds");
     }
 }
 
@@ -29,7 +40,7 @@ void reconnectMQTT() {
 void publishMessage(const char* topic, const char* payload) {
     if (mqttClient.connected()) {
         mqttClient.publish(topic, payload);
-        Serial.print("MQTT Published → ");
+        Serial.print("📤 MQTT Published → ");
         Serial.print(topic);
         Serial.print(": ");
         Serial.println(payload);

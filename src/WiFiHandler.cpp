@@ -4,7 +4,7 @@
 
 bool otaInitialized = false;
 unsigned long previousWiFiCheck = 0;
-const unsigned long wifiCheckInterval = 10000;
+const unsigned long wifiCheckInterval = 20000;
 
 void setupWiFi() {
     Serial.println("📡 Setting up WiFi in AP+STA mode...");
@@ -41,6 +41,7 @@ void checkWiFi() {
         
         if (WiFi.status() != WL_CONNECTED) {
             Serial.println("🔌 STA disconnected, reconnecting...");
+            WiFi.disconnect();
             WiFi.begin(currentParams.STAWifiID, currentParams.STApassword);
             otaInitialized = false;
         } else if (!otaInitialized) {
