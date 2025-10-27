@@ -105,7 +105,7 @@ bool loadSlaveConfig(JsonDocument& config) {
 bool savePollInterval(int interval) {
     Serial.printf("💾 Saving poll interval (%d seconds) to LittleFS...\n", interval);
     
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     doc["pollInterval"] = interval;
     
     String jsonString;
@@ -137,7 +137,7 @@ int loadPollInterval() {
         return 10;
     }
     
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonString);
     if (error) {
         Serial.printf("❌ Failed to parse poll interval: %s, using default\n", error.c_str());
@@ -153,7 +153,7 @@ int loadPollInterval() {
 bool saveTimeout(int timeoutSeconds) {
     Serial.printf("💾 Saving timeout (%d seconds) to LittleFS...\n", timeoutSeconds);
     
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     doc["timeout"] = timeoutSeconds;
     
     String jsonString;
@@ -182,7 +182,7 @@ int loadTimeout() {
         return 5;
     }
     
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonString);
     if (error) {
         Serial.printf("❌ Failed to parse timeout: %s, using default\n", error.c_str());

@@ -416,7 +416,7 @@ bool modbus_reloadSlaves() {
         } else if (slaves[i].name.indexOf("Voltage") >= 0) {
             // Load PT/divider values for each voltage parameter
             #define LOAD_VOLTAGE_PARAM(field) \
-                if (slaveObj.containsKey(#field)) { \
+                if (slaveObj[#field].is<JsonObject>()) { \
                     slaves[i].field.pt = slaveObj[#field]["pt"] | 1.0f; \
                     slaves[i].field.divider = slaveObj[#field]["divider"] | 1.0f; \
                 } else { \
