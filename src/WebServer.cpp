@@ -1,213 +1,144 @@
 #include "WebServer.h"
-#include "EEEProm.h"
-#include "FSHandler.h" 
-#include <ESP8266WebServer.h>
-#include <ArduinoJson.h>
 
-ESP8266WebServer server(80);
+// Constants
+constexpr int kMaxDebugMessages = 30;
+constexpr int kWebServerPort = 80;
+
+// Global Variables
+ESP8266WebServer server(kWebServerPort);
 bool debugEnabled = false;
 
-const int MAX_DEBUG_MESSAGES = 30;
-String debugMessages[MAX_DEBUG_MESSAGES];
+String debugMessages[kMaxDebugMessages];
 int debugMessageCount = 0;
 int debugMessageIndex = 0;
 
 void setupWebServer() {
-    Serial.println("🌐 Initializing Web Server on port 80...");
+    Serial.println("🌐 Initializing Web Server...");
     
     // Serve static files
     server.onNotFound(handleStaticFiles);
     
-    // API endpoints
+    // API endpoints - organized by functionality
     server.on("/", HTTP_GET, handleRoot);
+    server.on("/slaves.html", HTTP_GET, handleSlavesPage);
+    
+    // WiFi endpoints
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
     server.on("/getwifi", HTTP_GET, handleGetWifi);
-    server.on("/getipinfo", HTTP_GET, handleGetIPInfo);
-    server.on("/slaves.html", HTTP_GET, handleSlavesPage);
+    server.on("/getipinfo", HTTP_GET, handleGetIpInfo);
+    
+    // Slave endpoints
     server.on("/saveslaves", HTTP_POST, handleSaveSlaves);
     server.on("/getslaves", HTTP_GET, handleGetSlaves);
-    server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
-    server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
-    server.on("/savetimeout", HTTP_POST, handleSaveTimeout);    
-    server.on("/gettimeout", HTTP_GET, handleGetTimeout);      
-    server.on("/getstatistics", HTTP_GET, handleGetStatistics);   
-    server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
     server.on("/getslaveconfig", HTTP_POST, handleGetSlaveConfig);
     server.on("/updateslaveconfig", HTTP_POST, handleUpdateSlaveConfig);
+    
+    // Configuration endpoints
+    server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
+    server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
+    server.on("/savetimeout", HTTP_POST, handleSaveTimeout);
+    server.on("/gettimeout", HTTP_GET, handleGetTimeout);
+    
+    // Statistics endpoints
+    server.on("/getstatistics", HTTP_GET, handleGetStatistics);
+    server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
+    
+    // Debug endpoints
     server.on("/toggledebug", HTTP_POST, handleToggleDebug);
     server.on("/getdebugstate", HTTP_GET, handleGetDebugState);
     server.on("/getdebugmessages", HTTP_GET, handleGetDebugMessages);
     
     server.begin();
-    Serial.println("✅ HTTP server started successfully");
-    Serial.println("📍 Available endpoints:");
-    Serial.println("   GET  /         - Configuration page");
-    Serial.println("   GET  /getwifi  - Get current WiFi settings");
-    Serial.println("   POST /savewifi - Save new WiFi settings");
-    Serial.println("   GET  /getslaves - Get slave configuration");     
-    Serial.println("   POST /saveslaves - Save slave configuration");  
-    Serial.println("   GET  /getpollinterval - Get poll interval");     
-    Serial.println("   POST /savepollinterval - Save poll interval");    
-    Serial.println("   GET  /gettimeout - Get current timeout");         
-    Serial.println("   POST /savetimeout - Save new timeout");  
-    Serial.println("   GET  /getstatistics - Get query statistics");          
+    Serial.println("✅ HTTP server started on port 80");
 }
 
-void handleRoot() {
-    Serial.println("🌐 Handling root request (/)");
-    if (!fileExists("/index.html")) {
-        Serial.println("❌ index.html not found in LittleFS");
-        server.send(500, "text/plain", "Index file not found in LittleFS");
+// Helper Functions
+void serveHtmlFile(const String& filename) {
+    if (!fileExists(filename)) {
+        Serial.printf("❌ File not found: %s\n", filename.c_str());
+        server.send(500, "text/plain", "File not found: " + filename);
         return;
     }
     
-    String html = readFile("/index.html");
+    String html = readFile(filename);
     server.send(200, "text/html", html);
-    Serial.println("✅ Served index.html");
+    Serial.printf("✅ Served: %s (%d bytes)\n", filename.c_str(), html.length());
 }
 
+void sendJsonResponse(const JsonDocument& doc) {
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+}
+
+bool parseJsonBody(JsonDocument& doc) {
+    String body = server.arg("plain");
+    DeserializationError error = deserializeJson(doc, body);
+    
+    if (error) {
+        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        return false;
+    }
+    return true;
+}
+
+// Request Handlers
+void handleRoot() {
+    Serial.println("🌐 Handling root request");
+    serveHtmlFile("/index.html");
+}
 
 void handleSlavesPage() {
-    Serial.println("🌐 Handling slaves page request (/slaves.html)");
-    if (!fileExists("/slaves.html")) {
-        Serial.println("❌ slaves.html not found in LittleFS");
-        server.send(500, "text/plain", "Slaves page not found in LittleFS");
-        return;
-    }
-    
-    String html = readFile("/slaves.html");
-    server.send(200, "text/html", html);
-    Serial.println("✅ Served slaves.html");
+    Serial.println("🌐 Handling slaves page request");
+    serveHtmlFile("/slaves.html");
 }
 
-void handleSaveSlaves() {
-    Serial.println("💾 POST /saveslaves - Saving slave configuration");
+void handleGetIpInfo() {
+    Serial.println("📡 Returning IP information");
     
-    String body = server.arg("plain");
-    Serial.printf("📥 Received slave config: %s\n", body.c_str());
+    JsonDocument doc;
     
-    // Parse the incoming JSON
-    StaticJsonDocument<2048> doc;
-    DeserializationError error = deserializeJson(doc, body);
-    
-    if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-        return;
-    }
-    
-    // Save using centralized FSHandler
-    if (saveSlaveConfig(doc)) {
-        server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.println("✅ Slave configuration saved successfully");
+    // STA IP info
+    if (WiFi.status() == WL_CONNECTED) {
+        doc["sta_ip"] = WiFi.localIP().toString();
+        doc["sta_subnet"] = WiFi.subnetMask().toString();
+        doc["sta_gateway"] = WiFi.gatewayIP().toString();
+        doc["sta_connected"] = true;
     } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save slave configuration");
-    }
-}
-
-void handleGetSlaves() {
-    Serial.println("📡 GET /getslaves - Returning slave configuration");
-    
-    StaticJsonDocument<2048> doc;
-    
-    if (loadSlaveConfig(doc)) {
-        String response;
-        serializeJson(doc, response);
-        server.send(200, "application/json", response);
-        Serial.printf("✅ Sent slave configuration (%d bytes)\n", response.length());
-    } else {
-        // Return empty config
-        server.send(200, "application/json", "{\"slaves\":[]}");
-        Serial.println("✅ Sent empty slave configuration");
-    }
-}
-
-void handleSavePollInterval() {
-    Serial.println("💾 POST /savepollinterval - Saving poll interval");
-    
-    String body = server.arg("plain");
-    Serial.printf("📥 Received poll interval: %s\n", body.c_str());
-    
-    // Parse the incoming JSON
-    StaticJsonDocument<128> doc;
-    DeserializationError error = deserializeJson(doc, body);
-    
-    if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-        return;
+        doc["sta_ip"] = "Not connected";
+        doc["sta_subnet"] = "N/A";
+        doc["sta_gateway"] = "N/A";
+        doc["sta_connected"] = false;
     }
     
-    int interval = doc["pollInterval"] | 10;
+    // AP IP info
+    doc["ap_ip"] = WiFi.softAPIP().toString();
+    doc["ap_connected_clients"] = WiFi.softAPgetStationNum();
     
-    // Save using centralized FSHandler
-    if (savePollInterval(interval)) {
-        server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.printf("✅ Poll interval saved: %d seconds\n", interval);
-    } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save poll interval");
-    }
-}
-
-void handleGetPollInterval() {
-    Serial.println("📡 GET /getpollinterval - Returning poll interval");
-    
-    // Load using centralized FSHandler
-    int interval = loadPollInterval();
-    
-    StaticJsonDocument<128> doc;
-    doc["pollInterval"] = interval;
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
-    Serial.printf("✅ Sent poll interval: %d seconds\n", interval);
-}
-
-void handleGetWifi() {
-    Serial.println("📡 GET /getwifi - Returning current WiFi settings");
-    StaticJsonDocument<512> doc;
-    doc["sta_ssid"] = currentParams.STAWifiID;
-    doc["sta_password"] = currentParams.STApassword;
-    doc["ap_ssid"] = currentParams.APWifiID;
-    doc["ap_password"] = currentParams.APpassword;
-    doc["mqtt_server"] = currentParams.mqttServer;
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
-    Serial.printf("✅ Sent settings: STA=%s, AP=%s\n", currentParams.STAWifiID, currentParams.APWifiID);
+    sendJsonResponse(doc);
+    Serial.printf("✅ Sent IP info - STA: %s, AP: %s\n", 
+                  doc["sta_ip"].as<const char*>(), 
+                  doc["ap_ip"].as<const char*>());
 }
 
 void handleSaveWifi() {
-    Serial.println("💾 POST /savewifi - Saving new WiFi settings");
+    Serial.println("💾 Saving WiFi settings");
     
-    String sta_ssid = server.arg("sta_ssid");
-    String sta_password = server.arg("sta_password");
-    String ap_ssid = server.arg("ap_ssid");
-    String ap_password = server.arg("ap_password");
-    String mqtt_server = server.arg("mqtt_server");
-    
-    Serial.printf("📥 Received data:\n");
-    Serial.printf("   STA SSID: %s\n", sta_ssid.c_str());
-    Serial.printf("   STA Pass: %s\n", sta_password.c_str());
-    Serial.printf("   AP SSID: %s\n", ap_ssid.c_str());
-    Serial.printf("   AP Pass: %s\n", ap_password.c_str());
-    Serial.printf("   MQTT Server: %s\n", mqtt_server.c_str());
+    String staSsid = server.arg("sta_ssid");
+    String staPassword = server.arg("sta_password");
+    String apSsid = server.arg("ap_ssid");
+    String apPassword = server.arg("ap_password");
+    String mqttServer = server.arg("mqtt_server");
     
     WifiParams newParams;
-    
-    // Initialize the struct
     memset(&newParams, 0, sizeof(newParams));
     
-    // Copy ALL values from the web form
-    strncpy(newParams.STAWifiID, sta_ssid.c_str(), sizeof(newParams.STAWifiID) - 1);
-    strncpy(newParams.STApassword, sta_password.c_str(), sizeof(newParams.STApassword) - 1);
-    strncpy(newParams.APWifiID, ap_ssid.c_str(), sizeof(newParams.APWifiID) - 1);
-    strncpy(newParams.APpassword, ap_password.c_str(), sizeof(newParams.APpassword) - 1);
-    strncpy(newParams.mqttServer, mqtt_server.c_str(), sizeof(newParams.mqttServer) - 1);
+    strncpy(newParams.STAWifiID, staSsid.c_str(), sizeof(newParams.STAWifiID) - 1);
+    strncpy(newParams.STApassword, staPassword.c_str(), sizeof(newParams.STApassword) - 1);
+    strncpy(newParams.APWifiID, apSsid.c_str(), sizeof(newParams.APWifiID) - 1);
+    strncpy(newParams.APpassword, apPassword.c_str(), sizeof(newParams.APpassword) - 1);
+    strncpy(newParams.mqttServer, mqttServer.c_str(), sizeof(newParams.mqttServer) - 1);
     
     // Ensure null termination
     newParams.STAWifiID[sizeof(newParams.STAWifiID) - 1] = '\0';
@@ -216,11 +147,23 @@ void handleSaveWifi() {
     newParams.APpassword[sizeof(newParams.APpassword) - 1] = '\0';
     newParams.mqttServer[sizeof(newParams.mqttServer) - 1] = '\0';
     
-    // Pass to saveWifi
     saveWifi(newParams);
-    
     server.send(200, "application/json", "{\"status\":\"success\"}");
-    Serial.println("✅ WiFi settings saved successfully");
+    Serial.println("✅ WiFi settings saved");
+}
+
+void handleGetWifi() {
+    Serial.println("📡 Returning WiFi settings");
+    
+    JsonDocument doc;
+    
+    doc["sta_ssid"] = currentParams.STAWifiID;
+    doc["sta_password"] = currentParams.STApassword;
+    doc["ap_ssid"] = currentParams.APWifiID;
+    doc["ap_password"] = currentParams.APpassword;
+    doc["mqtt_server"] = currentParams.mqttServer;
+    
+    sendJsonResponse(doc);
 }
 
 void handleStaticFiles() {
@@ -246,7 +189,7 @@ void handleStaticFiles() {
     Serial.printf("✅ Served file: %s (%d bytes)\n", path.c_str(), content.length());
 }
 
-String getContentType(String filename) {
+String getContentType(const String& filename) {
     if (filename.endsWith(".html")) return "text/html";
     if (filename.endsWith(".css")) return "text/css";
     if (filename.endsWith(".js")) return "application/javascript";
@@ -258,26 +201,75 @@ String getContentType(String filename) {
     return "text/plain";
 }
 
-// Update in WebServer.cpp
-void handleSaveTimeout() {
-    Serial.println("💾 POST /savetimeout - Saving timeout");
+void handleSaveSlaves() {
+    Serial.println("💾 Saving slave configuration");
     
-    String body = server.arg("plain");
-    Serial.printf("📥 Received timeout: %s\n", body.c_str());
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
     
-    // Parse the incoming JSON
-    StaticJsonDocument<128> doc;
-    DeserializationError error = deserializeJson(doc, body);
+    Serial.printf("📥 Received slave config: %d bytes\n", server.arg("plain").length());
     
-    if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-        return;
+    if (saveSlaveConfig(doc)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.println("✅ Slave configuration saved successfully");
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save slave configuration");
     }
+}
+
+void handleGetSlaves() {
+    Serial.println("📡 Returning slave configuration");
+    
+    JsonDocument doc;
+    if (loadSlaveConfig(doc)) {
+        String response;
+        serializeJson(doc, response);
+        server.send(200, "application/json", response);
+        Serial.printf("✅ Sent slave configuration (%d bytes)\n", response.length());
+    } else {
+        server.send(200, "application/json", "{\"slaves\":[]}");
+        Serial.println("✅ Sent empty slave configuration");
+    }
+}
+
+void handleSavePollInterval() {
+    Serial.println("💾 Saving poll interval");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
+    
+    int interval = doc["pollInterval"] | 10;
+    
+    if (savePollInterval(interval)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.printf("✅ Poll interval saved: %d seconds\n", interval);
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save poll interval");
+    }
+}
+
+void handleGetPollInterval() {
+    Serial.println("📡 Returning poll interval");
+    
+    int interval = loadPollInterval();
+    
+    JsonDocument doc;
+    doc["pollInterval"] = interval;
+    
+    sendJsonResponse(doc);
+    Serial.printf("✅ Sent poll interval: %d seconds\n", interval);
+}
+
+void handleSaveTimeout() {
+    Serial.println("💾 Saving timeout");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
     
     int timeout = doc["timeout"] | 1;
     
-    // Save using centralized FSHandler
     if (saveTimeout(timeout)) {
         server.send(200, "application/json", "{\"status\":\"success\"}");
         Serial.printf("✅ Timeout saved: %d seconds\n", timeout);
@@ -288,43 +280,30 @@ void handleSaveTimeout() {
 }
 
 void handleGetTimeout() {
-    Serial.println("📡 GET /gettimeout - Returning timeout");
+    Serial.println("📡 Returning timeout");
     
-    // Load using centralized FSHandler
     int timeout = loadTimeout();
     
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     doc["timeout"] = timeout;
     
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
+    sendJsonResponse(doc);
     Serial.printf("✅ Sent timeout: %d seconds\n", timeout);
 }
 
 void handleGetStatistics() {
-    Serial.println("📊 GET /getstatistics - Returning query statistics");
+    Serial.println("📊 Returning query statistics");
     
-    String statsJSON = getStatisticsJSON();
-    server.send(200, "application/json", statsJSON);
-    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJSON.length());
+    String statsJson = getStatisticsJson();
+    server.send(200, "application/json", statsJson);
+    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJson.length());
 }
 
 void handleRemoveSlaveStats() {
-    Serial.println("🗑️ POST /removeslavestats - Removing slave statistics");
+    Serial.println("🗑️ Removing slave statistics");
     
-    String body = server.arg("plain");
-    Serial.printf("📥 Received remove request: %s\n", body.c_str());
-    
-    // Parse the incoming JSON
-    StaticJsonDocument<128> doc;
-    DeserializationError error = deserializeJson(doc, body);
-    
-    if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
-        return;
-    }
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
     
     uint8_t slaveId = doc["slaveId"];
     const char* slaveName = doc["slaveName"];
@@ -334,10 +313,8 @@ void handleRemoveSlaveStats() {
     Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
 }
 
-// Add these function declarations in WebServer.h and implementations in WebServer.cpp
-
 void handleGetSlaveConfig() {
-    Serial.println("🔍 POST /getslaveconfig - Searching for specific slave");
+    Serial.println("🔍 Searching for specific slave");
     
     String body = server.arg("plain");
     if (body.length() == 0) {
@@ -345,14 +322,10 @@ void handleGetSlaveConfig() {
         return;
     }
     
-    Serial.printf("📥 Received search request: %s\n", body.c_str());
-    
-    // Parse the incoming JSON
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, body);
     
     if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
@@ -362,7 +335,6 @@ void handleGetSlaveConfig() {
     
     Serial.printf("🔎 Searching for slave ID: %d, Name: %s\n", slaveId, slaveName);
     
-    // Load slave configuration
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
@@ -373,7 +345,6 @@ void handleGetSlaveConfig() {
     bool slaveFound = false;
     JsonObject foundSlave;
     
-    // Search for the specific slave
     for (JsonObject slave : slavesArray) {
         if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
             foundSlave = slave;
@@ -383,12 +354,10 @@ void handleGetSlaveConfig() {
     }
     
     if (!slaveFound) {
-        Serial.printf("❌ Slave not found: ID=%d, Name=%s\n", slaveId, slaveName);
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
         return;
     }
     
-    // Return the found slave configuration
     String response;
     serializeJson(foundSlave, response);
     server.send(200, "application/json", response);
@@ -396,7 +365,7 @@ void handleGetSlaveConfig() {
 }
 
 void handleUpdateSlaveConfig() {
-    Serial.println("💾 POST /updateslaveconfig - Updating specific slave");
+    Serial.println("💾 Updating specific slave");
     
     String body = server.arg("plain");
     if (body.length() == 0) {
@@ -404,19 +373,14 @@ void handleUpdateSlaveConfig() {
         return;
     }
     
-    Serial.printf("📥 Received update request: %s\n", body.c_str());
-    
-    // Parse the incoming JSON
     JsonDocument updateDoc;
     DeserializationError error = deserializeJson(updateDoc, body);
     
     if (error) {
-        Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
     
-    // Validate required fields using new method
     if (!updateDoc["id"].is<int>() || !updateDoc["name"].is<const char*>()) {
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing required fields: id and name\"}");
         return;
@@ -427,7 +391,6 @@ void handleUpdateSlaveConfig() {
     
     Serial.printf("🔄 Updating slave ID: %d, Name: %s\n", slaveId, slaveName);
     
-    // Load current slave configuration
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
@@ -438,7 +401,6 @@ void handleUpdateSlaveConfig() {
     bool slaveFound = false;
     int slaveIndex = -1;
     
-    // Find the specific slave
     for (int i = 0; i < slavesArray.size(); i++) {
         JsonObject slave = slavesArray[i];
         if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
@@ -449,7 +411,6 @@ void handleUpdateSlaveConfig() {
     }
     
     if (!slaveFound) {
-        Serial.printf("❌ Slave not found for update: ID=%d, Name=%s\n", slaveId, slaveName);
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
         return;
     }
@@ -460,13 +421,10 @@ void handleUpdateSlaveConfig() {
         slavesArray[slaveIndex][kv.key()] = kv.value();
     }
     
-    // Save the updated configuration
     if (saveSlaveConfig(configDoc)) {
         server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Slave configuration updated successfully\"}");
         Serial.printf("✅ Successfully updated slave ID %d: %s\n", slaveId, slaveName);
-        
-        // Reload slaves in Modbus handler
-        modbus_reloadSlaves();
+        modbusReloadSlaves();
     } else {
         server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save configuration\"}");
         Serial.println("❌ Failed to save updated slave configuration");
@@ -474,14 +432,8 @@ void handleUpdateSlaveConfig() {
 }
 
 void handleToggleDebug() {
-    String body = server.arg("plain");
-    StaticJsonDocument<128> doc;
-    DeserializationError error = deserializeJson(doc, body);
-    
-    if (error) {
-        server.send(400, "application/json", "{\"status\":\"error\"}");
-        return;
-    }
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
     
     debugEnabled = doc["enabled"] | false;
     server.send(200, "application/json", "{\"status\":\"success\"}");
@@ -490,16 +442,12 @@ void handleToggleDebug() {
 }
 
 void handleGetDebugState() {
-    StaticJsonDocument<128> doc;
+    JsonDocument doc;
     doc["enabled"] = debugEnabled;
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
+    sendJsonResponse(doc);
 }
 
 void handleGetDebugMessages() {
-    // Return stored debug messages as JSON array
     String response = "[";
     for (int i = 0; i < debugMessageCount; i++) {
         response += debugMessages[i];
@@ -517,8 +465,7 @@ void handleGetDebugMessages() {
 void addDebugMessage(const char* topic, const char* message) {
     if (!debugEnabled) return;
     
-    // Create JSON message for web interface
-    StaticJsonDocument<512> doc;
+    JsonDocument doc;
     doc["topic"] = topic;
     doc["message"] = message;
     doc["timestamp"] = millis();
@@ -528,43 +475,11 @@ void addDebugMessage(const char* topic, const char* message) {
     
     // Store in circular buffer
     debugMessages[debugMessageIndex] = jsonMessage;
-    debugMessageIndex = (debugMessageIndex + 1) % MAX_DEBUG_MESSAGES;
+    debugMessageIndex = (debugMessageIndex + 1) % kMaxDebugMessages;
     
-    // Track actual count
-    if (debugMessageCount < MAX_DEBUG_MESSAGES) {
+    if (debugMessageCount < kMaxDebugMessages) {
         debugMessageCount++;
     }
     
     Serial.printf("📢 DEBUG [%s]: %s\n", topic, message);
-}
-
-
-void handleGetIPInfo() {
-    Serial.println("📡 GET /getipinfo - Returning IP information");
-    
-    StaticJsonDocument<512> doc;
-    
-    // STA IP info
-    if (WiFi.status() == WL_CONNECTED) {
-        doc["sta_ip"] = WiFi.localIP().toString();
-        doc["sta_subnet"] = WiFi.subnetMask().toString();
-        doc["sta_gateway"] = WiFi.gatewayIP().toString();
-        doc["sta_connected"] = true;
-    } else {
-        doc["sta_ip"] = "Not connected";
-        doc["sta_subnet"] = "N/A";
-        doc["sta_gateway"] = "N/A";
-        doc["sta_connected"] = false;
-    }
-    
-    // AP IP info
-    doc["ap_ip"] = WiFi.softAPIP().toString();
-    doc["ap_connected_clients"] = WiFi.softAPgetStationNum();
-    
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
-    Serial.printf("✅ Sent IP info - STA: %s, AP: %s\n", 
-                  doc["sta_ip"].as<const char*>(), 
-                  doc["ap_ip"].as<const char*>());
 }

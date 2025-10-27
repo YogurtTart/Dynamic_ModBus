@@ -1,5 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
+
 #include "EEEProm.h"
 #include "WiFiHandler.h"
 #include "WebServer.h"
@@ -29,59 +30,60 @@
 //     delay(1000);
 // }
 
+// System initialization
+void initializeSystem();
+void handleSystemOperations();
 
 void setup() {
     Serial.begin(9600);
-    Serial.println("\n🔌 ESP8266 Starting...");
+    Serial.println("\n🔌 ESP8266 ModBus Gateway Starting...");
     delay(1000);
 
-    //forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
+    // forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
 
-    // Initialize EEPROM and load WiFi settings
-    Serial.println("📝 Initializing EEPROM...");
-    initEEEPROM();
-    loadWifi();
-    Serial.println("✅ EEPROM initialized");
-
-    // Initialize File System
-    Serial.println("📁 Initializing LittleFS...");
-    if (!initFileSystem()) {
-        Serial.println("❌ LittleFS initialization failed!");
-        return;
-    }
-    Serial.println("✅ LittleFS initialized");
-        
-    // Setup WiFi and Web Server
-    Serial.println("📡 Setting up WiFi...");
-    setupWiFi();
-
-    //mqttClient.setServer(mqttServer, mqttPort);
-    
-    Serial.println("🌐 Starting Web Server...");
-    setupWebServer();
-
-    initModbus();
-    modbus_reloadSlaves();
-    
+    initializeSystem();
     Serial.println("🎉 System fully initialized and ready!");
-    Serial.println("======================================");
 }
 
 void loop() {
-    server.handleClient();    // Handle web requests
-    checkWiFi();              // Check WiFi connection
+    handleSystemOperations();
+    delay(10); // Small delay for stability
+}
 
-    // ----------------- Handle MQTT only if STA is connected -----------------
-    if (WiFi.status() == WL_CONNECTED) {
-        checkMQTT();          // Check and maintain MQTT connection
-    } 
-
-    if(slaveCount > 0){
-        updateNonBlockingQuery();
+void initializeSystem() {
+    // Initialize components in logical order
+    Serial.println("📝 Initializing EEPROM...");
+    initEEEPROM();
+    loadWifi();
+    
+    Serial.println("📁 Initializing File System...");
+    if (!initFileSystem()) {
+        Serial.println("❌ File system initialization failed!");
+        return;
     }
     
-    // ----------------- Handle Web Server -----------------
-    server.handleClient();
+    Serial.println("📡 Setting up WiFi...");
+    setupWiFi();
+    
+    Serial.println("🌐 Starting Web Server...");
+    setupWebServer();
+    
+    Serial.println("🔌 Initializing ModBus...");
+    initModbus();
+    modbusReloadSlaves();
+}
 
+void handleSystemOperations() {
+    server.handleClient();    // Handle web requests
+    checkWiFi();              // Maintain WiFi connection
+    
+    if (WiFi.status() == WL_CONNECTED) {
+        checkMQTT();          // Maintain MQTT connection
+    }
+    
+    if (slaveCount > 0) {
+        updateNonBlockingQuery(); // Process ModBus queries
+    }
+    
     ArduinoOTA.handle();      // Handle OTA updates
 }

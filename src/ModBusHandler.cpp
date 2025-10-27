@@ -1,90 +1,91 @@
 #include "ModBusHandler.h"
 
-#define MAX485_DE 5
+// Constants
+constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
+constexpr unsigned long kDefaultTimeout = 1000;          // 1 second
+constexpr unsigned long kQueryInterval = 200;            // 0.2 seconds between slaves
 
+// Global Variables
 ModbusMaster node;
-
 SensorSlave* slaves = nullptr;
 int slaveCount = 0;
 
 // Non-blocking query state
 unsigned long lastQueryTime = 0;
 uint8_t currentSlaveIndex = 0;
-unsigned long pollInterval = 10000;
-unsigned long timeoutDuration = 1000;
+unsigned long pollInterval = kDefaultPollInterval;
+unsigned long timeoutDuration = kDefaultTimeout;
 
 // Non-blocking state variables
 enum QueryState { 
     STATE_IDLE, 
-    STATE_START_QUERY,      // Start query state
-    STATE_WAIT_RESPONSE,    // Wait for response state
-    STATE_PROCESS_DATA,     // Process received data state
+    STATE_START_QUERY, 
+    STATE_WAIT_RESPONSE, 
+    STATE_PROCESS_DATA, 
     STATE_WAITING 
 };
-QueryState currentState = STATE_IDLE;
 
+QueryState currentState = STATE_IDLE;
 unsigned long lastActionTime = 0;
 unsigned long queryStartTime = 0;
 bool waitingForResponse = false;
 
-#define QUERY_INTERVAL 200  // .2 seconds between slaves
-
-SlaveStatistics slaveStats[MAX_STATISTICS_SLAVES];
+// Statistics
+SlaveStatistics slaveStats[kMaxStatisticsSlaves];
 uint8_t slaveStatsCount = 0;
 
+// ==================== RS485 CONTROL FUNCTIONS ====================
 
 void preTransmission() { 
-    digitalWrite(MAX485_DE, HIGH); 
+    digitalWrite(kRs485DePin, HIGH); 
 }
 
 void postTransmission() { 
-    digitalWrite(MAX485_DE, LOW); 
+    digitalWrite(kRs485DePin, LOW); 
 }
 
-float convertRegisterToTemperature(uint16_t regVal, float divider = 1.0) {
+// ==================== DATA CONVERSION FUNCTIONS ====================
+
+float convertRegisterToTemperature(uint16_t registerValue, float divider) {
     int16_t tempInt;
-    if (regVal & 0x8000) 
-        tempInt = -((0xFFFF - regVal) + 1);
-    else 
-        tempInt = regVal;
-    return (tempInt * 0.1) / divider;
+    if (registerValue & 0x8000) {
+        tempInt = -((0xFFFF - registerValue) + 1);
+    } else {
+        tempInt = registerValue;
+    }
+    return (tempInt * 0.1f) / divider;
 }
 
-float convertRegisterToHumidity(uint16_t regVal, float divider = 1.0) {
-    return (regVal * 0.1) / divider;
+float convertRegisterToHumidity(uint16_t registerValue, float divider) {
+    return (registerValue * 0.1f) / divider;
 }
 
-float convertRegisterToVoltage(uint16_t regVal, float pt, float divider = 1.0) {
-    return (regVal * pt /100) / divider;
+float calculateCurrent(uint16_t registerValue, float ct, float divider) {
+    return (registerValue * ct / 10000.0f) / divider;
 }
 
-// Formula calculation functions
-float calculateCurrent(uint16_t registerValue, float ct, float divider = 1.0) {
-    return (registerValue * ct / 10000.0) / divider;
+float calculateSinglePhasePower(int16_t registerValue, float pt, float ct, float divider) {
+    return (registerValue * pt * ct / 100.0f) / divider;
 }
 
-float calculateSinglePhasePower(int16_t  registerValue, float pt, float ct, float divider = 1.0) {
-    return (registerValue * pt * ct / 100.0) / divider;
+float calculateThreePhasePower(int16_t registerValue, float pt, float ct, float divider) {
+    return (registerValue * pt * ct / 10.0f) / divider;
 }
 
-float calculateThreePhasePower(int16_t  registerValue, float pt, float ct, float divider = 1.0) {
-    return (registerValue * pt * ct / 10.0) / divider;
+float calculatePowerFactor(int16_t registerValue, float divider) {
+    return (registerValue / 10000.0f) / divider;
 }
 
-float calculatePowerFactor(int16_t  registerValue, float divider = 1.0) {
-    return (registerValue / 10000.0) / divider;
+float calculateVoltage(uint16_t registerValue, float pt, float divider) {
+    return (registerValue * pt / 100.0f) / divider;
 }
 
-float calculateVoltage(uint16_t registerValue, float pt, float divider = 1.0) {
-    return (registerValue * pt / 100.0) / divider;
-}
+// ==================== MODBUS INITIALIZATION ====================
 
 bool initModbus() {
-    // Initialize RS485 control pin
-    pinMode(MAX485_DE, OUTPUT);
-    digitalWrite(MAX485_DE, LOW);
+    pinMode(kRs485DePin, OUTPUT);
+    digitalWrite(kRs485DePin, LOW);
     
-    // Initialize ModbusMaster
     node.begin(1, Serial);
     node.preTransmission(preTransmission);
     node.postTransmission(postTransmission);
@@ -93,253 +94,88 @@ bool initModbus() {
     return true;
 }
 
-// Start a non-blocking query
-bool startNonBlockingQuery() {
-    if (currentSlaveIndex >= slaveCount) return false;
-    
-    SensorSlave slave = slaves[currentSlaveIndex];
-    
-    node.begin(slave.id, Serial);
+// ==================== CONFIGURATION LOADING HELPERS ====================
 
-    node.preTransmission(preTransmission);
-    node.postTransmission(postTransmission);
-
-    node.clearResponseBuffer();
-    node.clearTransmitBuffer();
-
-    delay(300);
-
-    uint8_t result = node.readHoldingRegisters(slave.startReg, slave.numReg);
-    
-    
-    queryStartTime = millis();
-    waitingForResponse = true;
-
-    Serial.printf("➡️ Querying slave %d: %s\n", slave.id, slave.name.c_str());
-
-    return (result == node.ku8MBSuccess);
-}
-
-// Process the received data
-void processNonBlockingData() {
-    SensorSlave slave = slaves[currentSlaveIndex];
-    
-    JsonDocument doc;
-    JsonObject root = doc.to<JsonObject>(); // Direct root object
-    
-    bool success = false;
-
-    // Common fields for all devices
-    root["id"] = slave.id;
-    root["name"] = slave.name;
-    root["mqtt_topic"] = slave.mqttTopic;
-    root["timestamp"] = millis();
-
+void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
     if (slave.name.indexOf("Sensor") >= 0) {
-        root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), slave.tempdivider);
-        root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), slave.humiddivider);
-        success = true;
-
+        slave.tempDivider = slaveObj["tempdivider"] | 1.0f;
+        slave.humidDivider = slaveObj["humiddivider"] | 1.0f;
     } else if (slave.name.indexOf("Meter") >= 0) {
-        // Current values
-        root["A_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(0), slave.ACurrent.ct, slave.ACurrent.divider);
-        root["B_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(1), slave.BCurrent.ct, slave.BCurrent.divider);
-        root["C_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(2), slave.CCurrent.ct, slave.CCurrent.divider);
-        root["Zero_Phase_Current"] = calculateCurrent((uint16_t)node.getResponseBuffer(3), slave.ZeroPhaseCurrent.ct, slave.ZeroPhaseCurrent.divider);
-        
-        // Single phase active power
-        root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.AActiveP.pt, slave.AActiveP.ct, slave.AActiveP.divider);
-        root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.BActiveP.pt, slave.BActiveP.ct, slave.BActiveP.divider);
-        root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), slave.CActiveP.pt, slave.CActiveP.ct, slave.CActiveP.divider);
-        
-        // Three phase active power
-        root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), slave.Total3PActiveP.pt, slave.Total3PActiveP.ct, slave.Total3PActiveP.divider);
-        
-        // Single phase reactive power
-        root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), slave.AReactiveP.pt, slave.AReactiveP.ct, slave.AReactiveP.divider);
-        root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), slave.BReactiveP.pt, slave.BReactiveP.ct, slave.BReactiveP.divider);
-        root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), slave.CReactiveP.pt, slave.CReactiveP.ct, slave.CReactiveP.divider);
-        
-        // Three phase reactive power
-        root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), slave.Total3PReactiveP.pt, slave.Total3PReactiveP.ct, slave.Total3PReactiveP.divider);
-        
-        // Single phase apparent power
-        root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), slave.AApparentP.pt, slave.AApparentP.ct, slave.AApparentP.divider);
-        root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), slave.BApparentP.pt, slave.BApparentP.ct, slave.BApparentP.divider);
-        root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), slave.CApparentP.pt, slave.CApparentP.ct, slave.CApparentP.divider);
-        
-        // Three phase apparent power
-        root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), slave.Total3PApparentP.pt, slave.Total3PApparentP.ct, slave.Total3PApparentP.divider);
-        
-        // Power factor
-        root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), slave.APowerF.divider);
-        root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), slave.BPowerF.divider);
-        root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), slave.CPowerF.divider);
-        root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), slave.Total3PPowerF.divider);
-        
-        success = true;
-
+        loadMeterParameters(slave, slaveObj);
     } else if (slave.name.indexOf("Voltage") >= 0) {
-        root["A_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(0), slave.AVoltage.pt, slave.AVoltage.divider);
-        root["B_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(1), slave.BVoltage.pt, slave.BVoltage.divider);
-        root["C_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(2), slave.CVoltage.pt, slave.CVoltage.divider);
-        root["Phase_Voltage_Mean"] = calculateVoltage((uint16_t)node.getResponseBuffer(3), slave.PhaseVoltageMean.pt, slave.PhaseVoltageMean.divider);
-        root["Zero_Sequence_Voltage"] = calculateVoltage((uint16_t)node.getResponseBuffer(4), slave.ZeroSequenceVoltage.pt, slave.ZeroSequenceVoltage.divider);
-        success = true;
-    
+        loadVoltageParameters(slave, slaveObj);
     } else if (slave.name.indexOf("Energy") >= 0) {
-        root["Total_Active_Energy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
-        root["Import_Active_Energy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
-        root["Export_Active_Energy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
-        success = true;
-
-    } else {
-        root["error"] = "Unknown device type";
-    }
-    
-    String output;
-    serializeJson(doc, output);
-
-    // Publishing
-    publishMessage(slave.mqttTopic.c_str(), output.c_str());
-    if (debugEnabled) {
-        addDebugMessage(slave.mqttTopic.c_str(), output.c_str());
-    }
-    
-    if (!success) {
-        Serial.printf("❌ No valid data from slave %d\n", slave.id);
-    }
-    
-    waitingForResponse = false;
-}
-
-// Check if we should move to next cycle
-void checkCycleCompletion() {
-    if (currentSlaveIndex >= slaveCount) {
-        currentState = STATE_WAITING;
-        Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
-    } else {
-        currentState = STATE_START_QUERY;
+        loadEnergyParameters(slave, slaveObj);
     }
 }
 
-// Non-blocking state machine
-void updateNonBlockingQuery() {
-    unsigned long currentTime = millis();
+void loadMeterParameters(SensorSlave& slave, JsonObject slaveObj) {
+    #define LOAD_METER_PARAM(field) \
+        slave.field.ct = slaveObj[#field]["ct"] | 1.0f; \
+        slave.field.pt = slaveObj[#field]["pt"] | 1.0f; \
+        slave.field.divider = slaveObj[#field]["divider"] | 1.0f;
     
-    switch (currentState) {
-        case STATE_IDLE:
-            // Start first query cycle
-            currentState = STATE_START_QUERY;
-            currentSlaveIndex = 0;
-            lastActionTime = currentTime;
-            waitingForResponse = false;
-            Serial.println("🚀 Starting NON-BLOCKING query cycle");
-            break;
-            
-        case STATE_START_QUERY:
-
-            if (currentTime - lastActionTime >= QUERY_INTERVAL) {
-                lastActionTime = currentTime;
-                
-                // Start querying current slave
-                if (startNonBlockingQuery()) {
-                    currentState = STATE_WAIT_RESPONSE;
-                    Serial.printf("⏳ Waiting for slave %d response...\n", slaves[currentSlaveIndex].id);
-                } else {
-                    // Failed to start query, move to next slave
-                    Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
-
-                    updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, false);
-
-                    // FLAT STRUCTURE: Create error message
-                    JsonDocument doc;
-                    JsonObject root = doc.to<JsonObject>();
-                    root["id"] = slaves[currentSlaveIndex].id;
-                    root["name"] = slaves[currentSlaveIndex].name;
-                    root["error"] = "Failed to start Modbus query";
-                    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
-
-                    String output;
-                    serializeJson(doc, output);
-                    publishMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
-
-                    if (debugEnabled) {
-                        addDebugMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
-                    }
-
-                    currentSlaveIndex++;
-                    checkCycleCompletion();
-                }
-            }
-            break;
-            
-        case STATE_WAIT_RESPONSE:
-            // Check for timeout OR response
-            if (currentTime - queryStartTime > timeoutDuration) {
-                // ✅ ACTUAL TIMEOUT - SKIP THIS SLAVE!
-                Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
-                            slaves[currentSlaveIndex].id, timeoutDuration);
-
-                updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, true);
-
-                // FLAT STRUCTURE: Create timeout error message
-                JsonDocument doc;
-                JsonObject root = doc.to<JsonObject>();
-                root["id"] = slaves[currentSlaveIndex].id;
-                root["name"] = slaves[currentSlaveIndex].name;
-                root["error"] = "Modbus timeout - no response from device";
-                root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
-                
-                String output;
-                serializeJson(doc, output);
-                publishMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
-                
-                if (debugEnabled) {
-                    addDebugMessage(slaves[currentSlaveIndex].mqttTopic.c_str(), output.c_str());
-                }
-
-                waitingForResponse = false;
-                currentSlaveIndex++;
-                checkCycleCompletion();
-            }
-            else if (node.getResponseBuffer(0) != 0xFFFF) {  // Check if Modbus transaction is complete by checking response buffer , If we have data in the first buffer, the transaction is complete
-                // Response received successfully
-                currentState = STATE_PROCESS_DATA;
-            }
-            break;
-            
-        case STATE_PROCESS_DATA:
-            // Process the received data
-            processNonBlockingData();
-            updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), true, false);
-
-            currentSlaveIndex++;
-            checkCycleCompletion();
-            break;
-            
-        case STATE_WAITING:
-            if (currentTime - lastActionTime >= pollInterval) {
-                // Poll interval elapsed, start new cycle
-                currentState = STATE_START_QUERY;
-                currentSlaveIndex = 0;
-                lastActionTime = currentTime;
-                waitingForResponse = false;
-                Serial.println("🔄 Starting new NON-BLOCKING query cycle");
-            }
-            break;
-    }
+    LOAD_METER_PARAM(aCurrent);
+    LOAD_METER_PARAM(bCurrent);
+    LOAD_METER_PARAM(cCurrent);
+    LOAD_METER_PARAM(zeroPhaseCurrent);
+    LOAD_METER_PARAM(aActivePower);
+    LOAD_METER_PARAM(bActivePower);
+    LOAD_METER_PARAM(cActivePower);
+    LOAD_METER_PARAM(totalActivePower);
+    LOAD_METER_PARAM(aReactivePower);
+    LOAD_METER_PARAM(bReactivePower);
+    LOAD_METER_PARAM(cReactivePower);
+    LOAD_METER_PARAM(totalReactivePower);
+    LOAD_METER_PARAM(aApparentPower);
+    LOAD_METER_PARAM(bApparentPower);
+    LOAD_METER_PARAM(cApparentPower);
+    LOAD_METER_PARAM(totalApparentPower);
+    LOAD_METER_PARAM(aPowerFactor);
+    LOAD_METER_PARAM(bPowerFactor);
+    LOAD_METER_PARAM(cPowerFactor);
+    LOAD_METER_PARAM(totalPowerFactor);
+    
+    #undef LOAD_METER_PARAM
 }
 
-bool modbus_reloadSlaves() {
+void loadVoltageParameters(SensorSlave& slave, JsonObject slaveObj) {
+    #define LOAD_VOLTAGE_PARAM(field) \
+        if (slaveObj[#field].is<JsonObject>()) { \
+            slave.field.pt = slaveObj[#field]["pt"] | 1.0f; \
+            slave.field.divider = slaveObj[#field]["divider"] | 1.0f; \
+        } else { \
+            slave.field.pt = 1.0f; \
+            slave.field.divider = 1.0f; \
+        }
+    
+    LOAD_VOLTAGE_PARAM(aVoltage);
+    LOAD_VOLTAGE_PARAM(bVoltage);
+    LOAD_VOLTAGE_PARAM(cVoltage);
+    LOAD_VOLTAGE_PARAM(phaseVoltageMean);
+    LOAD_VOLTAGE_PARAM(zeroSequenceVoltage);
+    
+    #undef LOAD_VOLTAGE_PARAM
+}
+
+void loadEnergyParameters(SensorSlave& slave, JsonObject slaveObj) {
+    slave.totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
+    slave.importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f;
+    slave.exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
+}
+
+// ==================== SLAVE CONFIGURATION MANAGEMENT ====================
+
+bool modbusReloadSlaves() {
     Serial.println("🔄 Reloading slaves...");
     
     JsonDocument config;
     if (!loadSlaveConfig(config)) {
-        Serial.println("❌ Failed to load config");
+        Serial.println("❌ Failed to load slave configuration");
         return false;
     }
     
+    // Load configuration settings
     int newIntervalSeconds = loadPollInterval();
     updatePollInterval(newIntervalSeconds);
 
@@ -361,97 +197,258 @@ bool modbus_reloadSlaves() {
         slaves = nullptr;
     }
     
-    // Allocate new memory and INITIALIZE TO ZERO
-    slaves = new SensorSlave[newSlaveCount](); // <-- ADD PARENTHESES TO INITIALIZE TO ZERO
+    // Allocate new memory and initialize to zero
+    slaves = new SensorSlave[newSlaveCount]();
     slaveCount = newSlaveCount;
     
+    // Load each slave configuration
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
-        
         slaves[i] = SensorSlave{};
         
         // Load basic fields
         slaves[i].id = slaveObj["id"];
-        slaves[i].startReg = slaveObj["startReg"]; 
-        slaves[i].numReg = slaveObj["numReg"];
+        slaves[i].startRegister = slaveObj["startReg"];
+        slaves[i].registerCount = slaveObj["numReg"];
         slaves[i].name = slaveObj["name"].as<String>();
         slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
         
-        // ✅ CRITICAL FIX: Load divider values for Sensor devices
-        if (slaves[i].name.indexOf("Sensor") >= 0) {
-            slaves[i].tempdivider = slaveObj["tempdivider"] | 1.0f;  // Default to 1.0 if not found
-            slaves[i].humiddivider = slaveObj["humiddivider"] | 1.0f; // Default to 1.0 if not found
-        }
+        // Load device-specific parameters
+        loadDeviceParameters(slaves[i], slaveObj);
         
-        // ✅ CRITICAL FIX: Load meter parameters for Meter devices
-        else if (slaves[i].name.indexOf("Meter") >= 0) {
-            // Load CT/PT/divider values for each meter parameter
-            #define LOAD_METER_PARAM(field) \
-                slaves[i].field.ct = slaveObj[#field]["ct"] | 1.0f; \
-                slaves[i].field.pt = slaveObj[#field]["pt"] | 1.0f; \
-                slaves[i].field.divider = slaveObj[#field]["divider"] | 1.0f;
-            
-            LOAD_METER_PARAM(ACurrent);
-            LOAD_METER_PARAM(BCurrent);
-            LOAD_METER_PARAM(CCurrent);
-            LOAD_METER_PARAM(ZeroPhaseCurrent);
-            LOAD_METER_PARAM(AActiveP);
-            LOAD_METER_PARAM(BActiveP);
-            LOAD_METER_PARAM(CActiveP);
-            LOAD_METER_PARAM(Total3PActiveP);
-            LOAD_METER_PARAM(AReactiveP);
-            LOAD_METER_PARAM(BReactiveP);
-            LOAD_METER_PARAM(CReactiveP);
-            LOAD_METER_PARAM(Total3PReactiveP);
-            LOAD_METER_PARAM(AApparentP);
-            LOAD_METER_PARAM(BApparentP);
-            LOAD_METER_PARAM(CApparentP);
-            LOAD_METER_PARAM(Total3PApparentP);
-            LOAD_METER_PARAM(APowerF);
-            LOAD_METER_PARAM(BPowerF);
-            LOAD_METER_PARAM(CPowerF);
-            LOAD_METER_PARAM(Total3PPowerF);
-            
-            #undef LOAD_METER_PARAM
-        } else if (slaves[i].name.indexOf("Voltage") >= 0) {
-            // Load PT/divider values for each voltage parameter
-            #define LOAD_VOLTAGE_PARAM(field) \
-                if (slaveObj[#field].is<JsonObject>()) { \
-                    slaves[i].field.pt = slaveObj[#field]["pt"] | 1.0f; \
-                    slaves[i].field.divider = slaveObj[#field]["divider"] | 1.0f; \
-                } else { \
-                    slaves[i].field.pt = 1.0f; \
-                    slaves[i].field.divider = 1.0f; \
-                }
-            
-            LOAD_VOLTAGE_PARAM(AVoltage);
-            LOAD_VOLTAGE_PARAM(BVoltage);
-            LOAD_VOLTAGE_PARAM(CVoltage);
-            LOAD_VOLTAGE_PARAM(PhaseVoltageMean);
-            LOAD_VOLTAGE_PARAM(ZeroSequenceVoltage);
-            
-            #undef LOAD_VOLTAGE_PARAM
-            
-            Serial.printf("✅ Voltage Slave: ID=%d, Name=%s\n", 
-                         slaves[i].id, slaves[i].name.c_str());
-        } else if (slaves[i].name.indexOf("Energy") >= 0) {
-            // Load divider values for energy parameters
-            slaves[i].totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
-            slaves[i].importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f; 
-            slaves[i].exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
-            
-            Serial.printf("✅ Energy Meter Slave: ID=%d, Name=%s\n", 
-                        slaves[i].id, slaves[i].name.c_str());
-        }
-        
-        Serial.printf("✅ Slave: ID=%d, Name=%s, TempDiv=%.1f, HumidDiv=%.1f\n", 
-                     slaves[i].id, slaves[i].name.c_str(), 
-                     slaves[i].tempdivider, slaves[i].humiddivider);
+        Serial.printf("✅ Slave: ID=%d, Name=%s\n", slaves[i].id, slaves[i].name.c_str());
     }
     
     Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
     return true;
 }
+
+// ==================== DATA PROCESSING HELPERS ====================
+
+void processSensorData(JsonObject& root, const SensorSlave& slave) {
+    root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), slave.tempDivider);
+    root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), slave.humidDivider);
+}
+
+void processMeterData(JsonObject& root, const SensorSlave& slave) {
+    // Current values
+    root["A_Current"] = calculateCurrent(node.getResponseBuffer(0), slave.aCurrent.ct, slave.aCurrent.divider);
+    root["B_Current"] = calculateCurrent(node.getResponseBuffer(1), slave.bCurrent.ct, slave.bCurrent.divider);
+    root["C_Current"] = calculateCurrent(node.getResponseBuffer(2), slave.cCurrent.ct, slave.cCurrent.divider);
+    root["Zero_Phase_Current"] = calculateCurrent(node.getResponseBuffer(3), slave.zeroPhaseCurrent.ct, slave.zeroPhaseCurrent.divider);
+    
+    // Active Power
+    root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.aActivePower.pt, slave.aActivePower.ct, slave.aActivePower.divider);
+    root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.bActivePower.pt, slave.bActivePower.ct, slave.bActivePower.divider);
+    root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), slave.cActivePower.pt, slave.cActivePower.ct, slave.cActivePower.divider);
+    root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), slave.totalActivePower.pt, slave.totalActivePower.ct, slave.totalActivePower.divider);
+    
+    // Reactive Power
+    root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), slave.aReactivePower.pt, slave.aReactivePower.ct, slave.aReactivePower.divider);
+    root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), slave.bReactivePower.pt, slave.bReactivePower.ct, slave.bReactivePower.divider);
+    root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), slave.cReactivePower.pt, slave.cReactivePower.ct, slave.cReactivePower.divider);
+    root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), slave.totalReactivePower.pt, slave.totalReactivePower.ct, slave.totalReactivePower.divider);
+    
+    // Apparent Power
+    root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), slave.aApparentPower.pt, slave.aApparentPower.ct, slave.aApparentPower.divider);
+    root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), slave.bApparentPower.pt, slave.bApparentPower.ct, slave.bApparentPower.divider);
+    root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), slave.cApparentPower.pt, slave.cApparentPower.ct, slave.cApparentPower.divider);
+    root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), slave.totalApparentPower.pt, slave.totalApparentPower.ct, slave.totalApparentPower.divider);
+    
+    // Power Factor
+    root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), slave.aPowerFactor.divider);
+    root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), slave.bPowerFactor.divider);
+    root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), slave.cPowerFactor.divider);
+    root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), slave.totalPowerFactor.divider);
+}
+
+void processVoltageData(JsonObject& root, const SensorSlave& slave) {
+    root["A_Voltage"] = calculateVoltage(node.getResponseBuffer(0), slave.aVoltage.pt, slave.aVoltage.divider);
+    root["B_Voltage"] = calculateVoltage(node.getResponseBuffer(1), slave.bVoltage.pt, slave.bVoltage.divider);
+    root["C_Voltage"] = calculateVoltage(node.getResponseBuffer(2), slave.cVoltage.pt, slave.cVoltage.divider);
+    root["Phase_Voltage_Mean"] = calculateVoltage(node.getResponseBuffer(3), slave.phaseVoltageMean.pt, slave.phaseVoltageMean.divider);
+    root["Zero_Sequence_Voltage"] = calculateVoltage(node.getResponseBuffer(4), slave.zeroSequenceVoltage.pt, slave.zeroSequenceVoltage.divider);
+}
+
+void processEnergyData(JsonObject& root, const SensorSlave& slave) {
+    root["Total_Active_Energy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
+    root["Import_Active_Energy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
+    root["Export_Active_Energy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
+}
+
+void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success) {
+    String output;
+    serializeJson(doc, output);
+
+    publishMessage(slave.mqttTopic.c_str(), output.c_str());
+    
+    if (debugEnabled) {
+        addDebugMessage(slave.mqttTopic.c_str(), output.c_str());
+    }
+    
+    if (!success) {
+        Serial.printf("❌ No valid data from slave %d\n", slave.id);
+    }
+}
+
+// ==================== NON-BLOCKING QUERY STATE MACHINE ====================
+
+bool startNonBlockingQuery() {
+    if (currentSlaveIndex >= slaveCount) {
+        return false;
+    }
+    
+    SensorSlave& slave = slaves[currentSlaveIndex];
+    
+    // Re-initialize Modbus for this slave
+    node.begin(slave.id, Serial);
+    node.preTransmission(preTransmission);
+    node.postTransmission(postTransmission);
+    node.clearResponseBuffer();
+    node.clearTransmitBuffer();
+
+    delay(300); // Stabilization delay
+
+    uint8_t result = node.readHoldingRegisters(slave.startRegister, slave.registerCount);
+    queryStartTime = millis();
+    waitingForResponse = true;
+
+    Serial.printf("➡️ Querying slave %d: %s\n", slave.id, slave.name.c_str());
+    return (result == node.ku8MBSuccess);
+}
+
+void processNonBlockingData() {
+    SensorSlave& slave = slaves[currentSlaveIndex];
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    
+    bool success = false;
+
+    // Common fields for all devices
+    root["id"] = slave.id;
+    root["name"] = slave.name;
+    root["mqtt_topic"] = slave.mqttTopic;
+    root["timestamp"] = millis();
+
+    // Device-specific data processing
+    if (slave.name.indexOf("Sensor") >= 0) {
+        processSensorData(root, slave);
+        success = true;
+    } else if (slave.name.indexOf("Meter") >= 0) {
+        processMeterData(root, slave);
+        success = true;
+    } else if (slave.name.indexOf("Voltage") >= 0) {
+        processVoltageData(root, slave);
+        success = true;
+    } else if (slave.name.indexOf("Energy") >= 0) {
+        processEnergyData(root, slave);
+        success = true;
+    } else {
+        root["error"] = "Unknown device type";
+    }
+    
+    // Publish results
+    publishData(slave, doc, success);
+    waitingForResponse = false;
+}
+
+void checkCycleCompletion() {
+    if (currentSlaveIndex >= slaveCount) {
+        currentState = STATE_WAITING;
+        Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
+    } else {
+        currentState = STATE_START_QUERY;
+    }
+}
+
+void handleQueryStartFailure() {
+    Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
+    updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, false);
+
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    root["id"] = slaves[currentSlaveIndex].id;
+    root["name"] = slaves[currentSlaveIndex].name;
+    root["error"] = "Failed to start Modbus query";
+    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
+
+    publishData(slaves[currentSlaveIndex], doc, false);
+}
+
+void handleQueryTimeout() {
+    Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
+                  slaves[currentSlaveIndex].id, timeoutDuration);
+
+    updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, true);
+
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    root["id"] = slaves[currentSlaveIndex].id;
+    root["name"] = slaves[currentSlaveIndex].name;
+    root["error"] = "Modbus timeout - no response from device";
+    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
+    
+    publishData(slaves[currentSlaveIndex], doc, false);
+    waitingForResponse = false;
+}
+
+void updateNonBlockingQuery() {
+    unsigned long currentTime = millis();
+    
+    switch (currentState) {
+        case STATE_IDLE:
+            currentState = STATE_START_QUERY;
+            currentSlaveIndex = 0;
+            lastActionTime = currentTime;
+            waitingForResponse = false;
+            Serial.println("🚀 Starting NON-BLOCKING query cycle");
+            break;
+            
+        case STATE_START_QUERY:
+            if (currentTime - lastActionTime >= kQueryInterval) {
+                lastActionTime = currentTime;
+                
+                if (startNonBlockingQuery()) {
+                    currentState = STATE_WAIT_RESPONSE;
+                    Serial.printf("⏳ Waiting for slave %d response...\n", slaves[currentSlaveIndex].id);
+                } else {
+                    handleQueryStartFailure();
+                    currentSlaveIndex++;
+                    checkCycleCompletion();
+                }
+            }
+            break;
+            
+        case STATE_WAIT_RESPONSE:
+            if (currentTime - queryStartTime > timeoutDuration) {
+                handleQueryTimeout();
+                currentSlaveIndex++;
+                checkCycleCompletion();
+            } else if (node.getResponseBuffer(0) != 0xFFFF) {
+                currentState = STATE_PROCESS_DATA;
+            }
+            break;
+            
+        case STATE_PROCESS_DATA:
+            processNonBlockingData();
+            updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), true, false);
+            currentSlaveIndex++;
+            checkCycleCompletion();
+            break;
+            
+        case STATE_WAITING:
+            if (currentTime - lastActionTime >= pollInterval) {
+                currentState = STATE_START_QUERY;
+                currentSlaveIndex = 0;
+                lastActionTime = currentTime;
+                waitingForResponse = false;
+                Serial.println("🔄 Starting new NON-BLOCKING query cycle");
+            }
+            break;
+    }
+}
+
+// ==================== CONFIGURATION MANAGEMENT ====================
 
 void updateTimeout(int newTimeoutSeconds) {
     timeoutDuration = newTimeoutSeconds * 1000; // Convert to milliseconds
@@ -469,9 +466,11 @@ void updatePollInterval(int newIntervalSeconds) {
     Serial.printf("🔄 Poll interval updated to: %d seconds (%lu ms)\n", newIntervalSeconds, pollInterval);
 }
 
+// ==================== STATISTICS MANAGEMENT ====================
+
 void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout) {
     // Quick validation
-    if (slaveId == 0 || slaveName == NULL) return;
+    if (slaveId == 0 || slaveName == nullptr) return;
     
     // Find existing stats for this slave
     for (int i = 0; i < slaveStatsCount; i++) {
@@ -489,7 +488,7 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
     }
     
     // Create new stats entry if not found and we have space
-    if (slaveStatsCount < MAX_STATISTICS_SLAVES) {
+    if (slaveStatsCount < kMaxStatisticsSlaves) {
         SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
         newStat->slaveId = slaveId;
         strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
@@ -502,7 +501,7 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
     }
 }
 
-String getStatisticsJSON() {
+String getStatisticsJson() {
     JsonDocument doc;
     JsonArray statsArray = doc.to<JsonArray>();
     
@@ -522,10 +521,8 @@ String getStatisticsJSON() {
 }
 
 void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
-    // Quick validation
-    if (slaveId == 0 || slaveName == NULL) return;
+    if (slaveId == 0 || slaveName == nullptr) return;
     
-    // Find and remove the statistic
     for (int i = 0; i < slaveStatsCount; i++) {
         if (slaveStats[i].slaveId == slaveId && strcmp(slaveStats[i].slaveName, slaveName) == 0) {
             // Shift all subsequent elements left
@@ -539,26 +536,16 @@ void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
     }
 }
 
-void clearJsonDocument(JsonDocument& doc) {
-    doc.clear();
-}
+// ==================== UTILITY FUNCTIONS ====================
 
-// Add to ModBusHandler.cpp - 32-bit register reading functions
 uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord) {
     return ((uint32_t)highWord << 16) | lowWord;
 }
 
-float convertEnergyRegister(uint32_t rawValue, float divider = 1.0) {
-    // Apply 0.01 scaling factor as per your specification
-    return (rawValue / 100.0f) / divider;
-}
-
-float readEnergyValue(uint16_t regIndex, float divider) {
-    // Your implementation here
-    uint16_t highWord = node.getResponseBuffer(regIndex);
-    uint16_t lowWord = node.getResponseBuffer(regIndex + 1);
+float readEnergyValue(uint16_t registerIndex, float divider) {
+    uint16_t highWord = node.getResponseBuffer(registerIndex);
+    uint16_t lowWord = node.getResponseBuffer(registerIndex + 1);
     
-    // Combine into 32-bit value and apply divider
-    uint32_t value = ((uint32_t)highWord << 16) | lowWord;
+    uint32_t value = readUint32FromRegisters(highWord, lowWord);
     return (value / 100.0f) / divider;
 }

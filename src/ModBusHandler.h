@@ -3,77 +3,106 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <ModbusMaster.h>
-#include <LittleFS.h>
+
 #include "FSHandler.h"
 #include "MQTTHandler.h"
 #include "WebServer.h"
 
-extern int slaveCount;
-extern unsigned long timeoutDuration; 
+// Constants
+constexpr uint8_t kMaxStatisticsSlaves = 20;
+constexpr uint8_t kRs485DePin = 5;
+constexpr unsigned long kDefaultQueryInterval = 200; // ms
 
-#define MAX_STATISTICS_SLAVES 20 //amount of slave allowed to show in statistics
+// Forward declarations
+extern int slaveCount;
+extern unsigned long timeoutDuration;
+
+// Structures
+struct MeterParameter {
+    float ct;
+    float pt;
+    float divider;
+};
+
+struct VoltageParameter {
+    float pt;
+    float divider;
+};
+
+struct EnergyParameter {
+    float divider;
+};
 
 struct SensorSlave {
     uint8_t id;
-    uint16_t startReg;
-    uint16_t numReg;
+    uint16_t startRegister;
+    uint16_t registerCount;
     String name;
     String mqttTopic;
     
-    // For Sensor devices
-    float tempdivider;
-    float humiddivider;
+    // Sensor parameters
+    float tempDivider;
+    float humidDivider;
     
-    // For Meter devices - CT/PT/divider for each parameter
-    struct {
-        float ct;
-        float pt;
-        float divider;
-    } ACurrent, BCurrent, CCurrent, ZeroPhaseCurrent,
-      AActiveP, BActiveP, CActiveP, Total3PActiveP,
-      AReactiveP, BReactiveP, CReactiveP, Total3PReactiveP,
-      AApparentP, BApparentP, CApparentP, Total3PApparentP,
-      APowerF, BPowerF, CPowerF, Total3PPowerF;
-
-      struct {
-        float pt;
-        float divider;
-    } AVoltage, BVoltage, CVoltage, PhaseVoltageMean, ZeroSequenceVoltage;
-
-    struct {
-    float divider;
-    } totalActiveEnergy, importActiveEnergy, exportActiveEnergy;
+    // Meter parameters
+    MeterParameter aCurrent, bCurrent, cCurrent, zeroPhaseCurrent;
+    MeterParameter aActivePower, bActivePower, cActivePower, totalActivePower;
+    MeterParameter aReactivePower, bReactivePower, cReactivePower, totalReactivePower;
+    MeterParameter aApparentPower, bApparentPower, cApparentPower, totalApparentPower;
+    MeterParameter aPowerFactor, bPowerFactor, cPowerFactor, totalPowerFactor;
+    
+    // Voltage parameters
+    VoltageParameter aVoltage, bVoltage, cVoltage, phaseVoltageMean, zeroSequenceVoltage;
+    
+    // Energy parameters
+    EnergyParameter totalActiveEnergy, importActiveEnergy, exportActiveEnergy;
 };
 
-// Add to ModBusHandler.h
 struct SlaveStatistics {
-  uint8_t slaveId;
-  char slaveName[32];
-  uint32_t totalQueries;
-  uint32_t successCount;
-  uint32_t timeoutCount;
-  uint32_t failedCount;
+    uint8_t slaveId;
+    char slaveName[32];
+    uint32_t totalQueries;
+    uint32_t successCount;
+    uint32_t timeoutCount;
+    uint32_t failedCount;
 };
 
-// Function declarations
+// ModBus Initialization
 bool initModbus();
-float convertRegisterToTemperature(uint16_t regVal);
-float convertRegisterToHumidity(uint16_t regVal);
-bool modbus_reloadSlaves();
+bool modbusReloadSlaves();
 
+// Query Management
 void updateNonBlockingQuery();
-float convertRegisterToVoltage(uint16_t regVal);
-void updatePollInterval(int newIntervalSeconds);
-void updateTimeout(int newTimeoutSeconds);
+void updatePollInterval(int intervalSeconds);
+void updateTimeout(int timeoutSeconds);
 
-// ✅ NEW: Non-blocking functions
-bool startNonBlockingQuery();
-void processNonBlockingData();
+// Data Processing
+float convertRegisterToTemperature(uint16_t registerValue, float divider = 1.0f);
+float convertRegisterToHumidity(uint16_t registerValue, float divider = 1.0f);
+float readEnergyValue(uint16_t registerIndex, float divider);
 
+// Statistics
 void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout);
-String getStatisticsJSON();
+String getStatisticsJson();
 void removeSlaveStatistic(uint8_t slaveId, const char* slaveName);
 
+// Utility Functions
 uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord);
-float readEnergyValue(uint16_t regIndex, float divider);
 
+// Configuration loading helpers
+void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj);
+void loadMeterParameters(SensorSlave& slave, JsonObject slaveObj);
+void loadVoltageParameters(SensorSlave& slave, JsonObject slaveObj);
+void loadEnergyParameters(SensorSlave& slave, JsonObject slaveObj);
+
+// Data processing helpers
+void processSensorData(JsonObject& root, const SensorSlave& slave);
+void processMeterData(JsonObject& root, const SensorSlave& slave);
+void processVoltageData(JsonObject& root, const SensorSlave& slave);
+void processEnergyData(JsonObject& root, const SensorSlave& slave);
+void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success);
+
+// Error handling helpers
+void handleQueryStartFailure();
+void handleQueryTimeout();
+void checkCycleCompletion();

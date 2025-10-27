@@ -73,7 +73,7 @@ bool saveSlaveConfig(const JsonDocument& config) {
         Serial.println("❌ Failed to save slave configuration");
     }
 
-    modbus_reloadSlaves();
+    modbusReloadSlaves();
 
     return success;
 }
@@ -118,7 +118,7 @@ bool savePollInterval(int interval) {
         Serial.println("❌ Failed to save poll interval");
     }
 
-    modbus_reloadSlaves();
+    modbusReloadSlaves();
     return success;
 }
 
@@ -148,7 +148,6 @@ int loadPollInterval() {
     Serial.printf("✅ Poll interval loaded: %d seconds\n", interval);
     return interval;
 }
-
 
 bool saveTimeout(int timeoutSeconds) {
     Serial.printf("💾 Saving timeout (%d seconds) to LittleFS...\n", timeoutSeconds);

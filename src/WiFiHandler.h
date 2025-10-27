@@ -1,7 +1,15 @@
 #pragma once
-#include <ESP8266WiFi.h>
 
+#include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include "EEEProm.h"
+
+// Forward declarations
+extern WifiParams currentParams;
+
+// Global variables
 extern bool otaInitialized;
 
+// Function declarations
 void setupWiFi();
 void checkWiFi();

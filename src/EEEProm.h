@@ -7,7 +7,6 @@
 #define EEPROM_SIZE 512
 #define WIFI_PARAMS_ADDR  0
 
-
 // ---------- Wifi Parameter Struct ----------
 struct WifiParams {
   uint32_t magic;
@@ -21,7 +20,7 @@ struct WifiParams {
 // ---------- Global Parameter ----------
 extern WifiParams currentParams;
 
-
+// Function declarations
 void initEEEPROM();
 void saveWifi(WifiParams &newParams);
 void loadWifi();

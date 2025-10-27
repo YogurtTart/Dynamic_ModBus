@@ -1,11 +1,12 @@
 #include "MQTTHandler.h"
 #include <Arduino.h>
 
-//const char* mqttServer = "192.168.31.66";
+// Global variables
+const char* mqttServer = "192.168.31.66";
 const uint16_t mqttPort = 1883;
-const char* mqttTopicPub ="Lora/receive";
+const char* mqttTopicPub = "Lora/receive";
 unsigned long previousMQTTReconnect = 0;
-const unsigned long mqttReconnectInterval = 20000;  // 10 seconds
+const unsigned long mqttReconnectInterval = 20000;  // 20 seconds
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -13,7 +14,7 @@ PubSubClient mqttClient(espClient);
 void checkMQTT() {
     unsigned long now = millis();
     
-    // Only check MQTT connection every 10 seconds when not connected
+    // Only check MQTT connection every 20 seconds when not connected
     if (!mqttClient.connected()) {
         if (now - previousMQTTReconnect >= mqttReconnectInterval) {
             previousMQTTReconnect = now;
@@ -26,7 +27,6 @@ void checkMQTT() {
 }
 
 void reconnectMQTT() {
-    
     mqttClient.setServer(currentParams.mqttServer, mqttPort);
 
     Serial.print("🔌 Attempting MQTT connection to ");
@@ -40,7 +40,7 @@ void reconnectMQTT() {
     } else {
         Serial.print("❌ failed, rc=");
         Serial.print(mqttClient.state());
-        Serial.println(" try again in 10 seconds");
+        Serial.println(" try again in 20 seconds");
     }
 }
 
