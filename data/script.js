@@ -45,7 +45,7 @@ class WifiManager {
             FormHelper.setValue('ap_password', data.ap_password);
             FormHelper.setValue('mqtt_server', data.mqtt_server);
             
-            StatusManager.showStatus('WiFi settings loaded successfully!', 'success');
+            StatusManager.showStatus('WiFi & MQTT settings loaded successfully!', 'success');
         } catch (error) {
             // Error handled by ApiClient
         }
@@ -64,7 +64,7 @@ class WifiManager {
 
         try {
             await ApiClient.postForm('/savewifi', formData);
-            StatusManager.showStatus('WiFi settings saved successfully! Device will use new settings on restart.', 'success');
+            StatusManager.showStatus('WiFi & MQTT settings saved successfully! Device will use new settings on restart.', 'success');
         } catch (error) {
             // Error handled by ApiClient
         }
