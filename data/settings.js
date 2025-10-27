@@ -1,159 +1,130 @@
-let currentSlaveId = null;
-let currentSlaveName = null;
-
-function showStatus(message, type) {
-    const status = document.getElementById('status');
-    
-    // Remove any existing hiding class
-    status.classList.remove('hiding');
-    
-    // Set message content and styling
-    status.textContent = message;
-    status.className = 'status-message ' + type;
-    
-    // Show the message with animation
-    status.style.display = 'block';
-    
-    // Auto-hide after 5 seconds with animation
-    setTimeout(() => {
-        status.classList.add('hiding');
-        setTimeout(() => {
-            status.style.display = 'none';
-            status.classList.remove('hiding');
-        }, 300);
-    }, 5000);
-}
-
-async function searchSlaveConfig() {
-    const slaveId = document.getElementById('search_slave_id').value;
-    const slaveName = document.getElementById('search_slave_name').value;
-
-    if (!slaveId || !slaveName) {
-        showStatus('Please enter both Slave ID and Slave Name', 'error');
-        return;
+// settings.js - Optimized slave configuration editor
+class SettingsManager {
+    constructor() {
+        this.currentSlaveId = null;
+        this.currentSlaveName = null;
+        this.init();
     }
 
-    try {
-        showStatus('Searching for slave configuration...', 'success');
-        
-        // Search for specific slave using new endpoint
-        const response = await fetch('/getslaveconfig', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+    init() {
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        // Enter key support for search form
+        const searchForm = document.getElementById('searchForm');
+        if (searchForm) {
+            searchForm.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.searchSlaveConfig();
+                }
+            });
+        }
+    }
+
+    async searchSlaveConfig() {
+        const slaveId = FormHelper.getValue('search_slave_id');
+        const slaveName = FormHelper.getValue('search_slave_name');
+
+        if (!FormHelper.validateRequired(['search_slave_id', 'search_slave_name'])) return;
+
+        try {
+            StatusManager.showStatus('Searching for slave configuration...', 'info');
+            
+            const slaveConfig = await ApiClient.post('/getslaveconfig', {
                 slaveId: parseInt(slaveId),
                 slaveName: slaveName
-            })
-        });
+            });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to find slave configuration');
+            this.currentSlaveId = parseInt(slaveId);
+            this.currentSlaveName = slaveName;
+
+            const editor = document.getElementById('config_editor');
+            if (editor) {
+                editor.value = JSON.stringify(slaveConfig, null, 2);
+            }
+            
+            const editSection = document.getElementById('editSection');
+            if (editSection) {
+                editSection.style.display = 'block';
+            }
+            
+            StatusManager.showStatus(`Found slave configuration for ${slaveName} (ID: ${slaveId})`, 'success');
+            
+        } catch (error) {
+            StatusManager.showStatus('Error searching for slave: ' + error.message, 'error');
+            console.error('Search error:', error);
+        }
+    }
+
+    async saveEditedConfig() {
+        if (!this.currentSlaveId || !this.currentSlaveName) {
+            StatusManager.showStatus('No slave configuration loaded to save', 'error');
+            return;
         }
 
-        const slaveConfig = await response.json();
-
-        // Store current slave info
-        currentSlaveId = parseInt(slaveId);
-        currentSlaveName = slaveName;
-
-        // Display the configuration for editing
         const editor = document.getElementById('config_editor');
-        editor.value = JSON.stringify(slaveConfig, null, 2);
-        
-        // Show the edit section
-        document.getElementById('editSection').style.display = 'block';
-        
-        showStatus(`Found slave configuration for ${slaveName} (ID: ${slaveId})`, 'success');
-        
-    } catch (error) {
-        showStatus('Error searching for slave: ' + error.message, 'error');
-        console.error('Search error:', error);
-    }
-}
-
-async function saveEditedConfig() {
-    if (!currentSlaveId || !currentSlaveName) {
-        showStatus('No slave configuration loaded to save', 'error');
-        return;
-    }
-
-    const editor = document.getElementById('config_editor');
-    const editedConfig = editor.value;
-
-    if (!editedConfig) {
-        showStatus('Configuration is empty', 'error');
-        return;
-    }
-
-    try {
-        // Validate JSON
-        const parsedConfig = JSON.parse(editedConfig);
-        
-        // Basic validation
-        if (!parsedConfig.id || !parsedConfig.name) {
-            showStatus('Configuration must include id and name fields', 'error');
+        if (!editor) {
+            StatusManager.showStatus('Configuration editor not found', 'error');
             return;
         }
 
-        // Ensure we're updating the correct slave
-        if (parsedConfig.id !== currentSlaveId || parsedConfig.name !== currentSlaveName) {
-            showStatus('Cannot change Slave ID or Name during edit', 'error');
+        const editedConfig = editor.value;
+        if (!editedConfig) {
+            StatusManager.showStatus('Configuration is empty', 'error');
             return;
         }
 
-        // Save the updated configuration using new endpoint
-        const saveResponse = await fetch('/updateslaveconfig', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(parsedConfig)
-        });
+        try {
+            const parsedConfig = JSON.parse(editedConfig);
+            
+            if (!parsedConfig.id || !parsedConfig.name) {
+                StatusManager.showStatus('Configuration must include id and name fields', 'error');
+                return;
+            }
 
-        if (saveResponse.ok) {
-            const result = await saveResponse.json();
-            showStatus(result.message || 'Slave configuration updated successfully!', 'success');
-            
-            // Clear search form
-            document.getElementById('search_slave_id').value = '';
-            document.getElementById('search_slave_name').value = '';
-            
-            // Hide edit section
-            document.getElementById('editSection').style.display = 'none';
-            
-        } else {
-            const errorData = await saveResponse.json();
-            throw new Error(errorData.message || 'Failed to save configuration');
-        }
+            if (parsedConfig.id !== this.currentSlaveId || parsedConfig.name !== this.currentSlaveName) {
+                StatusManager.showStatus('Cannot change Slave ID or Name during edit', 'error');
+                return;
+            }
 
-    } catch (error) {
-        if (error instanceof SyntaxError) {
-            showStatus('Invalid JSON format. Please check your configuration.', 'error');
-        } else {
-            showStatus('Error saving configuration: ' + error.message, 'error');
+            const result = await ApiClient.post('/updateslaveconfig', parsedConfig);
+            
+            StatusManager.showStatus(result.message || 'Slave configuration updated successfully!', 'success');
+            
+            FormHelper.clearForm(['search_slave_id', 'search_slave_name']);
+            this.cancelEdit();
+            
+        } catch (error) {
+            if (error instanceof SyntaxError) {
+                StatusManager.showStatus('Invalid JSON format. Please check your configuration.', 'error');
+            } else {
+                StatusManager.showStatus('Error saving configuration: ' + error.message, 'error');
+            }
+            console.error('Save error:', error);
         }
-        console.error('Save error:', error);
+    }
+
+    cancelEdit() {
+        const editSection = document.getElementById('editSection');
+        const editor = document.getElementById('config_editor');
+        
+        if (editSection) editSection.style.display = 'none';
+        if (editor) editor.value = '';
+        
+        this.currentSlaveId = null;
+        this.currentSlaveName = null;
+        StatusManager.showStatus('Edit cancelled', 'info');
     }
 }
 
-function cancelEdit() {
-    document.getElementById('editSection').style.display = 'none';
-    document.getElementById('config_editor').value = '';
-    currentSlaveId = null;
-    currentSlaveName = null;
-    showStatus('Edit cancelled', 'success');
-}
-
-// Enter key support for search form
-document.addEventListener('DOMContentLoaded', function() {
-    const searchForm = document.getElementById('searchForm');
-    searchForm.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            searchSlaveConfig();
-        }
-    });
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.settingsManager = new SettingsManager();
 });
+
+// Backward compatibility
+function searchSlaveConfig() { window.settingsManager?.searchSlaveConfig(); }
+function saveEditedConfig() { window.settingsManager?.saveEditedConfig(); }
+function cancelEdit() { window.settingsManager?.cancelEdit(); }

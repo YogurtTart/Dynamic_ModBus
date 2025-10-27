@@ -1,90 +1,86 @@
-function showStatus(message, type) {
-    const status = document.getElementById('status');
-    
-    // Remove any existing hiding class
-    status.classList.remove('hiding');
-    
-    // Set message content and styling
-    status.textContent = message;
-    status.className = 'status-message ' + type;
-    
-    // Show the message with animation
-    status.style.display = 'block';
-    
-    // Auto-hide after 5 seconds with animation
-    setTimeout(() => {
-        status.classList.add('hiding');
-        setTimeout(() => {
-            status.style.display = 'none';
-            status.classList.remove('hiding');
-        }, 300);
-    }, 5000);
-}
-
-async function loadSettings() {
-    try {
-        const response = await fetch('/getwifi');
-        const data = await response.json();
-        
-        document.getElementById('sta_ssid').value = data.sta_ssid || '';
-        document.getElementById('sta_password').value = data.sta_password || '';
-        document.getElementById('ap_ssid').value = data.ap_ssid || '';
-        document.getElementById('ap_password').value = data.ap_password || '';
-        document.getElementById('mqtt_server').value = data.mqtt_server || '';
-        
-        showStatus('WiFi settings loaded successfully!', 'success');
-    } catch (error) {
-        showStatus('Error loading WiFi settings: ' + error, 'error');
+// script.js - Optimized WiFi configuration page
+class WifiManager {
+    constructor() {
+        this.init();
     }
-}
 
-async function saveSettings() {
-    const formData = new FormData();
-    formData.append('sta_ssid', document.getElementById('sta_ssid').value);
-    formData.append('sta_password', document.getElementById('sta_password').value);
-    formData.append('ap_ssid', document.getElementById('ap_ssid').value);
-    formData.append('ap_password', document.getElementById('ap_password').value);
-    formData.append('mqtt_server', document.getElementById('mqtt_server').value);
-    
-    try {
-        const response = await fetch('/savewifi', {
-            method: 'POST',
-            body: formData
+    init() {
+        this.bindEvents();
+        this.loadInitialData();
+    }
+
+    bindEvents() {
+        // Enter key support for forms
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.closest('form')) {
+                e.preventDefault();
+                if (e.target.closest('#wifiForm')) {
+                    this.saveSettings();
+                }
+            }
         });
-        
-        const result = await response.text();
-        showStatus('WiFi settings saved successfully! Device will use new settings on restart.', 'success');
-        
-    } catch (error) {
-        showStatus('Error saving WiFi settings: ' + error, 'error');
     }
-}
 
-// Navigation functions for the new pages
-function navigateToSettings() {
-    window.location.href = '/settings.html';
-}
+    async loadInitialData() {
+        try {
+            await Promise.all([
+                this.loadSettings(),
+                this.loadIPInfo()
+            ]);
+            
+            // Auto-refresh IP info every 30 seconds
+            setInterval(() => this.loadIPInfo(), 30000);
+        } catch (error) {
+            console.error('Initialization error:', error);
+        }
+    }
 
-function navigateToDebug() {
-    window.location.href = '/debug.html';
-}
+    async loadSettings() {
+        try {
+            const data = await ApiClient.get('/getwifi');
+            
+            FormHelper.setValue('sta_ssid', data.sta_ssid);
+            FormHelper.setValue('sta_password', data.sta_password);
+            FormHelper.setValue('ap_ssid', data.ap_ssid);
+            FormHelper.setValue('ap_password', data.ap_password);
+            FormHelper.setValue('mqtt_server', data.mqtt_server);
+            
+            StatusManager.showStatus('WiFi settings loaded successfully!', 'success');
+        } catch (error) {
+            // Error handled by ApiClient
+        }
+    }
 
-function navigateToSlaves() {
-    window.location.href = '/slaves.html';
-}
+    async saveSettings() {
+        const requiredFields = ['sta_ssid', 'sta_password', 'ap_ssid', 'ap_password', 'mqtt_server'];
+        if (!FormHelper.validateRequired(requiredFields)) return;
 
-function navigateToWifi() {
-    window.location.href = '/';
-}
+        const formData = new FormData();
+        formData.append('sta_ssid', FormHelper.getValue('sta_ssid'));
+        formData.append('sta_password', FormHelper.getValue('sta_password'));
+        formData.append('ap_ssid', FormHelper.getValue('ap_ssid'));
+        formData.append('ap_password', FormHelper.getValue('ap_password'));
+        formData.append('mqtt_server', FormHelper.getValue('mqtt_server'));
 
-// Add these functions to script.js
+        try {
+            await ApiClient.postForm('/savewifi', formData);
+            StatusManager.showStatus('WiFi settings saved successfully! Device will use new settings on restart.', 'success');
+        } catch (error) {
+            // Error handled by ApiClient
+        }
+    }
 
-async function loadIPInfo() {
-    try {
-        const response = await fetch('/getipinfo');
-        const data = await response.json();
-        
-        // Update STA information
+    async loadIPInfo() {
+        try {
+            const data = await ApiClient.get('/getipinfo');
+            this.updateIPDisplay(data);
+        } catch (error) {
+            // Error handled by ApiClient
+        }
+    }
+
+    updateIPDisplay(data) {
+        // STA information
         document.getElementById('sta_ip').textContent = data.sta_ip;
         document.getElementById('sta_subnet').textContent = data.sta_subnet;
         document.getElementById('sta_gateway').textContent = data.sta_gateway;
@@ -98,31 +94,26 @@ async function loadIPInfo() {
             staStatus.className = 'ip-value status-disconnected';
         }
         
-        // Update AP information
+        // AP information
         document.getElementById('ap_ip').textContent = data.ap_ip;
         document.getElementById('ap_clients').textContent = 
             data.ap_connected_clients + ' client(s)';
-            
-    } catch (error) {
-        console.error('Error loading IP info:', error);
-        showStatus('Error loading network status', 'error');
+    }
+
+    async refreshIPInfo() {
+        StatusManager.showStatus('Refreshing network status...', 'info');
+        await this.loadIPInfo();
+        StatusManager.showStatus('Network status updated', 'success');
     }
 }
 
-async function refreshIPInfo() {
-    showStatus('Refreshing network status...', 'info');
-    await loadIPInfo();
-    showStatus('Network status updated', 'success');
-}
-
-// Update the DOMContentLoaded event to also load IP info
-document.addEventListener('DOMContentLoaded', function() {
-    loadSettings();
-    loadIPInfo(); // Load IP info on page load
-    
-    // Auto-refresh IP info every 30 seconds
-    setInterval(loadIPInfo, 30000);
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.wifiManager = new WifiManager();
 });
 
-// Load settings when page loads
-document.addEventListener('DOMContentLoaded', loadSettings);
+// Backward compatibility
+async function loadSettings() { window.wifiManager?.loadSettings(); }
+async function saveSettings() { window.wifiManager?.saveSettings(); }
+async function loadIPInfo() { window.wifiManager?.loadIPInfo(); }
+async function refreshIPInfo() { window.wifiManager?.refreshIPInfo(); }
