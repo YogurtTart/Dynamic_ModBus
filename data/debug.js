@@ -85,6 +85,43 @@ class DebugConsole {
         }
     }
 
+    // NEW: Save fixed timing data back to storage permanently
+    saveFixedDataToStorage() {
+        try {
+            const fixedMessages = this.messageSequence.map(parsedMessage => {
+                return {
+                    deviceName: parsedMessage.deviceName,
+                    deviceId: parsedMessage.deviceId,
+                    topic: parsedMessage.topic,
+                    data: parsedMessage.data,
+                    displayTime: parsedMessage.displayTime,
+                    espTimestamp: parsedMessage.espTimestamp,
+                    receivedAt: new Date().toISOString(),
+                    browserTimestamp: Date.now()
+                };
+            });
+            
+            localStorage.setItem('mqttDebugMessages', JSON.stringify(fixedMessages));
+        } catch (error) {
+            console.log('Storage save error');
+        }
+    }
+
+    // NEW: Minimal timing update for new messages only
+    updateTimingForNewMessage(newMessage) {
+        // Set new message to "0s"
+        newMessage.displayTime = "0s";
+        
+        // Only update the message immediately below the new one
+        if (this.messageSequence.length > 1) {
+            const belowMsg = this.messageSequence[1];
+            const newTime = this.normalizeTimestamp(newMessage.espTimestamp);
+            const belowTime = this.normalizeTimestamp(belowMsg.espTimestamp);
+            const delta = Math.max(0, newTime - belowTime);
+            belowMsg.displayTime = this.formatSimpleDelta(delta);
+        }
+    }
+
     // FIXED: Better timestamp normalization
     normalizeTimestamp(timestamp) {
         if (!timestamp || timestamp === 0) return Date.now();
@@ -138,7 +175,7 @@ class DebugConsole {
         });
     }
 
-    // FIXED: Better timestamp parsing
+    // FIXED: Better timestamp parsing - NO LONGER sets displayTime here
     parseMessageDynamic(messageData) {
         try {
             const parsed = JSON.parse(messageData.message);
@@ -154,8 +191,8 @@ class DebugConsole {
                 deviceId: parsed.id || 'N/A', 
                 topic: messageData.topic,
                 data: {},
-                espTimestamp, // Store as-is, will normalize in timing calculation
-                displayTime: "0s"
+                espTimestamp,
+                displayTime: ""
             };
 
             // Extract data fields
@@ -174,7 +211,7 @@ class DebugConsole {
                 topic: messageData.topic,
                 data: { raw: messageData.message },
                 espTimestamp: Date.now(),
-                displayTime: "0s"
+                displayTime: ""
             };
         }
     }
@@ -219,7 +256,7 @@ class DebugConsole {
             .join(' ');
     }
 
-    // FIXED: Properly maintain 30 messages with stable timing
+    // FIXED: Use minimal timing update instead of full recalculation
     addTableRow(messageData) {
         const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
@@ -235,29 +272,36 @@ class DebugConsole {
         
         // STRICTLY enforce 30 message limit by removing OLDEST (last in array)
         if (this.messageSequence.length > this.maxTableRows) {
-            this.messageSequence.pop(); // Remove oldest (last element)
+            this.messageSequence.pop();
         }
         
-        // Recalculate consecutive timing
-        this.calculateSequenceTiming();
+        // ✅ FIXED: Use minimal timing update instead of full recalculation
+        this.updateTimingForNewMessage(parsedMessage);
         
         this.renderTable();
-        this.saveMessageToStorage(messageData, parsedMessage.espTimestamp);
+        
+        // ✅ NOW STORE COMPLETE PARSED MESSAGE OBJECT
+        this.saveMessageToStorage(parsedMessage);
     }
 
-    saveMessageToStorage(messageData, espTimestamp) {
+    // FIXED: Store the complete parsed message object (Option 2)
+    saveMessageToStorage(parsedMessage) {
         try {
             const currentMessages = this.getStoredMessages();
-            const timestampedMessage = {
-                ...messageData,
+            
+            const storedMessage = {
+                deviceName: parsedMessage.deviceName,
+                deviceId: parsedMessage.deviceId,
+                topic: parsedMessage.topic,
+                data: parsedMessage.data,
+                displayTime: parsedMessage.displayTime,
+                espTimestamp: parsedMessage.espTimestamp,
                 receivedAt: new Date().toISOString(),
-                espTimestamp,
                 browserTimestamp: Date.now()
             };
             
-            currentMessages.unshift(timestampedMessage);
+            currentMessages.unshift(storedMessage);
             
-            // STRICTLY enforce 30 message limit in storage too
             const toSave = currentMessages.slice(0, this.maxTableRows);
             localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
         } catch (error) {
@@ -274,6 +318,7 @@ class DebugConsole {
         }
     }
 
+    // FIXED: Load stored parsed objects and permanently fix corrupted timing data
     loadStoredMessages() {
         try {
             const stored = localStorage.getItem('mqttDebugMessages');
@@ -284,11 +329,26 @@ class DebugConsole {
                     tableBody.innerHTML = '';
                 }
                 
-                // Load messages and enforce 30 limit
-                this.messageSequence = messages.map(msg => this.parseMessageDynamic(msg));
+                // ✅ LOAD STORED PARSED OBJECTS DIRECTLY
+                this.messageSequence = messages.map(msg => {
+                    return {
+                        deviceName: msg.deviceName,
+                        deviceId: msg.deviceId,
+                        topic: msg.topic,
+                        data: msg.data,
+                        displayTime: msg.displayTime,
+                        espTimestamp: msg.espTimestamp || Date.now()
+                    };
+                });
+                
                 this.messageSequence = this.messageSequence.slice(0, this.maxTableRows);
                 
+                // ✅ FIX: Recalculate ALL timing to fix corrupted stored data
                 this.calculateSequenceTiming();
+                
+                // ✅ PERMANENT FIX: Save the corrected data back to storage
+                this.saveFixedDataToStorage();
+                
                 this.renderTable();
             }
         } catch (error) {
@@ -330,7 +390,6 @@ class DebugConsole {
                 timestamp: new Date().toISOString()
             });
             
-            // STRICTLY enforce 30 message limit in storage
             const toSave = currentMessages.slice(0, this.maxConsoleMessages);
             localStorage.setItem('mqttConsoleMessages', JSON.stringify(toSave));
         } catch (error) {
@@ -356,7 +415,6 @@ class DebugConsole {
                 if (consoleElement) {
                     consoleElement.innerHTML = '';
                     
-                    // Load and enforce 30 message limit
                     const messagesToShow = messages.slice(0, this.maxConsoleMessages);
                     messagesToShow.forEach(msg => {
                         const messageElement = document.createElement('div');
