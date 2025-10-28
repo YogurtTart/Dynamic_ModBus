@@ -16,16 +16,17 @@ class DebugConsole {
     }
 
     bindEvents() {
-        FormHelper.getElement('debugEnabled')?.addEventListener('change', (e) => {
-            this.toggleDebugMode(e.target.checked);
-        });
+        const elements = {
+            'debugEnabled': (e) => this.toggleDebugMode(e.target.checked),
+            'clearConsole': () => this.clearConsole(),
+            'clearTable': () => this.clearTable()
+        };
 
-        FormHelper.getElement('clearConsole')?.addEventListener('click', () => {
-            this.clearConsole();
-        });
-
-        FormHelper.getElement('clearTable')?.addEventListener('click', () => {
-            this.clearTable();
+        Object.entries(elements).forEach(([id, handler]) => {
+            FormHelper.getElement(id)?.addEventListener(
+                id === 'debugEnabled' ? 'change' : 'click', 
+                handler
+            );
         });
     }
 
@@ -63,56 +64,27 @@ class DebugConsole {
         }
     }
 
-    // FIXED: Rolling consecutive timing - newest always 0s, others show difference from above
+    // ========== TIMING CALCULATIONS ==========
     calculateSequenceTiming() {
         if (this.messageSequence.length === 0) return;
 
-        // Always set the newest message (top) to "0s"
         this.messageSequence[0].displayTime = "0s";
 
-        // For each subsequent message, calculate time difference from the message ABOVE it
         for (let i = 1; i < this.messageSequence.length; i++) {
-            const currentMsg = this.messageSequence[i];      // Current message (older)
-            const aboveMsg = this.messageSequence[i-1];      // Message above it (newer)
+            const currentMsg = this.messageSequence[i];
+            const aboveMsg = this.messageSequence[i-1];
             
-            // Get timestamps in milliseconds
             const currentTime = this.normalizeTimestamp(currentMsg.espTimestamp);
             const aboveTime = this.normalizeTimestamp(aboveMsg.espTimestamp);
-            
-            // Difference = above message time - current message time
             const delta = Math.max(0, aboveTime - currentTime);
+            
             currentMsg.displayTime = this.formatSimpleDelta(delta);
         }
     }
 
-    // NEW: Save fixed timing data back to storage permanently
-    saveFixedDataToStorage() {
-        try {
-            const fixedMessages = this.messageSequence.map(parsedMessage => {
-                return {
-                    deviceName: parsedMessage.deviceName,
-                    deviceId: parsedMessage.deviceId,
-                    topic: parsedMessage.topic,
-                    data: parsedMessage.data,
-                    displayTime: parsedMessage.displayTime,
-                    espTimestamp: parsedMessage.espTimestamp,
-                    receivedAt: new Date().toISOString(),
-                    browserTimestamp: Date.now()
-                };
-            });
-            
-            localStorage.setItem('mqttDebugMessages', JSON.stringify(fixedMessages));
-        } catch (error) {
-            console.log('Storage save error');
-        }
-    }
-
-    // NEW: Minimal timing update for new messages only
     updateTimingForNewMessage(newMessage) {
-        // Set new message to "0s"
         newMessage.displayTime = "0s";
         
-        // Only update the message immediately below the new one
         if (this.messageSequence.length > 1) {
             const belowMsg = this.messageSequence[1];
             const newTime = this.normalizeTimestamp(newMessage.espTimestamp);
@@ -122,80 +94,40 @@ class DebugConsole {
         }
     }
 
-    // FIXED: Better timestamp normalization
     normalizeTimestamp(timestamp) {
         if (!timestamp || timestamp === 0) return Date.now();
         
-        // If timestamp is unreasonable (like 1.7 billion), treat as seconds and convert
         if (timestamp > 1000000000 && timestamp < 2000000000) {
-            return timestamp * 1000; // Convert seconds to milliseconds
+            return timestamp * 1000;
         }
         
-        // If timestamp is in future or unreasonable, use current time
         const now = Date.now();
-        if (timestamp > now + 31536000000) { // More than 1 year in future
-            return now;
-        }
+        if (timestamp > now + 31536000000) return now;
         
         return timestamp;
     }
 
-    // Simple formatting
     formatSimpleDelta(millis) {
         if (millis === 0) return "0s";
-        
-        if (millis < 1000) {
-            return `+${millis}ms`;
-        } else {
-            const seconds = Math.floor(millis / 1000);
-            return `+${seconds}s`;
-        }
+        if (millis < 1000) return `+${millis}ms`;
+        return `+${Math.floor(millis / 1000)}s`;
     }
 
-    renderTable() {
-        const tableBody = FormHelper.getElement('tableBody');
-        if (!tableBody) return;
-
-        tableBody.innerHTML = '';
-
-        // Display in current order (newest first at top)
-        this.messageSequence.forEach(parsedMessage => {
-            const { deviceName, deviceId, topic, displayTime } = parsedMessage;
-
-            const newRow = document.createElement('tr');
-            newRow.className = 'new-row';
-            newRow.innerHTML = `
-                <td>${displayTime}</td>
-                <td>${deviceName}</td>
-                <td>${deviceId}</td>
-                <td>${topic}</td>
-                <td>${this.formatDataForTable(parsedMessage)}</td>
-            `;
-            tableBody.appendChild(newRow);
-        });
-    }
-
-    // FIXED: Better timestamp parsing - NO LONGER sets displayTime here
+    // ========== MESSAGE PROCESSING ==========
     parseMessageDynamic(messageData) {
         try {
             const parsed = JSON.parse(messageData.message);
             
-            // Use current time if no timestamp or invalid timestamp
-            let espTimestamp = parsed.timestamp;
-            if (!espTimestamp || espTimestamp === 0) {
-                espTimestamp = Date.now();
-            }
-
             const result = {
                 deviceName: parsed.name || 'Unknown',
                 deviceId: parsed.id || 'N/A', 
                 topic: messageData.topic,
                 data: {},
-                espTimestamp,
+                espTimestamp: parsed.timestamp || Date.now(),
                 displayTime: ""
             };
 
-            // Extract data fields
+            // Extract data fields (exclude metadata)
             for (const [key, value] of Object.entries(parsed)) {
                 if (!['id', 'name', 'mqtt_topic', 'timestamp', 'type'].includes(key) && value != null) {
                     result.data[key] = value;
@@ -204,7 +136,6 @@ class DebugConsole {
 
             return result;
         } catch (error) {
-            // For parse errors, use current time
             return {
                 deviceName: 'Parse Error',
                 deviceId: 'N/A',
@@ -216,13 +147,126 @@ class DebugConsole {
         }
     }
 
+    addTableRow(messageData) {
+        const tableBody = FormHelper.getElement('tableBody');
+        if (!tableBody) return;
+
+        if (tableBody.querySelector('.no-data')) {
+            tableBody.innerHTML = '';
+        }
+
+        const parsedMessage = this.parseMessageDynamic(messageData);
+        this.messageSequence.unshift(parsedMessage);
+        
+        // Enforce message limit
+        if (this.messageSequence.length > this.maxTableRows) {
+            this.messageSequence.pop();
+        }
+        
+        this.updateTimingForNewMessage(parsedMessage);
+        this.renderTable();
+        this.saveMessageToStorage(parsedMessage);
+    }
+
+    // ========== STORAGE MANAGEMENT ==========
+    saveMessageToStorage(parsedMessage) {
+        try {
+            const currentMessages = this.getStoredMessages();
+            const storedMessage = this.createStoredMessage(parsedMessage);
+            
+            currentMessages.unshift(storedMessage);
+            const toSave = currentMessages.slice(0, this.maxTableRows);
+            localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
+        } catch (error) {
+            console.log('Storage save error');
+        }
+    }
+
+    saveFixedDataToStorage() {
+        try {
+            const fixedMessages = this.messageSequence.map(msg => 
+                this.createStoredMessage(msg)
+            );
+            localStorage.setItem('mqttDebugMessages', JSON.stringify(fixedMessages));
+        } catch (error) {
+            console.log('Storage save error');
+        }
+    }
+
+    createStoredMessage(parsedMessage) {
+        return {
+            deviceName: parsedMessage.deviceName,
+            deviceId: parsedMessage.deviceId,
+            topic: parsedMessage.topic,
+            data: parsedMessage.data,
+            displayTime: parsedMessage.displayTime,
+            espTimestamp: parsedMessage.espTimestamp,
+            receivedAt: new Date().toISOString(),
+            browserTimestamp: Date.now()
+        };
+    }
+
+    getStoredMessages() {
+        try {
+            const stored = localStorage.getItem('mqttDebugMessages');
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
+        }
+    }
+
+    loadStoredMessages() {
+        try {
+            const stored = localStorage.getItem('mqttDebugMessages');
+            if (stored) {
+                const messages = JSON.parse(stored);
+                const tableBody = FormHelper.getElement('tableBody');
+                
+                if (tableBody?.querySelector('.no-data')) {
+                    tableBody.innerHTML = '';
+                }
+                
+                this.messageSequence = messages.map(msg => ({
+                    deviceName: msg.deviceName,
+                    deviceId: msg.deviceId,
+                    topic: msg.topic,
+                    data: msg.data,
+                    displayTime: msg.displayTime,
+                    espTimestamp: msg.espTimestamp || Date.now()
+                })).slice(0, this.maxTableRows);
+                
+                this.calculateSequenceTiming();
+                this.saveFixedDataToStorage();
+                this.renderTable();
+            }
+        } catch (error) {
+            console.log('No stored table messages');
+        }
+    }
+
+    // ========== UI RENDERING ==========
+    renderTable() {
+        const tableBody = FormHelper.getElement('tableBody');
+        if (!tableBody) return;
+
+        tableBody.innerHTML = this.messageSequence.map(parsedMessage => {
+            const { deviceName, deviceId, topic, displayTime } = parsedMessage;
+            return `
+                <tr class="new-row">
+                    <td>${displayTime}</td>
+                    <td>${deviceName}</td>
+                    <td>${deviceId}</td>
+                    <td>${topic}</td>
+                    <td>${this.formatDataForTable(parsedMessage)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
     formatDataForTable(parsedMessage) {
         const { data } = parsedMessage;
         if (!Object.keys(data).length) return '<div class="no-data-message">No readable data</div>';
-
-        if (data.error) {
-            return `<div class="error-message"><strong>Error:</strong> ${data.error}</div>`;
-        }
+        if (data.error) return `<div class="error-message"><strong>Error:</strong> ${data.error}</div>`;
 
         const valuesHtml = Object.entries(data)
             .filter(([_, value]) => value != null)
@@ -256,106 +300,7 @@ class DebugConsole {
             .join(' ');
     }
 
-    // FIXED: Use minimal timing update instead of full recalculation
-    addTableRow(messageData) {
-        const tableBody = FormHelper.getElement('tableBody');
-        if (!tableBody) return;
-
-        if (tableBody.querySelector('.no-data')) {
-            tableBody.innerHTML = '';
-        }
-
-        const parsedMessage = this.parseMessageDynamic(messageData);
-        
-        // Add new message to the BEGINNING (newest first at top)
-        this.messageSequence.unshift(parsedMessage);
-        
-        // STRICTLY enforce 30 message limit by removing OLDEST (last in array)
-        if (this.messageSequence.length > this.maxTableRows) {
-            this.messageSequence.pop();
-        }
-        
-        // ✅ FIXED: Use minimal timing update instead of full recalculation
-        this.updateTimingForNewMessage(parsedMessage);
-        
-        this.renderTable();
-        
-        // ✅ NOW STORE COMPLETE PARSED MESSAGE OBJECT
-        this.saveMessageToStorage(parsedMessage);
-    }
-
-    // FIXED: Store the complete parsed message object (Option 2)
-    saveMessageToStorage(parsedMessage) {
-        try {
-            const currentMessages = this.getStoredMessages();
-            
-            const storedMessage = {
-                deviceName: parsedMessage.deviceName,
-                deviceId: parsedMessage.deviceId,
-                topic: parsedMessage.topic,
-                data: parsedMessage.data,
-                displayTime: parsedMessage.displayTime,
-                espTimestamp: parsedMessage.espTimestamp,
-                receivedAt: new Date().toISOString(),
-                browserTimestamp: Date.now()
-            };
-            
-            currentMessages.unshift(storedMessage);
-            
-            const toSave = currentMessages.slice(0, this.maxTableRows);
-            localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
-        } catch (error) {
-            console.log('Storage save error');
-        }
-    }
-
-    getStoredMessages() {
-        try {
-            const stored = localStorage.getItem('mqttDebugMessages');
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
-        }
-    }
-
-    // FIXED: Load stored parsed objects and permanently fix corrupted timing data
-    loadStoredMessages() {
-        try {
-            const stored = localStorage.getItem('mqttDebugMessages');
-            if (stored) {
-                const messages = JSON.parse(stored);
-                const tableBody = FormHelper.getElement('tableBody');
-                if (tableBody?.querySelector('.no-data')) {
-                    tableBody.innerHTML = '';
-                }
-                
-                // ✅ LOAD STORED PARSED OBJECTS DIRECTLY
-                this.messageSequence = messages.map(msg => {
-                    return {
-                        deviceName: msg.deviceName,
-                        deviceId: msg.deviceId,
-                        topic: msg.topic,
-                        data: msg.data,
-                        displayTime: msg.displayTime,
-                        espTimestamp: msg.espTimestamp || Date.now()
-                    };
-                });
-                
-                this.messageSequence = this.messageSequence.slice(0, this.maxTableRows);
-                
-                // ✅ FIX: Recalculate ALL timing to fix corrupted stored data
-                this.calculateSequenceTiming();
-                
-                // ✅ PERMANENT FIX: Save the corrected data back to storage
-                this.saveFixedDataToStorage();
-                
-                this.renderTable();
-            }
-        } catch (error) {
-            console.log('No stored table messages');
-        }
-    }
-
+    // ========== CONSOLE MESSAGES ==========
     addMessage(message) {
         if (!this.isEnabled) return;
 
@@ -373,16 +318,16 @@ class DebugConsole {
         messageElement.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
         consoleElement.appendChild(messageElement);
 
-        // STRICTLY enforce 30 message limit
+        // Enforce message limit
         while (consoleElement.children.length > this.maxConsoleMessages) {
             consoleElement.removeChild(consoleElement.firstChild);
         }
 
         consoleElement.scrollTop = consoleElement.scrollHeight;
-        this.saveConsoleMessageToStorage(message);
+        this.saveConsoleMessage(message);
     }
 
-    saveConsoleMessageToStorage(message) {
+    saveConsoleMessage(message) {
         try {
             const currentMessages = this.getStoredConsoleMessages();
             currentMessages.unshift({
@@ -413,16 +358,9 @@ class DebugConsole {
                 const messages = JSON.parse(stored);
                 const consoleElement = FormHelper.getElement('debugConsole');
                 if (consoleElement) {
-                    consoleElement.innerHTML = '';
-                    
-                    const messagesToShow = messages.slice(0, this.maxConsoleMessages);
-                    messagesToShow.forEach(msg => {
-                        const messageElement = document.createElement('div');
-                        messageElement.className = 'console-line';
-                        messageElement.textContent = `[${new Date(msg.timestamp).toLocaleTimeString()}] ${msg.message}`;
-                        consoleElement.appendChild(messageElement);
-                    });
-                    
+                    consoleElement.innerHTML = messages.slice(0, this.maxConsoleMessages).map(msg => 
+                        `<div class="console-line">[${new Date(msg.timestamp).toLocaleTimeString()}] ${msg.message}</div>`
+                    ).join('');
                     consoleElement.scrollTop = consoleElement.scrollHeight;
                 }
             }
@@ -431,6 +369,7 @@ class DebugConsole {
         }
     }
 
+    // ========== CLEANUP & STATUS ==========
     clearConsole() {
         const consoleElement = FormHelper.getElement('debugConsole');
         if (consoleElement) {
@@ -451,19 +390,20 @@ class DebugConsole {
     }
 
     updateStatusMessages() {
-        const tableBody = FormHelper.getElement('tableBody');
-        const consoleElement = FormHelper.getElement('debugConsole');
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
         
+        const tableBody = FormHelper.getElement('tableBody');
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = `<tr><td colspan="5" class="no-data">${statusText}</td></tr>`;
         }
 
+        const consoleElement = FormHelper.getElement('debugConsole');
         if (consoleElement && !consoleElement.children.length) {
             consoleElement.innerHTML = `<div class="console-line">${statusText}</div>`;
         }
     }
 
+    // ========== POLLING ==========
     async checkForMessages() {
         if (!this.isEnabled) return;
 
@@ -483,6 +423,7 @@ class DebugConsole {
     }
 }
 
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     new DebugConsole();
 });
