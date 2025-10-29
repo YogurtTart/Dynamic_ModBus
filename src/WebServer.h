@@ -13,7 +13,7 @@ extern bool debugEnabled;
 // ==================== ENHANCED DYNAMIC TIMING MANAGEMENT ====================
 struct DeviceTiming {
     uint8_t slaveId;
-    char slaveName[32];           // ← ADDED
+    char slaveName[32];
     unsigned long lastSeenTime;
     unsigned long lastSequenceTime;
     bool isFirstMessage;
@@ -27,13 +27,12 @@ extern unsigned long lastSequenceTime; // For "Since Prev" across all devices
 extern unsigned long systemStartTime; // For "Real Time" calculation
 
 // Timing functions
-unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName); // ← FIXED signature
-String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName); // ← FIXED declaration
+unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName);
+String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer = false);
 void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime);
 String formatTimeDelta(unsigned long deltaMs);
 String getCurrentTimeString();
-String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer);
-void resetAllTiming(); 
+void resetAllTiming();
 
 // Web Server Management
 void setupWebServer();
@@ -70,7 +69,7 @@ void handleRemoveSlaveStats();
 void handleToggleDebug();
 void handleGetDebugState();
 void handleGetDebugMessages();
-void handleClearTable(); // ← ADDED missing declaration
+void handleClearTable();
 void addDebugMessage(const char* topic, const char* message, const char* timeDelta, const char* sameDeviceDelta);
 
 // Utilities

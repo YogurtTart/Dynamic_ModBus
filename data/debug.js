@@ -3,7 +3,7 @@ class DebugConsole {
         this.isEnabled = false;
         this.maxTableRows = 30;
         this.messageSequence = [];
-        this.deviceLastSeen = {}; // Track last seen time per device
+        this.deviceLastSeen = {};
         this.init();
     }
 
@@ -15,21 +15,10 @@ class DebugConsole {
     }
 
     bindEvents() {
-        const debugToggle = FormHelper.getElement('debugEnabled');
-        const clearButton = FormHelper.getElement('clearTable');
-        const resetTimingButton = FormHelper.getElement('resetTiming'); // Add this button
-        
-        if (debugToggle) {
-            debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
-        }
-        
-        if (clearButton) {
-            clearButton.addEventListener('click', () => this.clearTable());
-        }
-        
-        if (resetTimingButton) {
-            resetTimingButton.addEventListener('click', () => this.resetTiming());
-        }
+        FormHelper.getElement('debugEnabled')?.addEventListener('change', 
+            (e) => this.toggleDebugMode(e.target.checked));
+        FormHelper.getElement('clearTable')?.addEventListener('click', 
+            () => this.clearTable());
     }
 
     async loadDebugState() {
@@ -83,7 +72,7 @@ class DebugConsole {
                 browserTimestamp: Date.now()
             };
 
-            // Extract data fields
+            // Extract data fields (exclude metadata)
             for (const key in parsed) {
                 if (!['id', 'name', 'mqtt_topic', 'timestamp', 'type', 'timeDelta'].includes(key) && parsed[key] != null) {
                     result.data[key] = parsed[key];
@@ -107,8 +96,7 @@ class DebugConsole {
     }
 
     getCurrentTime() {
-        const now = new Date();
-        return now.toTimeString().split(' ')[0]; // HH:MM:SS
+        return new Date().toTimeString().split(' ')[0]; // HH:MM:SS
     }
 
     addTableRow(messageData) {
@@ -243,12 +231,21 @@ class DebugConsole {
 
     getValueTypeClass(key) {
         const keyLower = key.toLowerCase();
-        if (keyLower.includes('volt') || keyLower.includes('voltage')) return 'voltage';
-        if (keyLower.includes('current') || keyLower.includes('amp')) return 'current';
-        if (keyLower.includes('power') || keyLower.includes('watt')) return 'power';
-        if (keyLower.includes('energy') || keyLower.includes('kwh')) return 'energy';
-        if (keyLower.includes('freq')) return 'frequency';
-        if (keyLower.includes('temp')) return 'temperature';
+        const typeMap = {
+            'volt': 'voltage',
+            'current': 'current',
+            'amp': 'current',
+            'power': 'power',
+            'watt': 'power',
+            'energy': 'energy',
+            'kwh': 'energy',
+            'freq': 'frequency',
+            'temp': 'temperature'
+        };
+
+        for (const [pattern, className] of Object.entries(typeMap)) {
+            if (keyLower.includes(pattern)) return className;
+        }
         return '';
     }
 
@@ -284,11 +281,11 @@ class DebugConsole {
             this.deviceLastSeen = {};
             this.updateStatusMessages();
             
-            // Reset backend timing data (all 3 time columns)
+            // Reset backend timing data
             try {
                 await ApiClient.post('/cleartable', {});
                 StatusManager.showStatus('Table cleared and timing reset', 'success');
-                console.log('✅ Table cleared and timing reset - Real Time, Since Prev, Since Same');
+                console.log('✅ Table cleared and timing reset');
             } catch (error) {
                 console.error('❌ Error resetting timing:', error);
                 StatusManager.showStatus('Table cleared (timing reset failed)', 'warning');
@@ -312,9 +309,7 @@ class DebugConsole {
 
         try {
             const messages = await ApiClient.get('/getdebugmessages');
-            messages.forEach(msg => {
-                this.addTableRow(msg);
-            });
+            messages.forEach(msg => this.addTableRow(msg));
         } catch (error) {
             // Silent fail - no new messages
         }
@@ -323,19 +318,7 @@ class DebugConsole {
     startMessagePolling() {
         setInterval(() => this.checkForMessages(), 1000);
     }
-
-    async resetTiming() {
-        try {
-            await ApiClient.post('/resettiming', {});
-            this.clearTable(); // Also clear the table when resetting timing
-            StatusManager.showStatus('Timing data reset', 'success');
-        } catch (error) {
-            StatusManager.showStatus('Error resetting timing', 'error');
-        }
-    }
 }
-
-
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

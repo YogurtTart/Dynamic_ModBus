@@ -525,15 +525,11 @@ unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName) {
     unsigned long currentTime = millis();
     unsigned long delta = 0;
     
-    // Track sequence timing (Since Prev) - time since ANY previous message
     if (lastSequenceTime > 0) {
         delta = currentTime - lastSequenceTime;
     }
     
-    // Update sequence timing for next message
     lastSequenceTime = currentTime;
-    
-    // Update device-specific timing with ID + NAME
     updateDeviceTiming(slaveId, slaveName, currentTime);
     
     return delta;
@@ -565,7 +561,6 @@ String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName) {
 String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer) {
     unsigned long currentTime = millis();
     
-    // Find device timing using ID + NAME
     for (int i = 0; i < deviceTimeCount; i++) {
         if (deviceTiming[i].slaveId == slaveId && 
             strcmp(deviceTiming[i].slaveName, slaveName) == 0) {
@@ -586,12 +581,11 @@ String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTime
         }
     }
     
-    // Device not found - initialize with ID + NAME
-    if (deviceTimeCount < kMaxDevices) {
+    // Device not found - initialize
+    if (deviceTimeCount < 20) {
         deviceTiming[deviceTimeCount].slaveId = slaveId;
-        strncpy(deviceTiming[deviceTimeCount].slaveName, slaveName, 
-                sizeof(deviceTiming[deviceTimeCount].slaveName) - 1);
-        deviceTiming[deviceTimeCount].slaveName[sizeof(deviceTiming[deviceTimeCount].slaveName) - 1] = '\0';
+        strncpy(deviceTiming[deviceTimeCount].slaveName, slaveName, 31);
+        deviceTiming[deviceTimeCount].slaveName[31] = '\0';
         deviceTiming[deviceTimeCount].lastSeenTime = currentTime;
         deviceTiming[deviceTimeCount].lastSequenceTime = currentTime;
         deviceTiming[deviceTimeCount].isFirstMessage = true;
@@ -604,8 +598,9 @@ String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTime
 }
 
 void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime) {
-    // Find or create device timing entry using ID + NAME
     int deviceIndex = -1;
+    
+    // Find existing device
     for (int i = 0; i < deviceTimeCount; i++) {
         if (deviceTiming[i].slaveId == slaveId && 
             strcmp(deviceTiming[i].slaveName, slaveName) == 0) {
@@ -614,13 +609,12 @@ void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long cu
         }
     }
     
-    if (deviceIndex == -1 && deviceTimeCount < kMaxDevices) {
-        // New device - store both ID and NAME
+    if (deviceIndex == -1 && deviceTimeCount < 20) {
+        // Create new device entry
         deviceIndex = deviceTimeCount;
         deviceTiming[deviceIndex].slaveId = slaveId;
-        strncpy(deviceTiming[deviceIndex].slaveName, slaveName, 
-                sizeof(deviceTiming[deviceIndex].slaveName) - 1);
-        deviceTiming[deviceIndex].slaveName[sizeof(deviceTiming[deviceIndex].slaveName) - 1] = '\0';
+        strncpy(deviceTiming[deviceIndex].slaveName, slaveName, 31);
+        deviceTiming[deviceIndex].slaveName[31] = '\0';
         deviceTiming[deviceIndex].lastSeenTime = currentTime;
         deviceTiming[deviceIndex].lastSequenceTime = currentTime;
         deviceTiming[deviceIndex].isFirstMessage = true;
