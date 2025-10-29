@@ -371,11 +371,12 @@ void checkCycleCompletion() {
     if (currentSlaveIndex >= slaveCount) {
         unsigned long currentTime = millis();
         
-        // ✅ CRITICAL: Reset sequence time to when poll interval starts
         lastSequenceTime = currentTime;
-        
         currentState = STATE_WAITING;
         lastActionTime = currentTime;
+        
+        // 🎯 ADD BATCH SEPARATOR
+        addBatchSeparatorMessage();
         
         Serial.printf("🎉 Cycle complete - sequence time reset to: %lu\n", currentTime);
     } else {
@@ -574,3 +575,17 @@ float readEnergyValue(uint16_t registerIndex, float divider) {
     return (value / 100.0f) / divider;
 }
 
+// ==================== Debug Batch Seperator ====================
+
+void addBatchSeparatorMessage() {
+    if (!debugEnabled) return;
+    
+    JsonDocument doc;
+    doc["type"] = "batch_separator";
+    doc["message"] = "Query Loop Completed";
+    
+    String output;
+    serializeJson(doc, output);
+    
+    addDebugMessage("BATCH", output.c_str(), "0", "0");
+}

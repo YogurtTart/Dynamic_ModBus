@@ -111,3 +111,6 @@ void checkCycleCompletion();
 unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName);
 String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName);
 String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer);
+
+// Debug Batch Seperator
+void addBatchSeparatorMessage();

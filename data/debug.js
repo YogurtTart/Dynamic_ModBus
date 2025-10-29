@@ -4,6 +4,7 @@ class DebugConsole {
         this.maxTableRows = 30;
         this.messageSequence = [];
         this.deviceLastSeen = {};
+        this.batchCount = 0;
         this.init();
     }
 
@@ -60,6 +61,16 @@ class DebugConsole {
         try {
             const parsed = JSON.parse(messageData.message);
             
+            // Check if this is a batch separator
+            if (parsed.type === "batch_separator") {
+                return {
+                    isSeparator: true,
+                    message: parsed.message || "Query Loop Completed",
+                    realTime: messageData.realTime || this.getCurrentTime()
+                };
+            }
+            
+            // Regular message processing
             const result = {
                 deviceName: parsed.name || 'Unknown',
                 deviceId: parsed.id || 'N/A', 
@@ -69,7 +80,8 @@ class DebugConsole {
                 sincePrev: messageData.timeDelta || "+0ms",
                 sinceSame: messageData.sameDeviceDelta || "+0ms",
                 espTimestamp: parsed.timestamp || Date.now(),
-                browserTimestamp: Date.now()
+                browserTimestamp: Date.now(),
+                isSeparator: false
             };
 
             // Extract data fields (exclude metadata)
@@ -90,7 +102,8 @@ class DebugConsole {
                 sincePrev: messageData.timeDelta || "+0ms",
                 sinceSame: messageData.sameDeviceDelta || "+0ms",
                 espTimestamp: Date.now(),
-                browserTimestamp: Date.now()
+                browserTimestamp: Date.now(),
+                isSeparator: false
             };
         }
     }
@@ -135,6 +148,19 @@ class DebugConsole {
     }
 
     createStoredMessage(parsedMessage) {
+        if (parsedMessage.isSeparator) {
+            return {
+                isSeparator: true,
+                batchId: parsedMessage.batchId,
+                batchDuration: parsedMessage.batchDuration,
+                slaveCount: parsedMessage.slaveCount,
+                pollInterval: parsedMessage.pollInterval,
+                realTime: parsedMessage.realTime,
+                message: parsedMessage.message,
+                timestamp: parsedMessage.timestamp
+            };
+        }
+        
         return {
             deviceName: parsedMessage.deviceName,
             deviceId: parsedMessage.deviceId,
@@ -144,7 +170,8 @@ class DebugConsole {
             sincePrev: parsedMessage.sincePrev,
             sinceSame: parsedMessage.sinceSame,
             espTimestamp: parsedMessage.espTimestamp,
-            browserTimestamp: parsedMessage.browserTimestamp
+            browserTimestamp: parsedMessage.browserTimestamp,
+            isSeparator: false
         };
     }
 
@@ -188,12 +215,22 @@ class DebugConsole {
 
     // ========== UI RENDERING ==========
 
-    renderTable() {
+     renderTable() {
         const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
-        tableBody.innerHTML = this.messageSequence.map(parsedMessage => {
-            const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = parsedMessage;
+        tableBody.innerHTML = this.messageSequence.map(item => {
+            if (item.isSeparator) {
+                return `
+                    <tr class="batch-separator">
+                        <td colspan="7">
+                            ${item.message}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = item;
             return `
                 <tr class="new-row">
                     <td>${realTime}</td>
@@ -202,7 +239,7 @@ class DebugConsole {
                     <td>${deviceName}</td>
                     <td>${deviceId}</td>
                     <td>${topic}</td>
-                    <td>${this.formatDataForTable(parsedMessage)}</td>
+                    <td>${this.formatDataForTable(item)}</td>
                 </tr>
             `;
         }).join('');
@@ -271,17 +308,16 @@ class DebugConsole {
 
     // ========== CLEANUP & STATUS ==========
 
-    async clearTable() {
+     async clearTable() {
         const tableBody = FormHelper.getElement('tableBody');
         if (tableBody) {
-            // Clear frontend table immediately
             tableBody.innerHTML = '';
             localStorage.removeItem('mqttDebugMessages');
             this.messageSequence = [];
             this.deviceLastSeen = {};
+            this.batchCount = 0; // Reset batch counter
             this.updateStatusMessages();
             
-            // Reset backend timing data
             try {
                 await ApiClient.post('/cleartable', {});
                 StatusManager.showStatus('Table cleared and timing reset', 'success');
