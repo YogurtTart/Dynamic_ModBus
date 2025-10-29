@@ -93,8 +93,16 @@ class SettingsManager {
             
             StatusManager.showStatus(result.message || 'Slave configuration updated successfully!', 'success');
             
+            // 🛑 FIX: Don't call cancelEdit() here - just clear the form and hide the editor
             FormHelper.clearForm(['search_slave_id', 'search_slave_name']);
-            this.cancelEdit();
+            
+            // Clear editor and hide section without showing "cancelled" message
+            const editSection = document.getElementById('editSection');
+            if (editSection) editSection.style.display = 'none';
+            if (editor) editor.value = '';
+            
+            this.currentSlaveId = null;
+            this.currentSlaveName = null;
             
         } catch (error) {
             if (error instanceof SyntaxError) {
