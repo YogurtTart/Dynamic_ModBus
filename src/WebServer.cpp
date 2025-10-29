@@ -3,10 +3,17 @@
 // Constants
 constexpr int kMaxDebugMessages = 30;
 constexpr int kWebServerPort = 80;
+constexpr int kMaxDevices = 20;
 
 // Global Variables
 ESP8266WebServer server(kWebServerPort);
 bool debugEnabled = false;
+
+// ==================== ENHANCED DYNAMIC TIMING VARIABLES ====================
+unsigned long lastSequenceTime = 0;
+unsigned long systemStartTime = 0;
+DeviceTiming deviceTiming[kMaxDevices];
+uint8_t deviceTimeCount = 0;
 
 String debugMessages[kMaxDebugMessages];
 int debugMessageCount = 0;
@@ -14,6 +21,18 @@ int debugMessageIndex = 0;
 
 void setupWebServer() {
     Serial.println("🌐 Initializing Web Server...");
+    
+    // Initialize device timing array
+    for (int i = 0; i < kMaxDevices; i++) {
+        deviceTiming[i].slaveId = 0;
+        deviceTiming[i].lastSeenTime = 0;
+        deviceTiming[i].lastSequenceTime = 0;
+        deviceTiming[i].isFirstMessage = true;
+        deviceTiming[i].messageCount = 0;
+    }
+    
+    // Set system start time
+    systemStartTime = millis();
     
     // Serve static files
     server.onNotFound(handleStaticFiles);
@@ -47,6 +66,7 @@ void setupWebServer() {
     server.on("/toggledebug", HTTP_POST, handleToggleDebug);
     server.on("/getdebugstate", HTTP_GET, handleGetDebugState);
     server.on("/getdebugmessages", HTTP_GET, handleGetDebugMessages);
+    server.on("/cleartable", HTTP_POST, handleClearTable); 
     
     server.begin();
     Serial.println("✅ HTTP server started on port 80");
@@ -401,7 +421,7 @@ void handleUpdateSlaveConfig() {
     bool slaveFound = false;
     int slaveIndex = -1;
     
-    for (int i = 0; i < slavesArray.size(); i++) {
+    for (size_t i = 0; i < slavesArray.size(); i++) {
         JsonObject slave = slavesArray[i];
         if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
             slaveIndex = i;
@@ -462,13 +482,16 @@ void handleGetDebugMessages() {
     server.send(200, "application/json", response);
 }
 
-void addDebugMessage(const char* topic, const char* message) {
+void addDebugMessage(const char* topic, const char* message, const char* timeDelta, const char* sameDeviceDelta) {
     if (!debugEnabled) return;
     
     JsonDocument doc;
     doc["topic"] = topic;
     doc["message"] = message;
     doc["timestamp"] = millis();
+    doc["timeDelta"] = timeDelta;
+    doc["sameDeviceDelta"] = sameDeviceDelta;
+    doc["realTime"] = getCurrentTimeString();
     
     String jsonMessage;
     serializeJson(doc, jsonMessage);
@@ -481,5 +504,149 @@ void addDebugMessage(const char* topic, const char* message) {
         debugMessageCount++;
     }
     
-    Serial.printf("📢 DEBUG [%s]: %s\n", topic, message);
+    Serial.printf("📢 DEBUG [%s]: %s (Δ%s, sameΔ%s)\n", topic, message, timeDelta, sameDeviceDelta);
+}
+
+void handleClearTable() {
+    Serial.println("🗑️ Clearing table and resetting timing data");
+    resetAllTiming();
+    
+    // Also clear debug messages
+    debugMessageCount = 0;
+    debugMessageIndex = 0;
+    
+    server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Table cleared and timing reset\"}");
+    Serial.println("✅ Table cleared and all timing data reset");
+}
+
+// ==================== ENHANCED TIMING FUNCTIONS ====================
+
+unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName) {
+    unsigned long currentTime = millis();
+    unsigned long delta = 0;
+    
+    // Track sequence timing (Since Prev) - time since ANY previous message
+    if (lastSequenceTime > 0) {
+        delta = currentTime - lastSequenceTime;
+    }
+    
+    // Update sequence timing for next message
+    lastSequenceTime = currentTime;
+    
+    // Update device-specific timing with ID + NAME
+    updateDeviceTiming(slaveId, slaveName, currentTime);
+    
+    return delta;
+}
+
+String formatTimeDelta(unsigned long deltaMs) {
+    if (deltaMs == 0) return "+0ms";
+    if (deltaMs < 1000) return "+" + String(deltaMs) + "ms";
+    return "+" + String(deltaMs / 1000.0, 1) + "s";
+}
+
+String getCurrentTimeString() {
+    // Calculate time since system start (real time)
+    unsigned long elapsedMs = millis() - systemStartTime;
+    unsigned long seconds = elapsedMs / 1000;
+    unsigned long hours = (seconds % 86400) / 3600;
+    unsigned long minutes = (seconds % 3600) / 60;
+    unsigned long secs = seconds % 60;
+    
+    char timeBuffer[9];
+    snprintf(timeBuffer, sizeof(timeBuffer), "%02lu:%02lu:%02lu", hours, minutes, secs);
+    return String(timeBuffer);
+}
+
+String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName) {
+    return getSameDeviceDelta(slaveId, slaveName, false);
+}
+
+String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer) {
+    unsigned long currentTime = millis();
+    
+    // Find device timing using ID + NAME
+    for (int i = 0; i < deviceTimeCount; i++) {
+        if (deviceTiming[i].slaveId == slaveId && 
+            strcmp(deviceTiming[i].slaveName, slaveName) == 0) {
+            
+            if (deviceTiming[i].isFirstMessage) {
+                if (resetTimer) {
+                    deviceTiming[i].isFirstMessage = false;
+                    deviceTiming[i].lastSeenTime = currentTime;
+                }
+                return "First";
+            }
+            
+            unsigned long delta = currentTime - deviceTiming[i].lastSeenTime;
+            if (resetTimer) {
+                deviceTiming[i].lastSeenTime = currentTime;
+            }
+            return formatTimeDelta(delta);
+        }
+    }
+    
+    // Device not found - initialize with ID + NAME
+    if (deviceTimeCount < kMaxDevices) {
+        deviceTiming[deviceTimeCount].slaveId = slaveId;
+        strncpy(deviceTiming[deviceTimeCount].slaveName, slaveName, 
+                sizeof(deviceTiming[deviceTimeCount].slaveName) - 1);
+        deviceTiming[deviceTimeCount].slaveName[sizeof(deviceTiming[deviceTimeCount].slaveName) - 1] = '\0';
+        deviceTiming[deviceTimeCount].lastSeenTime = currentTime;
+        deviceTiming[deviceTimeCount].lastSequenceTime = currentTime;
+        deviceTiming[deviceTimeCount].isFirstMessage = true;
+        deviceTiming[deviceTimeCount].messageCount = 1;
+        deviceTimeCount++;
+        return "First";
+    }
+    
+    return "+0ms";
+}
+
+void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime) {
+    // Find or create device timing entry using ID + NAME
+    int deviceIndex = -1;
+    for (int i = 0; i < deviceTimeCount; i++) {
+        if (deviceTiming[i].slaveId == slaveId && 
+            strcmp(deviceTiming[i].slaveName, slaveName) == 0) {
+            deviceIndex = i;
+            break;
+        }
+    }
+    
+    if (deviceIndex == -1 && deviceTimeCount < kMaxDevices) {
+        // New device - store both ID and NAME
+        deviceIndex = deviceTimeCount;
+        deviceTiming[deviceIndex].slaveId = slaveId;
+        strncpy(deviceTiming[deviceIndex].slaveName, slaveName, 
+                sizeof(deviceTiming[deviceIndex].slaveName) - 1);
+        deviceTiming[deviceIndex].slaveName[sizeof(deviceTiming[deviceIndex].slaveName) - 1] = '\0';
+        deviceTiming[deviceIndex].lastSeenTime = currentTime;
+        deviceTiming[deviceIndex].lastSequenceTime = currentTime;
+        deviceTiming[deviceIndex].isFirstMessage = true;
+        deviceTiming[deviceIndex].messageCount = 0;
+        deviceTimeCount++;
+    }
+    
+    if (deviceIndex != -1) {
+        deviceTiming[deviceIndex].lastSequenceTime = currentTime;
+        deviceTiming[deviceIndex].messageCount++;
+    }
+}
+
+void resetAllTiming() {
+    // Reset all timing variables
+    for (int i = 0; i < kMaxDevices; i++) {
+        deviceTiming[i].slaveId = 0;
+        deviceTiming[i].lastSeenTime = 0;
+        deviceTiming[i].lastSequenceTime = 0;
+        deviceTiming[i].isFirstMessage = true;
+        deviceTiming[i].messageCount = 0;
+    }
+    
+    deviceTimeCount = 0;
+    lastSequenceTime = 0;
+    systemStartTime = millis(); // Reset real time counter
+    
+    Serial.println("✅ All timing data reset - Real Time, Since Prev, and Since Same cleared");
 }

@@ -10,36 +10,323 @@ input:checked + .toggle-slider:before { transform: translateX(26px); }
 #debugStatus { margin-left: 10px; font-weight: bold; color: var(--error-color); }
 .toggle-label input:checked + .toggle-slider + #debugStatus { color: var(--success-color); }
 
-.debug-console { background: #0a0f1c; color: #00ff00; font-family: 'Courier New', monospace; padding: 15px; border-radius: 8px; height: 400px; overflow-y: auto; border: 1px solid var(--border-color); font-size: 14px; }
-.console-line { margin-bottom: 8px; word-wrap: break-word; }
 .panel-actions { display: flex; gap: var(--space-md); align-items: center; }
 
-/* Debug Table Columns */
-.data-table.debug-table td:nth-child(1) { color: var(--text-muted); font-size: var(--text-xs); white-space: nowrap; width: 100px; }
-.data-table.debug-table td:nth-child(2) { color: var(--primary-color); font-weight: 600; width: 120px; }
-.data-table.debug-table td:nth-child(3) { color: var(--warning-color); text-align: center; width: 50px; }
-.data-table.debug-table td:nth-child(4) { color: var(--success-color); font-family: 'Courier New', monospace; font-size: var(--text-sm); font-weight: 600; width: 150px; word-break: break-all; }
-.data-table.debug-table td:nth-child(5) { color: var(--text-primary); min-width: 200px; word-break: break-word; }
+/* Debug Table - FLEXIBLE LAYOUT */
+.data-table.debug-table {
+    width: 100%;
+    table-layout: auto; /* CHANGED: Use auto layout for flexible columns */
+}
 
-/* Data Cell Styling */
-.data-cell { line-height: 1.4; }
-.data-cell .category { margin-bottom: var(--space-md); padding: var(--space-sm); background: rgba(255, 255, 255, 0.05); border-radius: var(--radius-sm); }
-.data-cell .category-header { font-weight: 600; color: var(--warning-color); margin-bottom: var(--space-sm); font-size: var(--text-xs); text-transform: uppercase; }
-.data-cell .value-row { display: flex; justify-content: space-between; margin-bottom: var(--space-xs); font-size: var(--text-sm); }
-.data-cell .value-name { color: var(--text-secondary); font-weight: 500; }
-.data-cell .value-data { color: var(--text-primary); font-weight: 600; }
+/* Desktop column sizing - Flexible but with min/max widths */
+.data-table.debug-table th:nth-child(1),
+.data-table.debug-table td:nth-child(1) { 
+    color: var(--text-muted); 
+    font-size: var(--text-xs); 
+    white-space: nowrap;
+    width: 75px; /* Time - fixed */
+    min-width: 75px;
+    max-width: 85px;
+    padding: var(--space-sm);
+} 
 
-.sensor-data .value-data { color: var(--success-color); }
-.meter-data .value-data { color: var(--primary-color); }
-.voltage-data .value-data { color: var(--warning-color); }
-.energy-data .value-data { color: #8b5cf6; }
+.data-table.debug-table th:nth-child(2),
+.data-table.debug-table td:nth-child(2) { 
+    color: var(--primary-color); 
+    font-weight: 600;
+    width: 70px; /* Since Prev - fixed */
+    min-width: 70px;
+    max-width: 80px;
+    font-size: var(--text-xs);
+    padding: var(--space-sm);
+    text-align: center;
+} 
+
+.data-table.debug-table th:nth-child(3),
+.data-table.debug-table td:nth-child(3) { 
+    color: var(--warning-color); 
+    text-align: center;
+    width: 70px; /* Since Same - fixed */
+    min-width: 70px;
+    max-width: 80px;
+    font-size: var(--text-xs);
+    padding: var(--space-sm);
+} 
+
+.data-table.debug-table th:nth-child(4),
+.data-table.debug-table td:nth-child(4) { 
+    color: var(--success-color); 
+    font-weight: 600;
+    width: 120px; /* Device - flexible but constrained */
+    min-width: 100px;
+    max-width: 150px;
+    padding: var(--space-sm);
+    font-size: var(--text-sm);
+    word-break: break-word; /* ADDED: Handle long device names */
+    overflow-wrap: break-word;
+    overflow: hidden;
+} 
+
+.data-table.debug-table th:nth-child(5),
+.data-table.debug-table td:nth-child(5) { 
+    color: var(--text-primary); 
+    word-break: break-all; 
+    font-size: var(--text-xs);
+    width: 50px; /* ID - fixed */
+    min-width: 50px;
+    max-width: 60px;
+    padding: var(--space-sm);
+} 
+
+.data-table.debug-table th:nth-child(6),
+.data-table.debug-table td:nth-child(6) { 
+    color: var(--text-secondary); 
+    word-break: break-word; 
+    font-size: var(--text-xs);
+    width: 100px; /* Topic - flexible but constrained */
+    min-width: 80px;
+    max-width: 150px;
+    padding: var(--space-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+} 
+
+/* EXPANDED: Data column with larger text and more space */
+.data-table.debug-table th:nth-child(7),
+.data-table.debug-table td:nth-child(7) { 
+    color: var(--text-primary); 
+    word-break: break-word;
+    padding: var(--space-sm);
+    min-width: 300px; /* SIGNIFICANTLY INCREASED from 200px */
+    width: auto; /* Let it take remaining space */
+} 
+
+/* EXPANDED DATA CELL STYLING - Much larger text and more space */
+.data-cell { 
+    line-height: 1.5;
+    max-height: 160px; /* INCREASED from 120px */
+    overflow-y: auto;
+    padding: var(--space-md); /* INCREASED from var(--space-xs) */
+}
+
+.data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* INCREASED from 120px */
+    gap: var(--space-md); /* INCREASED from var(--space-xs) */
+    font-size: var(--text-base); /* SIGNIFICANTLY INCREASED from var(--text-xs) */
+}
+
+.data-item {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-md); /* INCREASED from var(--space-xs) */
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md); /* INCREASED from var(--radius-sm) */
+    border-left: 3px solid var(--border-color); /* THICKER border */
+    transition: all 0.2s ease;
+    min-height: 60px; /* Ensure consistent height */
+}
+
+.data-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-left-color: var(--primary-color);
+    transform: translateY(-1px); /* Add hover effect */
+}
+
+.data-label {
+    color: var(--text-secondary);
+    font-weight: 600; /* BOLDER */
+    font-size: 0.85rem; /* INCREASED from 0.7rem */
+    margin-bottom: 6px; /* INCREASED from 2px */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.data-value {
+    color: var(--text-primary);
+    font-weight: 700; /* BOLDER */
+    font-size: 1rem; /* SIGNIFICANTLY INCREASED from 0.75rem */
+    word-break: break-word;
+    line-height: 1.3;
+}
+
+/* Color coding for different value types */
+.data-value.voltage { color: var(--warning-color); }
+.data-value.current { color: var(--primary-color); }
+.data-value.power { color: var(--success-color); }
+.data-value.energy { color: #8b5cf6; }
+.data-value.frequency { color: #ec4899; }
+.data-value.temperature { color: #f97316; }
+
+/* Compact error display */
+.compact-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--error-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    font-size: var(--text-base); /* INCREASED from var(--text-xs) */
+    color: var(--error-color);
+    font-weight: 600;
+}
+
+/* No data message */
+.no-data-message {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: var(--text-base); /* INCREASED from var(--text-xs) */
+    text-align: center;
+    padding: var(--space-lg);
+}
+
+/* Scrollbar for data cell */
+.data-cell::-webkit-scrollbar {
+    width: 8px; /* INCREASED from 4px */
+}
+
+.data-cell::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.data-cell::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.data-cell::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
 
 @keyframes highlightNew { 0% { background: rgba(16, 185, 129, 0.3); } 100% { background: transparent; } }
 .new-row { animation: highlightNew 2s ease-out; }
 
 .error-message { color: var(--error-color) !important; font-weight: bold; }
 
+/* Mobile Responsive Design */
 @media (max-width: 768px) {
-    .table-container { overflow-x: auto; }
-    .data-table { min-width: 500px; }
+    .debug-controls {
+        padding: var(--space-md);
+    }
+    
+    .toggle-label {
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+    }
+    
+    .table-container { 
+        overflow-x: auto; 
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        margin: var(--space-md) 0;
+    }
+    
+    .data-table.debug-table {
+        min-width: 800px; /* INCREASED to accommodate larger data column */
+        font-size: var(--text-sm);
+    }
+    
+    /* More compact mobile styling */
+    .data-table.debug-table th,
+    .data-table.debug-table td {
+        padding: var(--space-sm);
+    }
+    
+    .data-table.debug-table th:nth-child(1),
+    .data-table.debug-table td:nth-child(1) { 
+        width: 70px;
+        min-width: 70px;
+        font-size: 0.7rem;
+    }
+    
+    .data-table.debug-table th:nth-child(2),
+    .data-table.debug-table td:nth-child(2),
+    .data-table.debug-table th:nth-child(3),
+    .data-table.debug-table td:nth-child(3) { 
+        width: 65px;
+        min-width: 65px;
+        font-size: 0.7rem;
+    }
+    
+    .data-table.debug-table th:nth-child(4),
+    .data-table.debug-table td:nth-child(4) { 
+        width: 110px;
+        min-width: 90px;
+        font-size: var(--text-xs);
+    }
+    
+    .data-table.debug-table th:nth-child(5),
+    .data-table.debug-table td:nth-child(5) { 
+        width: 45px;
+        min-width: 45px;
+        font-size: var(--text-xs);
+    }
+    
+    .data-table.debug-table th:nth-child(6),
+    .data-table.debug-table td:nth-child(6) { 
+        width: 90px;
+        min-width: 80px;
+        font-size: var(--text-xs);
+    }
+    
+    /* Mobile data grid - still larger but more compact */
+    .data-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--space-sm);
+        font-size: var(--text-sm);
+    }
+    
+    .data-item {
+        padding: var(--space-sm);
+        min-height: 50px;
+    }
+    
+    .data-label {
+        font-size: 0.75rem;
+    }
+    
+    .data-value {
+        font-size: 0.85rem;
+    }
+    
+    .panel-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-sm);
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .data-table.debug-table {
+        min-width: 700px;
+    }
+    
+    .data-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+}
+
+/* Smooth scrolling */
+.table-container {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--surface-color);
+}
+
+.table-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: var(--surface-color);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
 }

@@ -10,6 +10,31 @@
 extern ESP8266WebServer server;
 extern bool debugEnabled;
 
+// ==================== ENHANCED DYNAMIC TIMING MANAGEMENT ====================
+struct DeviceTiming {
+    uint8_t slaveId;
+    char slaveName[32];           // ← ADDED
+    unsigned long lastSeenTime;
+    unsigned long lastSequenceTime;
+    bool isFirstMessage;
+    unsigned long messageCount;
+};
+
+// Global timing variables
+extern DeviceTiming deviceTiming[20]; // Max 20 devices
+extern uint8_t deviceTimeCount;
+extern unsigned long lastSequenceTime; // For "Since Prev" across all devices
+extern unsigned long systemStartTime; // For "Real Time" calculation
+
+// Timing functions
+unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName); // ← FIXED signature
+String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName); // ← FIXED declaration
+void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime);
+String formatTimeDelta(unsigned long deltaMs);
+String getCurrentTimeString();
+String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer);
+void resetAllTiming(); 
+
 // Web Server Management
 void setupWebServer();
 
@@ -45,7 +70,8 @@ void handleRemoveSlaveStats();
 void handleToggleDebug();
 void handleGetDebugState();
 void handleGetDebugMessages();
-void addDebugMessage(const char* topic, const char* message);
+void handleClearTable(); // ← ADDED missing declaration
+void addDebugMessage(const char* topic, const char* message, const char* timeDelta, const char* sameDeviceDelta);
 
 // Utilities
 String getContentType(const String& filename);

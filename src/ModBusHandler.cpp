@@ -277,13 +277,43 @@ void processEnergyData(JsonObject& root, const SensorSlave& slave) {
 }
 
 void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success) {
+    
+    static unsigned long batchStart = 0;
+    static int queryCount = 0;
+    
+    if (queryCount == 0) {
+        batchStart = millis();
+        Serial.printf("\n🔄 BATCH START: %lu\n", batchStart);
+    }
+    
+    unsigned long queryTime = millis() - batchStart;
+    
+    // ✅ FIXED RESPONSE-TO-RESPONSE TIMING:
+    // FIRST: Get the time since last response (before resetting)
+    String sameDeviceDelta = getSameDeviceDelta(slave.id, slave.name.c_str(), false);
+    
+    // THEN: Reset the timer for NEXT response (use getSameDeviceDelta with reset=true)
+    getSameDeviceDelta(slave.id, slave.name.c_str(), true);  // ✅ This actually resets!
+    
+    // NOW: Get the "Since Prev" (global timing)
+    unsigned long timeDelta = calculateTimeDelta(slave.id, slave.name.c_str());
+    String formattedDelta = formatTimeDelta(timeDelta);
+    
+    Serial.printf("📨 SLAVE %d | Query Time: %lums | Since Same: %s | Success: %s\n", 
+                 slave.id, queryTime, sameDeviceDelta.c_str(), success ? "YES" : "NO");
+    
     String output;
     serializeJson(doc, output);
-
     publishMessage(slave.mqttTopic.c_str(), output.c_str());
     
     if (debugEnabled) {
-        addDebugMessage(slave.mqttTopic.c_str(), output.c_str());
+        addDebugMessage(slave.mqttTopic.c_str(), output.c_str(), formattedDelta.c_str(), sameDeviceDelta.c_str());
+    }
+    
+    queryCount++;
+    if (queryCount >= slaveCount) {
+        queryCount = 0;
+        Serial.printf("✅ BATCH COMPLETE: %lu ms total\n", millis() - batchStart);
     }
     
     if (!success) {
@@ -354,8 +384,15 @@ void processNonBlockingData() {
 
 void checkCycleCompletion() {
     if (currentSlaveIndex >= slaveCount) {
+        unsigned long currentTime = millis();
+        
+        // ✅ CRITICAL: Reset sequence time to when poll interval starts
+        lastSequenceTime = currentTime;
+        
         currentState = STATE_WAITING;
-        Serial.printf("🎉 Query cycle completed, waiting %lu ms\n", pollInterval);
+        lastActionTime = currentTime;
+        
+        Serial.printf("🎉 Cycle complete - sequence time reset to: %lu\n", currentTime);
     } else {
         currentState = STATE_START_QUERY;
     }
@@ -438,11 +475,13 @@ void updateNonBlockingQuery() {
             
         case STATE_WAITING:
             if (currentTime - lastActionTime >= pollInterval) {
+                Serial.printf("🔄 NEW CYCLE | Waited: %lums | Expected: %lums | Diff: %lums\n", 
+                            currentTime - lastActionTime, pollInterval, 
+                            (currentTime - lastActionTime) - pollInterval);
                 currentState = STATE_START_QUERY;
                 currentSlaveIndex = 0;
                 lastActionTime = currentTime;
                 waitingForResponse = false;
-                Serial.println("🔄 Starting new NON-BLOCKING query cycle");
             }
             break;
     }
@@ -549,3 +588,4 @@ float readEnergyValue(uint16_t registerIndex, float divider) {
     uint32_t value = readUint32FromRegisters(highWord, lowWord);
     return (value / 100.0f) / divider;
 }
+
