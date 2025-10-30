@@ -122,16 +122,9 @@ class DebugConsole {
 
     // ========== SMART RENDERING ==========
 
-    // REPLACE the existing addSingleRowToTable method with this:
-
     addSingleRowToTable(messageObject) {
         const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
-
-        // Store scroll state before update
-        const tableContainer = tableBody.closest('.table-container');
-        const previousScrollTop = tableContainer ? tableContainer.scrollTop : 0;
-        const wasScrolled = previousScrollTop > 0;
 
         const newRowHtml = this.createRowHtml(messageObject);
         
@@ -142,13 +135,6 @@ class DebugConsole {
         }
         
         this.trimExcessRows();
-        
-        // Maintain scroll position for users who are scrolled down
-        if (tableContainer && wasScrolled) {
-            // Estimate new row height and adjust scroll position
-            const estimatedRowHeight = 60; // pixels
-            tableContainer.scrollTop = previousScrollTop + estimatedRowHeight;
-        }
     }
 
     createRowHtml(messageObject) {
