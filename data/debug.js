@@ -3,7 +3,6 @@ class DebugConsole {
         this.isEnabled = false;
         this.maxTableRows = 30;
         this.messageSequence = [];
-        this.rawMessageSequence = [];
         this.deviceLastSeen = {};
         this.batchCount = 0;
         this.init();
@@ -58,97 +57,11 @@ class DebugConsole {
 
     // ========== MESSAGE PROCESSING ==========
     
-    parseMessageDynamic(messageData) {
+    createMessageObject(messageData) {
         try {
             const parsed = JSON.parse(messageData.message);
             
             // Check if this is a batch separator
-            if (parsed.type === "batch_separator") {
-                return {
-                    isSeparator: true,
-                    message: parsed.message || "Query Loop Completed",
-                    realTime: messageData.realTime || this.getCurrentTime()
-                };
-            }
-            
-            // Regular message processing
-            const result = {
-                deviceName: parsed.name || 'Unknown',
-                deviceId: parsed.id || 'N/A', 
-                topic: messageData.topic,
-                data: {},
-                realTime: messageData.realTime || this.getCurrentTime(),
-                sincePrev: messageData.timeDelta || "+0ms",
-                sinceSame: messageData.sameDeviceDelta || "+0ms",
-                espTimestamp: parsed.timestamp || Date.now(),
-                browserTimestamp: Date.now(),
-                isSeparator: false
-            };
-
-            // Extract data fields (exclude metadata)
-            for (const key in parsed) {
-                if (!['id', 'name', 'mqtt_topic', 'timestamp', 'type', 'timeDelta'].includes(key) && parsed[key] != null) {
-                    result.data[key] = parsed[key];
-                }
-            }
-
-            return result;
-        } catch (error) {
-            return {
-                deviceName: 'Parse Error',
-                deviceId: 'N/A',
-                topic: messageData.topic,
-                data: { raw: messageData.message },
-                realTime: messageData.realTime || this.getCurrentTime(),
-                sincePrev: messageData.timeDelta || "+0ms",
-                sinceSame: messageData.sameDeviceDelta || "+0ms",
-                espTimestamp: Date.now(),
-                browserTimestamp: Date.now(),
-                isSeparator: false
-            };
-        }
-    }
-
-    getCurrentTime() {
-        return new Date().toTimeString().split(' ')[0]; // HH:MM:SS
-    }
-
-    addTableRow(messageData) {
-        const tableBody = FormHelper.getElement('tableBody');
-        const rawTableBody = FormHelper.getElement('rawTableBody');
-        
-        if (!tableBody || !rawTableBody) return;
-
-        if (tableBody.querySelector('.no-data')) {
-            tableBody.innerHTML = '';
-        }
-        if (rawTableBody.querySelector('.no-data')) {
-            rawTableBody.innerHTML = '';
-        }
-
-        const parsedMessage = this.parseMessageDynamic(messageData);
-        const rawMessage = this.createRawMessage(messageData);
-        
-        this.messageSequence.unshift(parsedMessage);
-        this.rawMessageSequence.unshift(rawMessage);
-        
-        // Enforce message limit
-        if (this.messageSequence.length > this.maxTableRows) {
-            this.messageSequence.pop();
-        }
-        if (this.rawMessageSequence.length > this.maxTableRows) {
-            this.rawMessageSequence.pop();
-        }
-        
-        this.renderTable();
-        this.renderRawTable();
-        this.saveMessageToStorage(parsedMessage, rawMessage);
-    }
-
-    createRawMessage(messageData) {
-        try {
-            const parsed = JSON.parse(messageData.message);
-            
             if (parsed.type === "batch_separator") {
                 return {
                     isSeparator: true,
@@ -158,6 +71,7 @@ class DebugConsole {
                 };
             }
             
+            // Regular message processing
             return {
                 deviceName: parsed.name || 'Unknown',
                 deviceId: parsed.id || 'N/A',
@@ -186,78 +100,71 @@ class DebugConsole {
         }
     }
 
+    getCurrentTime() {
+        return new Date().toTimeString().split(' ')[0]; // HH:MM:SS
+    }
+
+    addTableRow(messageData) {
+        const tableBody = FormHelper.getElement('tableBody');
+        
+        if (!tableBody) return;
+
+        if (tableBody.querySelector('.no-data')) {
+            tableBody.innerHTML = '';
+        }
+
+        const messageObject = this.createMessageObject(messageData);
+        
+        this.messageSequence.unshift(messageObject);
+        
+        // Enforce message limit
+        if (this.messageSequence.length > this.maxTableRows) {
+            this.messageSequence.pop();
+        }
+        
+        this.renderTable();
+        this.saveMessageToStorage(messageObject);
+    }
+
     // ========== STORAGE MANAGEMENT ==========
 
-    saveMessageToStorage(parsedMessage, rawMessage) {
+    saveMessageToStorage(messageObject) {
         try {
             const currentMessages = this.getStoredMessages();
-            const currentRawMessages = this.getStoredRawMessages();
             
-            const storedMessage = this.createStoredMessage(parsedMessage);
-            const storedRawMessage = this.createStoredRawMessage(rawMessage);
+            const storedMessage = this.createStoredMessage(messageObject);
             
             currentMessages.unshift(storedMessage);
-            currentRawMessages.unshift(storedRawMessage);
             
             const toSave = currentMessages.slice(0, this.maxTableRows);
-            const toSaveRaw = currentRawMessages.slice(0, this.maxTableRows);
             
             localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
-            localStorage.setItem('mqttRawDebugMessages', JSON.stringify(toSaveRaw));
         } catch (error) {
             console.log('Storage save error');
         }
     }
 
-    createStoredMessage(parsedMessage) {
-        if (parsedMessage.isSeparator) {
+    createStoredMessage(messageObject) {
+        if (messageObject.isSeparator) {
             return {
                 isSeparator: true,
-                batchId: parsedMessage.batchId,
-                batchDuration: parsedMessage.batchDuration,
-                slaveCount: parsedMessage.slaveCount,
-                pollInterval: parsedMessage.pollInterval,
-                realTime: parsedMessage.realTime,
-                message: parsedMessage.message,
-                timestamp: parsedMessage.timestamp
+                realTime: messageObject.realTime,
+                message: messageObject.message,
+                rawJson: messageObject.rawJson,
+                timestamp: messageObject.timestamp
             };
         }
         
         return {
-            deviceName: parsedMessage.deviceName,
-            deviceId: parsedMessage.deviceId,
-            topic: parsedMessage.topic,
-            data: parsedMessage.data,
-            realTime: parsedMessage.realTime,
-            sincePrev: parsedMessage.sincePrev,
-            sinceSame: parsedMessage.sinceSame,
-            espTimestamp: parsedMessage.espTimestamp,
-            browserTimestamp: parsedMessage.browserTimestamp,
-            isSeparator: false
-        };
-    }
-
-    createStoredRawMessage(rawMessage) {
-        if (rawMessage.isSeparator) {
-            return {
-                isSeparator: true,
-                realTime: rawMessage.realTime,
-                message: rawMessage.message,
-                rawJson: rawMessage.rawJson,
-                timestamp: rawMessage.timestamp
-            };
-        }
-        
-        return {
-            deviceName: rawMessage.deviceName,
-            deviceId: rawMessage.deviceId,
-            topic: rawMessage.topic,
-            rawJson: rawMessage.rawJson,
-            realTime: rawMessage.realTime,
-            sincePrev: rawMessage.sincePrev,
-            sinceSame: rawMessage.sinceSame,
-            espTimestamp: rawMessage.espTimestamp,
-            browserTimestamp: rawMessage.browserTimestamp,
+            deviceName: messageObject.deviceName,
+            deviceId: messageObject.deviceId,
+            topic: messageObject.topic,
+            rawJson: messageObject.rawJson,
+            realTime: messageObject.realTime,
+            sincePrev: messageObject.sincePrev,
+            sinceSame: messageObject.sinceSame,
+            espTimestamp: messageObject.espTimestamp,
+            browserTimestamp: messageObject.browserTimestamp,
             isSeparator: false
         };
     }
@@ -271,19 +178,9 @@ class DebugConsole {
         }
     }
 
-    getStoredRawMessages() {
-        try {
-            const stored = localStorage.getItem('mqttRawDebugMessages');
-            return stored ? JSON.parse(stored) : [];
-        } catch {
-            return [];
-        }
-    }
-
     loadStoredMessages() {
         try {
             const stored = localStorage.getItem('mqttDebugMessages');
-            const storedRaw = localStorage.getItem('mqttRawDebugMessages');
             
             if (stored) {
                 const messages = JSON.parse(stored);
@@ -297,30 +194,6 @@ class DebugConsole {
                     deviceName: msg.deviceName,
                     deviceId: msg.deviceId,
                     topic: msg.topic,
-                    data: msg.data,
-                    realTime: msg.realTime,
-                    sincePrev: msg.sincePrev,
-                    sinceSame: msg.sinceSame,
-                    espTimestamp: msg.espTimestamp || Date.now(),
-                    isSeparator: msg.isSeparator || false,
-                    message: msg.message
-                })).slice(0, this.maxTableRows);
-                
-                this.renderTable();
-            }
-            
-            if (storedRaw) {
-                const rawMessages = JSON.parse(storedRaw);
-                const rawTableBody = FormHelper.getElement('rawTableBody');
-                
-                if (rawTableBody?.querySelector('.no-data')) {
-                    rawTableBody.innerHTML = '';
-                }
-                
-                this.rawMessageSequence = rawMessages.map(msg => ({
-                    deviceName: msg.deviceName,
-                    deviceId: msg.deviceId,
-                    topic: msg.topic,
                     rawJson: msg.rawJson,
                     realTime: msg.realTime,
                     sincePrev: msg.sincePrev,
@@ -330,7 +203,7 @@ class DebugConsole {
                     message: msg.message
                 })).slice(0, this.maxTableRows);
                 
-                this.renderRawTable();
+                this.renderTable();
             }
         } catch (error) {
             console.log('No stored table messages');
@@ -363,61 +236,10 @@ class DebugConsole {
                     <td>${deviceName}</td>
                     <td>${deviceId}</td>
                     <td>${topic}</td>
-                    <td>${this.formatDataForTable(item)}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    renderRawTable() {
-        const rawTableBody = FormHelper.getElement('rawTableBody');
-        if (!rawTableBody) return;
-
-        rawTableBody.innerHTML = this.rawMessageSequence.map(item => {
-            if (item.isSeparator) {
-                return `
-                    <tr class="batch-separator">
-                        <td colspan="7">
-                            ${item.message}
-                        </td>
-                    </tr>
-                `;
-            }
-
-            const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = item;
-            return `
-                <tr class="new-row">
-                    <td>${realTime}</td>
-                    <td>${sincePrev}</td>
-                    <td>${sinceSame}</td>
-                    <td>${deviceName}</td>
-                    <td>${deviceId}</td>
-                    <td>${topic}</td>
                     <td>${this.formatRawJson(item.rawJson)}</td>
                 </tr>
             `;
         }).join('');
-    }
-
-    formatDataForTable(parsedMessage) {
-        const { data } = parsedMessage;
-        if (!Object.keys(data).length) return '<div class="no-data-message">No readable data</div>';
-        if (data.error) return `<div class="compact-error"><strong>Error:</strong> ${data.error}</div>`;
-
-        const dataItems = Object.entries(data)
-            .filter(([_, value]) => value != null)
-            .map(([key, value]) => {
-                const formattedValue = this.formatNumberValue(value);
-                const valueClass = this.getValueTypeClass(key);
-                return `
-                    <div class="data-item">
-                        <div class="data-label">${this.formatKeyName(key)}</div>
-                        <div class="data-value ${valueClass}">${formattedValue}</div>
-                    </div>
-                `;
-            }).join('');
-
-        return `<div class="data-cell"><div class="data-grid">${dataItems}</div></div>`;
     }
 
     formatRawJson(rawJson) {
@@ -449,70 +271,26 @@ class DebugConsole {
         });
     }
 
-    getValueTypeClass(key) {
-        const keyLower = key.toLowerCase();
-        const typeMap = {
-            'volt': 'voltage',
-            'current': 'current',
-            'amp': 'current',
-            'power': 'power',
-            'watt': 'power',
-            'energy': 'energy',
-            'kwh': 'energy',
-            'freq': 'frequency',
-            'temp': 'temperature'
-        };
-
-        for (const [pattern, className] of Object.entries(typeMap)) {
-            if (keyLower.includes(pattern)) return className;
-        }
-        return '';
-    }
-
-    formatNumberValue(value) {
-        if (typeof value !== 'number') return String(value);
-        if (Number.isInteger(value)) return value.toString();
-        
-        const absValue = Math.abs(value);
-        if (absValue >= 1000) return value.toFixed(0);
-        if (absValue >= 100) return value.toFixed(1);
-        if (absValue >= 10) return value.toFixed(2);
-        if (absValue >= 1) return value.toFixed(3);
-        if (absValue >= 0.1) return value.toFixed(4);
-        if (absValue >= 0.01) return value.toFixed(5);
-        return value.toFixed(6);
-    }
-
-    formatKeyName(key) {
-        return key.split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-            .join(' ');
-    }
-
     // ========== CLEANUP & STATUS ==========
 
     async clearTable() {
         const tableBody = FormHelper.getElement('tableBody');
-        const rawTableBody = FormHelper.getElement('rawTableBody');
         
-        if (tableBody && rawTableBody) {
+        if (tableBody) {
             tableBody.innerHTML = '';
-            rawTableBody.innerHTML = '';
             localStorage.removeItem('mqttDebugMessages');
-            localStorage.removeItem('mqttRawDebugMessages');
             this.messageSequence = [];
-            this.rawMessageSequence = [];
             this.deviceLastSeen = {};
             this.batchCount = 0;
             this.updateStatusMessages();
             
             try {
                 await ApiClient.post('/cleartable', {});
-                StatusManager.showStatus('Both tables cleared and timing reset', 'success');
-                console.log('✅ Both tables cleared and timing reset');
+                StatusManager.showStatus('Table cleared and timing reset', 'success');
+                console.log('✅ Table cleared and timing reset');
             } catch (error) {
                 console.error('❌ Error resetting timing:', error);
-                StatusManager.showStatus('Tables cleared (timing reset failed)', 'warning');
+                StatusManager.showStatus('Table cleared (timing reset failed)', 'warning');
             }
         }
     }
@@ -521,13 +299,9 @@ class DebugConsole {
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
         
         const tableBody = FormHelper.getElement('tableBody');
-        const rawTableBody = FormHelper.getElement('rawTableBody');
         
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;
-        }
-        if (rawTableBody && !rawTableBody.children.length) {
-            rawTableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;
         }
     }
 

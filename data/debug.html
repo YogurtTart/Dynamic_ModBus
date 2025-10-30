@@ -1,4 +1,4 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -59,12 +59,12 @@
                 </p>
             </div>
 
-            <!-- Dynamic Data Table - Always Visible -->
+            <!-- Raw Data Table - Now the only table -->
             <div class="config-panel">
                 <div class="panel-header">
                     <h3 class="panel-title">
-                        <span class="nav-icon">📊</span>
-                        Live Data Table
+                        <span class="nav-icon">📋</span>
+                        MQTT Messages Table
                     </h3>
                     <button class="btn btn-secondary" id="clearTable" style="margin-top: 8px;">Clear Table</button>
                 </div>
@@ -78,40 +78,10 @@
                                 <th>Device</th>
                                 <th>ID</th>
                                 <th>Topic</th>
-                                <th>Data</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <tr>
-                                <td colspan="7" class="no-data">MQTT Debug Mode is OFF. Enable to see data.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Raw Data Table -->
-            <div class="config-panel">
-                <div class="panel-header">
-                    <h3 class="panel-title">
-                        <span class="nav-icon">📋</span>
-                        Raw Data Table
-                    </h3>
-                </div>
-                <div class="table-container">
-                    <table class="data-table debug-table" id="rawDataTable">
-                        <thead>
-                            <tr>
-                                <th>Real Time</th>
-                                <th>Since Prev</th>
-                                <th>Since Same</th>
-                                <th>Device</th>
-                                <th>ID</th>
-                                <th>Topic</th>
                                 <th>Raw JSON</th>
                             </tr>
                         </thead>
-                        <tbody id="rawTableBody">
+                        <tbody id="tableBody">
                             <tr>
                                 <td colspan="7" class="no-data">MQTT Debug Mode is OFF. Enable to see data.</td>
                             </tr>
@@ -137,8 +107,7 @@
                     <p>• Table will automatically display incoming structured data</p>
                     <br>
                     <p><strong>Understanding the Display:</strong></p>
-                    <p>• <strong>Live Data Table</strong> - Structured view showing device, ID, topic, and parsed values</p>
-                    <p>• <strong>Raw Data Table</strong> - Unedited JSON exactly as sent to MQTT</p>
+                    <p>• <strong>MQTT Messages Table</strong> - Shows raw JSON exactly as sent to MQTT with syntax highlighting</p>
                     <p>• <strong>Time Column</strong> - Shows time since previous message (0s = most recent)</p>
                     <br>
                     <p><strong>Data Persistence:</strong></p>
@@ -147,7 +116,7 @@
                     <p>• Timestamps show actual message receipt time, not viewing time</p>
                     <br>
                     <p><strong>Managing Data:</strong></p>
-                    <p>• Use <strong>Clear Table</strong> to reset both data views</p>
+                    <p>• Use <strong>Clear Table</strong> to reset the data view</p>
                     <p>• System automatically removes oldest messages after 30 new ones</p>
         
                 </div>
