@@ -3,6 +3,7 @@ class DebugConsole {
         this.isEnabled = false;
         this.maxTableRows = 30;
         this.messageSequence = [];
+        this.rawMessageSequence = [];
         this.deviceLastSeen = {};
         this.batchCount = 0;
         this.init();
@@ -114,34 +115,95 @@ class DebugConsole {
 
     addTableRow(messageData) {
         const tableBody = FormHelper.getElement('tableBody');
-        if (!tableBody) return;
+        const rawTableBody = FormHelper.getElement('rawTableBody');
+        
+        if (!tableBody || !rawTableBody) return;
 
         if (tableBody.querySelector('.no-data')) {
             tableBody.innerHTML = '';
         }
+        if (rawTableBody.querySelector('.no-data')) {
+            rawTableBody.innerHTML = '';
+        }
 
         const parsedMessage = this.parseMessageDynamic(messageData);
+        const rawMessage = this.createRawMessage(messageData);
+        
         this.messageSequence.unshift(parsedMessage);
+        this.rawMessageSequence.unshift(rawMessage);
         
         // Enforce message limit
         if (this.messageSequence.length > this.maxTableRows) {
             this.messageSequence.pop();
         }
+        if (this.rawMessageSequence.length > this.maxTableRows) {
+            this.rawMessageSequence.pop();
+        }
         
         this.renderTable();
-        this.saveMessageToStorage(parsedMessage);
+        this.renderRawTable();
+        this.saveMessageToStorage(parsedMessage, rawMessage);
+    }
+
+    createRawMessage(messageData) {
+        try {
+            const parsed = JSON.parse(messageData.message);
+            
+            if (parsed.type === "batch_separator") {
+                return {
+                    isSeparator: true,
+                    message: parsed.message || "Query Loop Completed",
+                    realTime: messageData.realTime || this.getCurrentTime(),
+                    rawJson: messageData.message
+                };
+            }
+            
+            return {
+                deviceName: parsed.name || 'Unknown',
+                deviceId: parsed.id || 'N/A',
+                topic: messageData.topic,
+                rawJson: messageData.message,
+                realTime: messageData.realTime || this.getCurrentTime(),
+                sincePrev: messageData.timeDelta || "+0ms",
+                sinceSame: messageData.sameDeviceDelta || "+0ms",
+                espTimestamp: parsed.timestamp || Date.now(),
+                browserTimestamp: Date.now(),
+                isSeparator: false
+            };
+        } catch (error) {
+            return {
+                deviceName: 'Parse Error',
+                deviceId: 'N/A',
+                topic: messageData.topic,
+                rawJson: messageData.message,
+                realTime: messageData.realTime || this.getCurrentTime(),
+                sincePrev: messageData.timeDelta || "+0ms",
+                sinceSame: messageData.sameDeviceDelta || "+0ms",
+                espTimestamp: Date.now(),
+                browserTimestamp: Date.now(),
+                isSeparator: false
+            };
+        }
     }
 
     // ========== STORAGE MANAGEMENT ==========
 
-    saveMessageToStorage(parsedMessage) {
+    saveMessageToStorage(parsedMessage, rawMessage) {
         try {
             const currentMessages = this.getStoredMessages();
+            const currentRawMessages = this.getStoredRawMessages();
+            
             const storedMessage = this.createStoredMessage(parsedMessage);
+            const storedRawMessage = this.createStoredRawMessage(rawMessage);
             
             currentMessages.unshift(storedMessage);
+            currentRawMessages.unshift(storedRawMessage);
+            
             const toSave = currentMessages.slice(0, this.maxTableRows);
+            const toSaveRaw = currentRawMessages.slice(0, this.maxTableRows);
+            
             localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
+            localStorage.setItem('mqttRawDebugMessages', JSON.stringify(toSaveRaw));
         } catch (error) {
             console.log('Storage save error');
         }
@@ -175,6 +237,31 @@ class DebugConsole {
         };
     }
 
+    createStoredRawMessage(rawMessage) {
+        if (rawMessage.isSeparator) {
+            return {
+                isSeparator: true,
+                realTime: rawMessage.realTime,
+                message: rawMessage.message,
+                rawJson: rawMessage.rawJson,
+                timestamp: rawMessage.timestamp
+            };
+        }
+        
+        return {
+            deviceName: rawMessage.deviceName,
+            deviceId: rawMessage.deviceId,
+            topic: rawMessage.topic,
+            rawJson: rawMessage.rawJson,
+            realTime: rawMessage.realTime,
+            sincePrev: rawMessage.sincePrev,
+            sinceSame: rawMessage.sinceSame,
+            espTimestamp: rawMessage.espTimestamp,
+            browserTimestamp: rawMessage.browserTimestamp,
+            isSeparator: false
+        };
+    }
+
     getStoredMessages() {
         try {
             const stored = localStorage.getItem('mqttDebugMessages');
@@ -184,9 +271,20 @@ class DebugConsole {
         }
     }
 
+    getStoredRawMessages() {
+        try {
+            const stored = localStorage.getItem('mqttRawDebugMessages');
+            return stored ? JSON.parse(stored) : [];
+        } catch {
+            return [];
+        }
+    }
+
     loadStoredMessages() {
         try {
             const stored = localStorage.getItem('mqttDebugMessages');
+            const storedRaw = localStorage.getItem('mqttRawDebugMessages');
+            
             if (stored) {
                 const messages = JSON.parse(stored);
                 const tableBody = FormHelper.getElement('tableBody');
@@ -203,10 +301,36 @@ class DebugConsole {
                     realTime: msg.realTime,
                     sincePrev: msg.sincePrev,
                     sinceSame: msg.sinceSame,
-                    espTimestamp: msg.espTimestamp || Date.now()
+                    espTimestamp: msg.espTimestamp || Date.now(),
+                    isSeparator: msg.isSeparator || false,
+                    message: msg.message
                 })).slice(0, this.maxTableRows);
                 
                 this.renderTable();
+            }
+            
+            if (storedRaw) {
+                const rawMessages = JSON.parse(storedRaw);
+                const rawTableBody = FormHelper.getElement('rawTableBody');
+                
+                if (rawTableBody?.querySelector('.no-data')) {
+                    rawTableBody.innerHTML = '';
+                }
+                
+                this.rawMessageSequence = rawMessages.map(msg => ({
+                    deviceName: msg.deviceName,
+                    deviceId: msg.deviceId,
+                    topic: msg.topic,
+                    rawJson: msg.rawJson,
+                    realTime: msg.realTime,
+                    sincePrev: msg.sincePrev,
+                    sinceSame: msg.sinceSame,
+                    espTimestamp: msg.espTimestamp || Date.now(),
+                    isSeparator: msg.isSeparator || false,
+                    message: msg.message
+                })).slice(0, this.maxTableRows);
+                
+                this.renderRawTable();
             }
         } catch (error) {
             console.log('No stored table messages');
@@ -215,7 +339,7 @@ class DebugConsole {
 
     // ========== UI RENDERING ==========
 
-     renderTable() {
+    renderTable() {
         const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
@@ -245,6 +369,36 @@ class DebugConsole {
         }).join('');
     }
 
+    renderRawTable() {
+        const rawTableBody = FormHelper.getElement('rawTableBody');
+        if (!rawTableBody) return;
+
+        rawTableBody.innerHTML = this.rawMessageSequence.map(item => {
+            if (item.isSeparator) {
+                return `
+                    <tr class="batch-separator">
+                        <td colspan="7">
+                            ${item.message}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = item;
+            return `
+                <tr class="new-row">
+                    <td>${realTime}</td>
+                    <td>${sincePrev}</td>
+                    <td>${sinceSame}</td>
+                    <td>${deviceName}</td>
+                    <td>${deviceId}</td>
+                    <td>${topic}</td>
+                    <td>${this.formatRawJson(item.rawJson)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
     formatDataForTable(parsedMessage) {
         const { data } = parsedMessage;
         if (!Object.keys(data).length) return '<div class="no-data-message">No readable data</div>';
@@ -264,6 +418,35 @@ class DebugConsole {
             }).join('');
 
         return `<div class="data-cell"><div class="data-grid">${dataItems}</div></div>`;
+    }
+
+    formatRawJson(rawJson) {
+        try {
+            const parsed = JSON.parse(rawJson);
+            const formatted = JSON.stringify(parsed, null, 2);
+            return `<div class="raw-json">${this.syntaxHighlight(formatted)}</div>`;
+        } catch (error) {
+            return `<div class="raw-json">${rawJson}</div>`;
+        }
+    }
+
+    syntaxHighlight(json) {
+        // Simple syntax highlighting for JSON
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+            let cls = 'raw-json-number';
+            if (/^"/.test(match)) {
+                if (/:$/.test(match)) {
+                    cls = 'raw-json-key';
+                } else {
+                    cls = 'raw-json-string';
+                }
+            } else if (/true|false/.test(match)) {
+                cls = 'raw-json-boolean';
+            } else if (/null/.test(match)) {
+                cls = 'raw-json-null';
+            }
+            return `<span class="${cls}">${match}</span>`;
+        });
     }
 
     getValueTypeClass(key) {
@@ -308,23 +491,28 @@ class DebugConsole {
 
     // ========== CLEANUP & STATUS ==========
 
-     async clearTable() {
+    async clearTable() {
         const tableBody = FormHelper.getElement('tableBody');
-        if (tableBody) {
+        const rawTableBody = FormHelper.getElement('rawTableBody');
+        
+        if (tableBody && rawTableBody) {
             tableBody.innerHTML = '';
+            rawTableBody.innerHTML = '';
             localStorage.removeItem('mqttDebugMessages');
+            localStorage.removeItem('mqttRawDebugMessages');
             this.messageSequence = [];
+            this.rawMessageSequence = [];
             this.deviceLastSeen = {};
-            this.batchCount = 0; // Reset batch counter
+            this.batchCount = 0;
             this.updateStatusMessages();
             
             try {
                 await ApiClient.post('/cleartable', {});
-                StatusManager.showStatus('Table cleared and timing reset', 'success');
-                console.log('✅ Table cleared and timing reset');
+                StatusManager.showStatus('Both tables cleared and timing reset', 'success');
+                console.log('✅ Both tables cleared and timing reset');
             } catch (error) {
                 console.error('❌ Error resetting timing:', error);
-                StatusManager.showStatus('Table cleared (timing reset failed)', 'warning');
+                StatusManager.showStatus('Tables cleared (timing reset failed)', 'warning');
             }
         }
     }
@@ -333,8 +521,13 @@ class DebugConsole {
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
         
         const tableBody = FormHelper.getElement('tableBody');
+        const rawTableBody = FormHelper.getElement('rawTableBody');
+        
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;
+        }
+        if (rawTableBody && !rawTableBody.children.length) {
+            rawTableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;
         }
     }
 
