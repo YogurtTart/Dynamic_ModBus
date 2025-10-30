@@ -169,6 +169,23 @@ input:checked + .toggle-slider:before {
     border: 1px solid var(--border-color);
 }
 
+/* Error highlighting for JSON syntax */
+.raw-json-error {
+    color: var(--error-color) !important;
+    font-weight: bold;
+}
+
+/* Full object error highlighting */
+.raw-json.error-highlight {
+    border-left: 4px solid var(--error-color);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.error-message { 
+    color: var(--error-color) !important; 
+    font-weight: bold; 
+}
+
 .raw-json-key {
     color: var(--primary-color);
     font-weight: 600;
@@ -196,8 +213,6 @@ input:checked + .toggle-slider:before {
     100% { background: transparent; } 
 }
 .new-row { animation: highlightNew 2s ease-out; }
-
-.error-message { color: var(--error-color) !important; font-weight: bold; }
 
 /* Scrollbars */
 .raw-json::-webkit-scrollbar { width: 6px; }

@@ -3,8 +3,6 @@ class DebugConsole {
         this.isEnabled = false;
         this.maxTableRows = 30;
         this.messageSequence = [];
-        this.deviceLastSeen = {};
-        this.batchCount = 0;
         this.init();
     }
 
@@ -61,7 +59,6 @@ class DebugConsole {
         try {
             const parsed = JSON.parse(messageData.message);
             
-            // Check if this is a batch separator
             if (parsed.type === "batch_separator") {
                 return {
                     isSeparator: true,
@@ -71,7 +68,6 @@ class DebugConsole {
                 };
             }
             
-            // Regular message processing
             return {
                 deviceName: parsed.name || 'Unknown',
                 deviceId: parsed.id || 'N/A',
@@ -101,12 +97,11 @@ class DebugConsole {
     }
 
     getCurrentTime() {
-        return new Date().toTimeString().split(' ')[0]; // HH:MM:SS
+        return new Date().toTimeString().split(' ')[0];
     }
 
     addTableRow(messageData) {
         const tableBody = FormHelper.getElement('tableBody');
-        
         if (!tableBody) return;
 
         if (tableBody.querySelector('.no-data')) {
@@ -117,13 +112,67 @@ class DebugConsole {
         
         this.messageSequence.unshift(messageObject);
         
-        // Enforce message limit
         if (this.messageSequence.length > this.maxTableRows) {
             this.messageSequence.pop();
         }
         
-        this.renderTable();
+        this.addSingleRowToTable(messageObject);
         this.saveMessageToStorage(messageObject);
+    }
+
+    // ========== SMART RENDERING ==========
+
+    addSingleRowToTable(messageObject) {
+        const tableBody = FormHelper.getElement('tableBody');
+        if (!tableBody) return;
+
+        const newRowHtml = this.createRowHtml(messageObject);
+        
+        if (tableBody.firstChild) {
+            tableBody.insertAdjacentHTML('afterbegin', newRowHtml);
+        } else {
+            tableBody.innerHTML = newRowHtml;
+        }
+        
+        this.trimExcessRows();
+    }
+
+    createRowHtml(messageObject) {
+        if (messageObject.isSeparator) {
+            return `
+                <tr class="batch-separator">
+                    <td colspan="7">${messageObject.message}</td>
+                </tr>
+            `;
+        }
+
+        const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = messageObject;
+        return `
+            <tr class="new-row">
+                <td>${realTime}</td>
+                <td>${sincePrev}</td>
+                <td>${sinceSame}</td>
+                <td>${deviceName}</td>
+                <td>${deviceId}</td>
+                <td>${topic}</td>
+                <td>${this.formatRawJson(messageObject.rawJson)}</td>
+            </tr>
+        `;
+    }
+
+    trimExcessRows() {
+        const tableBody = FormHelper.getElement('tableBody');
+        if (!tableBody) return;
+
+        const allRows = tableBody.querySelectorAll('tr');
+        
+        if (allRows.length > this.maxTableRows) {
+            const rowsToRemove = allRows.length - this.maxTableRows;
+            
+            for (let i = 0; i < rowsToRemove; i++) {
+                allRows[allRows.length - 1 - i].remove();
+            }
+        }
     }
 
     // ========== STORAGE MANAGEMENT ==========
@@ -131,11 +180,9 @@ class DebugConsole {
     saveMessageToStorage(messageObject) {
         try {
             const currentMessages = this.getStoredMessages();
-            
             const storedMessage = this.createStoredMessage(messageObject);
             
             currentMessages.unshift(storedMessage);
-            
             const toSave = currentMessages.slice(0, this.maxTableRows);
             
             localStorage.setItem('mqttDebugMessages', JSON.stringify(toSave));
@@ -216,47 +263,41 @@ class DebugConsole {
         const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
-        tableBody.innerHTML = this.messageSequence.map(item => {
-            if (item.isSeparator) {
-                return `
-                    <tr class="batch-separator">
-                        <td colspan="7">
-                            ${item.message}
-                        </td>
-                    </tr>
-                `;
-            }
-
-            const { realTime, sincePrev, sinceSame, deviceName, deviceId, topic } = item;
-            return `
-                <tr class="new-row">
-                    <td>${realTime}</td>
-                    <td>${sincePrev}</td>
-                    <td>${sinceSame}</td>
-                    <td>${deviceName}</td>
-                    <td>${deviceId}</td>
-                    <td>${topic}</td>
-                    <td>${this.formatRawJson(item.rawJson)}</td>
-                </tr>
-            `;
-        }).join('');
+        tableBody.innerHTML = this.messageSequence.map(item => this.createRowHtml(item)).join('');
     }
 
     formatRawJson(rawJson) {
         try {
             const parsed = JSON.parse(rawJson);
             const formatted = JSON.stringify(parsed, null, 2);
+            
+            // ONLY check if object has 'error' property
+            const hasErrorProperty = parsed.error !== undefined;
+            
+            if (hasErrorProperty) {
+                return `<div class="raw-json error-highlight">${this.syntaxHighlight(formatted)}</div>`;
+            }
+            
             return `<div class="raw-json">${this.syntaxHighlight(formatted)}</div>`;
         } catch (error) {
+            // If JSON parsing fails but contains "error" key text
+            if (rawJson.toLowerCase().includes('"error"')) {
+                return `<div class="raw-json error-highlight">${rawJson}</div>`;
+            }
             return `<div class="raw-json">${rawJson}</div>`;
         }
     }
 
     syntaxHighlight(json) {
-        // Simple syntax highlighting for JSON
         return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
             let cls = 'raw-json-number';
-            if (/^"/.test(match)) {
+            
+            // ONLY check for "error" keys (not values/messages)
+            const isErrorKey = /^"error"(\s*:)?$/i.test(match);
+            
+            if (isErrorKey) {
+                cls = 'raw-json-error';
+            } else if (/^"/.test(match)) {
                 if (/:$/.test(match)) {
                     cls = 'raw-json-key';
                 } else {
@@ -280,8 +321,6 @@ class DebugConsole {
             tableBody.innerHTML = '';
             localStorage.removeItem('mqttDebugMessages');
             this.messageSequence = [];
-            this.deviceLastSeen = {};
-            this.batchCount = 0;
             this.updateStatusMessages();
             
             try {
@@ -297,7 +336,6 @@ class DebugConsole {
 
     updateStatusMessages() {
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
-        
         const tableBody = FormHelper.getElement('tableBody');
         
         if (tableBody && !tableBody.children.length) {
