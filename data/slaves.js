@@ -264,7 +264,7 @@ class SlavesManager {
 
     // Statistics functions
     startStatsPolling() {
-        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 5000);
+        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 2000);
     }
 
     async fetchStatistics() {
@@ -291,21 +291,90 @@ class SlavesManager {
             emptyState.style.display = 'none';
             statsCountBadge.textContent = filteredStats.length;
             
-            tbody.innerHTML = filteredStats.map(stats => `
-                <tr>
-                    <td><strong>${stats.slaveId}</strong></td>
-                    <td>${stats.slaveName}</td>
-                    <td>${stats.totalQueries}</td>
-                    <td>${stats.success}</td>
-                    <td>${stats.timeout}</td>
-                    <td>${stats.failed}</td>
-                </tr>
-            `).join('');
+            // Use smart rendering instead of innerHTML
+            this.smartRenderStats(tbody, filteredStats);
         } else {
             tbody.innerHTML = '';
             emptyState.style.display = 'block';
             statsCountBadge.textContent = '0';
         }
+    }
+
+    smartRenderStats(tbody, filteredStats) {
+        // Track which rows we've updated
+        const updatedRows = new Set();
+        
+        filteredStats.forEach(stats => {
+            const rowId = `stats-row-${stats.slaveId}-${stats.slaveName.replace(/\s+/g, '-')}`;
+            let row = document.getElementById(rowId);
+            
+            if (!row) {
+                // Create new row
+                row = document.createElement('tr');
+                row.id = rowId;
+                tbody.appendChild(row);
+            }
+            
+            // Update row content
+            this.updateStatsRow(row, stats);
+            updatedRows.add(rowId);
+        });
+        
+        // Remove rows that are no longer in the data
+        this.removeOldStatsRows(tbody, updatedRows);
+    }
+
+    updateStatsRow(row, stats) {
+        const rowContent = `
+            <td><strong>${stats.slaveId}</strong></td>
+            <td>${stats.slaveName}</td>
+            <td>${stats.totalQueries}</td>
+            <td>${stats.success}</td>
+            <td>${stats.timeout}</td>
+            <td>${stats.failed}</td>
+            <td>
+                <div class="status-history">
+                    ${this.renderStatusHistory(stats.statusHistory)}
+                </div>
+            </td>
+        `;
+        
+        if (row.innerHTML !== rowContent) {
+            row.innerHTML = rowContent;
+        }
+    }
+
+    removeOldStatsRows(tbody, updatedRows) {
+        const allRows = tbody.querySelectorAll('tr');
+        allRows.forEach(row => {
+            if (!updatedRows.has(row.id)) {
+                row.remove();
+            }
+        });
+    }
+
+    renderStatusHistory(statusHistory) {
+        if (!statusHistory || statusHistory.length < 3) {
+            return '<div class="status-history">---</div>';
+        }
+        
+        const statusMap = {
+            'S': 'status-success',
+            'F': 'status-failure', 
+            'T': 'status-timeout'
+        };
+        
+        let circles = '';
+        for (let i = 0; i < 3; i++) {
+            const statusClass = statusMap[statusHistory[i]] || 'status-timeout';
+            
+            // ALWAYS pulse the newest (leftmost) circle, others never pulse
+            const pulseClass = (i === 0) ? 'status-pulse' : '';
+            
+            circles += `<span class="status-circle ${statusClass} ${pulseClass}"></span>`;
+        }
+        
+        return circles;
     }
 
     async removeSlaveStats(slaveId, slaveName) {

@@ -497,21 +497,37 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
             } else {
                 slaveStats[i].failedCount++;
             }
+            
+            // Shift history right (oldest drops off)
+            slaveStats[i].statusHistory[2] = slaveStats[i].statusHistory[1];
+            slaveStats[i].statusHistory[1] = slaveStats[i].statusHistory[0];
+            
+            // Add new status at beginning (newest on left)
+            if (success) slaveStats[i].statusHistory[0] = 'S';
+            else if (timeout) slaveStats[i].statusHistory[0] = 'T';
+            else slaveStats[i].statusHistory[0] = 'F';
+            
             return;
+
         }
     }
     
     // Create new stats entry if not found and we have space
     if (slaveStatsCount < kMaxStatisticsSlaves) {
-        SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
-        newStat->slaveId = slaveId;
-        strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
-        newStat->slaveName[sizeof(newStat->slaveName) - 1] = '\0';
-        newStat->totalQueries = 1;
-        newStat->successCount = success ? 1 : 0;
-        newStat->timeoutCount = timeout ? 1 : 0;
-        newStat->failedCount = (!success && !timeout) ? 1 : 0;
-        slaveStatsCount++;
+            SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
+            newStat->slaveId = slaveId;
+            strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
+            newStat->slaveName[sizeof(newStat->slaveName) - 1] = '\0';
+            newStat->totalQueries = 1;
+            newStat->successCount = success ? 1 : 0;
+            newStat->timeoutCount = timeout ? 1 : 0;
+            newStat->failedCount = (!success && !timeout) ? 1 : 0;
+            
+            // ADD THIS: INITIALIZE STATUS HISTORY FOR NEW SLAVE
+            strcpy(newStat->statusHistory, "   "); // Start with 3 spaces
+
+            
+            slaveStatsCount++;
     }
 }
 
@@ -527,6 +543,7 @@ String getStatisticsJson() {
         statObj["success"] = slaveStats[i].successCount;
         statObj["timeout"] = slaveStats[i].timeoutCount;
         statObj["failed"] = slaveStats[i].failedCount;
+        statObj["statusHistory"] = slaveStats[i].statusHistory;
     }
     
     String output;

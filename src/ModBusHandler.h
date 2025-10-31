@@ -65,6 +65,7 @@ struct SlaveStatistics {
     uint32_t successCount;
     uint32_t timeoutCount;
     uint32_t failedCount;
+    char statusHistory[3]; // Stores last 3 statuses as chars: 'S','F','T'
 };
 
 // ModBus Initialization
