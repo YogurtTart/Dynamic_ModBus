@@ -162,10 +162,10 @@ class SPANavigation {
             navItem.classList.add('active');
         }
 
-        // Update URL hash and history
-        if (updateHistory) {
-            window.history.pushState({ tab }, '', `#${tab}`);
-        }
+        // // Update URL hash and history
+        // if (updateHistory) {
+        //     window.history.pushState({ tab }, '', `#${tab}`);
+        // }
 
         // Update current tab
         //const previousTab = this.currentTab;
