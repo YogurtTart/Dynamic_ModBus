@@ -266,12 +266,6 @@ function refreshCurrentTab() {
     }
 }
 
-// ===== BACKWARD COMPATIBILITY =====
-// Keep existing function names working
-function showStatus(message, type = 'info') {
-    StatusManager.showStatus(message, type);
-}
-
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize SPA Navigation

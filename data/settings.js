@@ -149,8 +149,3 @@ window.addEventListener('tabChanged', (e) => {
         window.settingsManager.refreshUI();
     }
 });
-
-// Backward compatibility
-function searchSlaveConfig() { window.settingsManager?.searchSlaveConfig(); }
-function saveEditedConfig() { window.settingsManager?.saveEditedConfig(); }
-function cancelEdit() { window.settingsManager?.cancelEdit(); }

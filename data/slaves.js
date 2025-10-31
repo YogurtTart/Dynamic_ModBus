@@ -339,14 +339,3 @@ window.addEventListener('tabChanged', (e) => {
         window.slavesManager.refreshUI();
     }
 });
-
-// Backward compatibility
-function addSlave() { window.slavesManager?.addSlave(); }
-function deleteSlave(index) { window.slavesManager?.deleteSlave(index); }
-function saveSlaveConfig() { window.slavesManager?.saveSlaveConfig(); }
-function loadSlaveConfig() { window.slavesManager?.loadSlaveConfig(); }
-function savePollInterval() { window.slavesManager?.savePollInterval(); }
-function loadPollInterval() { window.slavesManager?.loadPollInterval(); }
-function saveTimeout() { window.slavesManager?.saveTimeout(); }
-function loadTimeout() { window.slavesManager?.loadTimeout(); }
-function removeSlaveStats(slaveId, slaveName) { window.slavesManager?.removeSlaveStats(slaveId, slaveName); }

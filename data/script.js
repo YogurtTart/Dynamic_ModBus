@@ -123,8 +123,3 @@ window.addEventListener('tabChanged', (e) => {
     }
 });
 
-// Backward compatibility
-async function loadSettings() { window.wifiManager?.loadSettings(); }
-async function saveSettings() { window.wifiManager?.saveSettings(); }
-async function loadIPInfo() { window.wifiManager?.loadIPInfo(); }
-async function refreshIPInfo() { window.wifiManager?.refreshIPInfo(); }

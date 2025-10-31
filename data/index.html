@@ -155,13 +155,13 @@
                     <div class="action-bar" style="margin-bottom: 20px;">
                         <button type="button" 
                                 class="btn btn-secondary" 
-                                onclick="loadSettings()">
+                                onclick="window.wifiManager.loadSettings()">
                             <span class="btn-icon">↻</span>
                             Load Current Settings
                         </button>
                         <button type="button" 
                                 class="btn btn-primary" 
-                                onclick="saveSettings()">
+                                onclick="window.wifiManager.saveSettings()">
                             <span class="btn-icon">💾</span>
                             Save WiFi & MQTT Configuration
                         </button>
@@ -222,7 +222,7 @@
                     </div>
                     
                     <div class="action-bar compact">
-                        <button type="button" class="btn btn-secondary" onclick="refreshIPInfo()">
+                        <button type="button" class="btn btn-secondary" onclick="window.wifiManager.refreshIPInfo()">
                             <span class="btn-icon">↻</span>
                             Refresh IP Info
                         </button>
@@ -317,15 +317,15 @@
                             </div>
 
                             <div class="action-bar compact dual-buttons">
-                                <button type="button" class="btn btn-primary" onclick="addSlave()">
+                                <button type="button" class="btn btn-primary" onclick="window.slavesManager.addSlave()">
                                     <span class="btn-icon">➕</span>
                                     Add Slave Device
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="loadSlaveConfig()">
+                                <button type="button" class="btn btn-secondary" onclick="window.slavesManager.loadSlaveConfig()">
                                     <span class="btn-icon">📥</span>
                                     Load Slave
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="saveSlaveConfig()">
+                                <button type="button" class="btn btn-secondary" onclick="window.slavesManager.saveSlaveConfig()">
                                     <span class="btn-icon">💾</span>
                                     Save Slave
                                 </button>
@@ -361,11 +361,11 @@
                                     step="1">
                             </div>
                             <div class="action-stack">
-                                <button class="btn btn-secondary full-width" onclick="loadTimeout()">
+                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadTimeout()">
                                     <span class="btn-icon">📥</span>
                                     Load Timeout
                                 </button>
-                                <button class="btn btn-primary full-width" onclick="saveTimeout()">
+                                <button class="btn btn-primary full-width" onclick="window.slavesManager.saveTimeout()">
                                     <span class="btn-icon">💾</span>
                                     Save Timeout
                                 </button>
@@ -382,11 +382,11 @@
                                     placeholder="10">
                             </div>
                             <div class="action-stack">
-                                <button class="btn btn-secondary full-width" onclick="loadPollInterval()">
+                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadPollInterval()">
                                     <span class="btn-icon">📥</span>
                                     Load Poll Interval
                                 </button>
-                                <button class="btn btn-primary full-width" onclick="savePollInterval()">
+                                <button class="btn btn-primary full-width" onclick="window.slavesManager.savePollInterval()">
                                     <span class="btn-icon">⏱️</span>
                                     Save Poll Interval
                                 </button>
@@ -537,7 +537,7 @@
                             </div>
 
                             <div class="action-bar compact">
-                                <button type="button" class="btn btn-primary" onclick="searchSlaveConfig()">
+                                <button type="button" class="btn btn-primary" onclick="window.settingsManager.searchSlaveConfig()">
                                     <span class="btn-icon">🔍</span>
                                     Search Configuration
                                 </button>
@@ -565,11 +565,11 @@
                         </div>
 
                         <div class="action-bar compact">
-                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
+                            <button type="button" class="btn btn-secondary" onclick="window.settingsManager.cancelEdit()">
                                 <span class="btn-icon">❌</span>
                                 Cancel
                             </button>
-                            <button type="button" class="btn btn-primary" onclick="saveEditedConfig()">
+                            <button type="button" class="btn btn-primary" onclick="window.settingsManager.saveEditedConfig()">
                                 <span class="btn-icon">💾</span>
                                 Save Changes
                             </button>
