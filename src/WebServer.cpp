@@ -145,6 +145,7 @@ void handleSaveWifi() {
     String apSsid = server.arg("ap_ssid");
     String apPassword = server.arg("ap_password");
     String mqttServer = server.arg("mqtt_server");
+    String mqttPort = server.arg("mqtt_port");
     
     WifiParams newParams;
     memset(&newParams, 0, sizeof(newParams));
@@ -154,6 +155,7 @@ void handleSaveWifi() {
     strncpy(newParams.APWifiID, apSsid.c_str(), sizeof(newParams.APWifiID) - 1);
     strncpy(newParams.APpassword, apPassword.c_str(), sizeof(newParams.APpassword) - 1);
     strncpy(newParams.mqttServer, mqttServer.c_str(), sizeof(newParams.mqttServer) - 1);
+    strncpy(newParams.mqttPort, mqttPort.c_str(), sizeof(newParams.mqttPort) - 1);
     
     // Ensure null termination
     newParams.STAWifiID[sizeof(newParams.STAWifiID) - 1] = '\0';
@@ -161,6 +163,7 @@ void handleSaveWifi() {
     newParams.APWifiID[sizeof(newParams.APWifiID) - 1] = '\0';
     newParams.APpassword[sizeof(newParams.APpassword) - 1] = '\0';
     newParams.mqttServer[sizeof(newParams.mqttServer) - 1] = '\0';
+    newParams.mqttPort[sizeof(newParams.mqttPort) - 1] = '\0';
     
     saveWifi(newParams);
     server.send(200, "application/json", "{\"status\":\"success\"}");
@@ -177,6 +180,7 @@ void handleGetWifi() {
     doc["ap_ssid"] = currentParams.APWifiID;
     doc["ap_password"] = currentParams.APpassword;
     doc["mqtt_server"] = currentParams.mqttServer;
+    doc["mqtt_port"] = currentParams.mqttPort;
     
     sendJsonResponse(doc);
 }

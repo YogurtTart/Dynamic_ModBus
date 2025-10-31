@@ -44,6 +44,7 @@ class WifiManager {
             FormHelper.setValue('ap_ssid', data.ap_ssid);
             FormHelper.setValue('ap_password', data.ap_password);
             FormHelper.setValue('mqtt_server', data.mqtt_server);
+            FormHelper.setValue('mqtt_port', data.mqtt_port);
             
             StatusManager.showStatus('WiFi & MQTT settings loaded successfully!', 'success');
         } catch (error) {
@@ -52,7 +53,7 @@ class WifiManager {
     }
 
     async saveSettings() {
-        const requiredFields = ['sta_ssid', 'sta_password', 'ap_ssid', 'ap_password', 'mqtt_server'];
+        const requiredFields = ['sta_ssid', 'sta_password', 'ap_ssid', 'ap_password', 'mqtt_server', 'mqtt_port'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
         const formData = new FormData();
@@ -61,6 +62,7 @@ class WifiManager {
         formData.append('ap_ssid', FormHelper.getValue('ap_ssid'));
         formData.append('ap_password', FormHelper.getValue('ap_password'));
         formData.append('mqtt_server', FormHelper.getValue('mqtt_server'));
+        formData.append('mqtt_port', FormHelper.getValue('mqtt_port'));
 
         try {
             await ApiClient.postForm('/savewifi', formData);

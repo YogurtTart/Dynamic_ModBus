@@ -20,6 +20,7 @@ void forceResetEEPROM() {
     strcpy(defaultParams.APWifiID, "ESP8266_AP");
     strcpy(defaultParams.APpassword, "12345678");
     strcpy(defaultParams.mqttServer, "192.168.31.66");
+    strcpy(defaultParams.mqttPort, "1883");
     
     // Write to EEPROM
     EEPROM.put(WIFI_PARAMS_ADDR, defaultParams);

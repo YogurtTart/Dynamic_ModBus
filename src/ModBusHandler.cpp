@@ -277,12 +277,6 @@ void processEnergyData(JsonObject& root, const SensorSlave& slave) {
 }
 
 void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success) {
-    static unsigned long batchStart = 0;
-    static int queryCount = 0;
-    
-    if (queryCount == 0) {
-        batchStart = millis();
-    }
     
     // Get timing data
     String sameDeviceDelta = getSameDeviceDelta(slave.id, slave.name.c_str(), false);
@@ -300,10 +294,6 @@ void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success
         addDebugMessage(slave.mqttTopic.c_str(), output.c_str(), formattedDelta.c_str(), sameDeviceDelta.c_str());
     }
     
-    queryCount++;
-    if (queryCount >= slaveCount) {
-        queryCount = 0;
-    }
 }
 
 // ==================== NON-BLOCKING QUERY STATE MACHINE ====================
@@ -343,7 +333,6 @@ void processNonBlockingData() {
     root["id"] = slave.id;
     root["name"] = slave.name;
     root["mqtt_topic"] = slave.mqttTopic;
-    root["timestamp"] = millis();
 
     // Device-specific data processing
     if (slave.name.indexOf("Sensor") >= 0) {

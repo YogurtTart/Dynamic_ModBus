@@ -16,9 +16,9 @@ void saveWifi(WifiParams &newParams) {
     
     // Debug current state
     Serial.printf("🔍 Current STA: %s, AP: %s, MQTT: %s\n", 
-                 currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer);
+                 currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer, currentParams.mqttPort);
     Serial.printf("🔍 New STA: %s, AP: %s, MQTT: %s\n", 
-                 newParams.STAWifiID, newParams.APWifiID, newParams.mqttServer);
+                 newParams.STAWifiID, newParams.APWifiID, newParams.mqttServer, currentParams.mqttPort);
     
     // Only update STA if new values are not empty
     if (strlen(newParams.STAWifiID) > 0) {
@@ -62,6 +62,14 @@ void saveWifi(WifiParams &newParams) {
     } else {
         Serial.println("⏭️  MQTT Server empty, keeping current");
     }
+
+    if (strlen(newParams.mqttPort) > 0) {
+        strncpy(currentParams.mqttPort, newParams.mqttPort, sizeof(currentParams.mqttPort) - 1);
+        currentParams.mqttPort[sizeof(currentParams.mqttPort) - 1] = '\0';
+        Serial.println("✅ Updated MQTT Port");
+    } else {
+        Serial.println("⏭️  MQTT Port empty, keeping current");
+    }
     
     // Ensure magic number is preserved
     currentParams.magic = 0xDEADBEEF;
@@ -73,8 +81,8 @@ void saveWifi(WifiParams &newParams) {
         Serial.println("❌ ERROR: EEPROM commit failed!");
     } else {
         Serial.println("✅ WiFi & MQTT settings saved successfully to EEPROM");
-        Serial.printf("📊 Final settings - STA: %s, AP: %s, MQTT: %s\n", 
-                     currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer);
+        Serial.printf("📊 Final settings - STA: %s, AP: %s, MQTT: %s, MQTT_Port: %s\n", 
+                     currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer, currentParams.mqttPort);
     }
 }
 
@@ -93,16 +101,18 @@ void loadWifi() {
         strcpy(currentParams.APWifiID, "ESP8266_AP");
         strcpy(currentParams.APpassword, "12345678");
         strcpy(currentParams.mqttServer, "192.168.31.66");
+        strcpy(currentParams.mqttPort, "1883");
         
         Serial.println("📝 Default settings loaded:");
         Serial.printf("   STA: %s\n", currentParams.STAWifiID);
         Serial.printf("   AP: %s\n", currentParams.APWifiID);
         Serial.printf("   MQTT: %s\n", currentParams.mqttServer);
+        Serial.printf("   MQTTPort: %s\n", currentParams.mqttPort);
         
         saveWifi(currentParams);
     } else {
         Serial.println("✅ EEPROM data valid");
         Serial.printf("📋 Loaded settings - STA: %s, AP: %s, MQTT: %s\n", 
-                     currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer);
+                     currentParams.STAWifiID, currentParams.APWifiID, currentParams.mqttServer, currentParams.mqttPort);
     }
 }
