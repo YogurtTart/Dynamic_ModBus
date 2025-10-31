@@ -105,11 +105,22 @@ class WifiManager {
         await this.loadIPInfo();
         StatusManager.showStatus('Network status updated', 'success');
     }
+
+    refreshUI() {
+        // Refresh displays when WiFi tab becomes active
+        this.loadIPInfo();
+        console.log('WiFi tab UI refreshed');
+    }
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.wifiManager = new WifiManager();
+// Initialize immediately for SPA
+window.wifiManager = new WifiManager();
+
+// Refresh UI when WiFi tab becomes active
+window.addEventListener('tabChanged', (e) => {
+    if (e.detail.newTab === 'wifi') {
+        window.wifiManager.refreshUI();
+    }
 });
 
 // Backward compatibility

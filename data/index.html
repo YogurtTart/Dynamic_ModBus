@@ -6,6 +6,9 @@
     <title>ESP8266 Configuration Portal</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="slaves.css">
+    <link rel="stylesheet" href="settings.css">
+    <link rel="stylesheet" href="debug.css">
 </head>
 <body class="dark-mode">
     <div class="app-container">
@@ -17,19 +20,19 @@
 
         <nav class="main-nav">
             <div class="nav-container">
-                <a href="/" class="nav-item active" data-tab="wifi">
+                <a href="#wifi" class="nav-item active" data-tab="wifi">
                     <span class="nav-icon">📶</span>
                     <span class="nav-text">WiFi Configuration</span>
                 </a>
-                <a href="/slaves.html" class="nav-item" data-tab="slaves">
+                <a href="#slaves" class="nav-item" data-tab="slaves">
                     <span class="nav-icon">🔧</span>
                     <span class="nav-text">Modbus Slaves</span>
                 </a>
-                <a href="/settings.html" class="nav-item" data-tab="settings">
+                <a href="#settings" class="nav-item" data-tab="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-text">Settings</span>
                 </a>
-                <a href="/debug.html" class="nav-item" data-tab="debug">
+                <a href="#debug" class="nav-item" data-tab="debug">
                     <span class="nav-icon">🐛</span>
                     <span class="nav-text">Debug</span>
                 </a>
@@ -37,222 +40,658 @@
         </nav>
 
         <main class="main-content">
-            <div class="content-header">
-                <h2>WiFi & MQTT Network Configuration</h2>
-                <p class="content-description">Configure device network settings for both station and access point modes</p>
-            </div>
-
+            <!-- Status Message (Global) -->
             <div class="status-message" id="status" aria-live="polite"></div>
 
-            <form class="configuration-form" id="wifiForm">
-                <div class="form-grid">
-                    <section class="form-section" aria-labelledby="sta-heading">
-                        <header class="section-header">
-                            <h3 id="sta-heading" class="section-title">
-                                <span class="section-icon">🖧</span>
+            <!-- ===== WIFI TAB ===== -->
+            <div class="tab-content active" id="wifi-tab">
+                <div class="content-header">
+                    <h2>WiFi & MQTT Network Configuration</h2>
+                    <p class="content-description">Configure device network settings for both station and access point modes</p>
+                </div>
+
+                <form class="configuration-form" id="wifiForm">
+                    <div class="form-grid">
+                        <section class="form-section" aria-labelledby="sta-heading">
+                            <header class="section-header">
+                                <h3 id="sta-heading" class="section-title">
+                                    <span class="section-icon">🖧</span>
+                                    Station Mode (STA)
+                                </h3>
+                                <p class="section-description">Connect to existing WiFi network</p>
+                            </header>
+                            
+                            <div class="input-group">
+                                <label for="sta_ssid" class="input-label">
+                                    WiFi Network Name (SSID)
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="sta_ssid" 
+                                       name="sta_ssid" 
+                                       class="text-input"
+                                       placeholder="Enter your WiFi network name"
+                                       aria-required="true">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="sta_password" class="input-label">
+                                    WiFi Password
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="sta_password" 
+                                       name="sta_password" 
+                                       class="text-input"
+                                       placeholder="Enter WiFi password"
+                                       aria-required="true">
+                            </div>
+                        </section>
+
+                        <section class="form-section" aria-labelledby="ap-heading">
+                            <header class="section-header">
+                                <h3 id="ap-heading" class="section-title">
+                                    <span class="section-icon">📡</span>
+                                    Access Point Mode (AP)
+                                </h3>
+                                <p class="section-description">Device's own configuration network</p>
+                            </header>
+                            
+                            <div class="input-group">
+                                <label for="ap_ssid" class="input-label">
+                                    AP Network Name
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="ap_ssid" 
+                                       name="ap_ssid" 
+                                       class="text-input"
+                                       placeholder="ESP8266_Config"
+                                       aria-required="true">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="ap_password" class="input-label">
+                                    AP Password
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="ap_password" 
+                                       name="ap_password" 
+                                       class="text-input"
+                                       placeholder="Minimum 8 characters"
+                                       aria-required="true"
+                                       minlength="8">
+                            </div>
+                        </section>
+
+                        <section class="form-section" aria-labelledby="mqtt-heading">
+                            <header class="section-header">
+                                <h3 id="mqtt-heading" class="section-title">
+                                    <span class="section-icon">📡</span>
+                                    MQTT Server Configuration
+                                </h3>
+                                <p class="section-description">Configure MQTT broker connection</p>
+                            </header>
+                            
+                            <div class="input-group">
+                                <label for="mqtt_server" class="input-label">
+                                    MQTT Server Address
+                                    <span class="required">*</span>
+                                </label>
+                                <input type="text" 
+                                    id="mqtt_server" 
+                                    name="mqtt_server" 
+                                    class="text-input"
+                                    placeholder="192.168.1.100 or mqtt.example.com"
+                                    aria-required="true">
+                                <div class="input-description">
+                                    Enter IP address or hostname of your MQTT broker
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="action-bar" style="margin-bottom: 20px;">
+                        <button type="button" 
+                                class="btn btn-secondary" 
+                                onclick="loadSettings()">
+                            <span class="btn-icon">↻</span>
+                            Load Current Settings
+                        </button>
+                        <button type="button" 
+                                class="btn btn-primary" 
+                                onclick="saveSettings()">
+                            <span class="btn-icon">💾</span>
+                            Save WiFi & MQTT Configuration
+                        </button>
+                    </div>
+                </form>
+
+                <section class="form-section" aria-labelledby="ip-heading">
+                    <header class="section-header">
+                        <h3 id="ip-heading" class="section-title">
+                            <span class="section-icon">🌐</span>
+                            Network Status
+                        </h3>
+                        <p class="section-description">Current device IP addresses</p>
+                    </header>
+                    
+                    <div class="ip-info-grid">
+                        <div class="ip-info-group">
+                            <h4 class="ip-info-title">
+                                <span class="ip-info-icon">🖧</span>
                                 Station Mode (STA)
-                            </h3>
-                            <p class="section-description">Connect to existing WiFi network</p>
-                        </header>
-                        
-                        <div class="input-group">
-                            <label for="sta_ssid" class="input-label">
-                                WiFi Network Name (SSID)
-                                <span class="required">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="sta_ssid" 
-                                   name="sta_ssid" 
-                                   class="text-input"
-                                   placeholder="Enter your WiFi network name"
-                                   aria-required="true">
+                            </h4>
+                            <div class="ip-info-item">
+                                <span class="ip-label">IP Address:</span>
+                                <span id="sta_ip" class="ip-value">Loading...</span>
+                            </div>
+                            <div class="ip-info-item">
+                                <span class="ip-label">Subnet Mask:</span>
+                                <span id="sta_subnet" class="ip-value">Loading...</span>
+                            </div>
+                            <div class="ip-info-item">
+                                <span class="ip-label">Gateway:</span>
+                                <span id="sta_gateway" class="ip-value">Loading...</span>
+                            </div>
+                            <div class="ip-info-item">
+                                <span class="ip-label">Status:</span>
+                                <span id="sta_status" class="ip-value status-connected">Connected</span>
+                            </div>
                         </div>
+                        
+                        <div class="ip-info-group">
+                            <h4 class="ip-info-title">
+                                <span class="ip-info-icon">📡</span>
+                                Access Point (AP)
+                            </h4>
+                            <div class="ip-info-item">
+                                <span class="ip-label">IP Address:</span>
+                                <span id="ap_ip" class="ip-value">Loading...</span>
+                            </div>
+                            <div class="ip-info-item">
+                                <span class="ip-label">Connected Clients:</span>
+                                <span id="ap_clients" class="ip-value">Loading...</span>
+                            </div>
+                            <div class="ip-info-item">
+                                <span class="ip-label">Status:</span>
+                                <span class="ip-value status-connected">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-bar compact">
+                        <button type="button" class="btn btn-secondary" onclick="refreshIPInfo()">
+                            <span class="btn-icon">↻</span>
+                            Refresh IP Info
+                        </button>
+                    </div>
+                </section>
 
-                        <div class="input-group">
-                            <label for="sta_password" class="input-label">
-                                WiFi Password
-                                <span class="required">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="sta_password" 
-                                   name="sta_password" 
-                                   class="text-input"
-                                   placeholder="Enter WiFi password"
-                                   aria-required="true">
+                <!-- Info Panel -->
+                <section class="config-panel" aria-labelledby="wifi-info-heading">
+                    <header class="panel-header">
+                        <h3 id="wifi-info-heading" class="panel-title">
+                            <span class="panel-icon">ℹ️</span>
+                            How to Use
+                        </h3>
+                    </header>
+                    
+                    <div class="section-description">
+                        <p><strong>WiFi Configuration:</strong></p>
+                        <p><strong>Step 1:</strong> Enter Station Mode WiFi credentials (network name and password)</p>
+                        <p><strong>Step 2:</strong> Set Access Point name and password for configuration network</p>         
+                        <p><strong>Step 3:</strong> Click "Save WiFi Configuration" to apply changes</p><br>
+                        <p><strong>Note:</strong> Device will restart to use new WiFi settings</p>
+                        <p><strong>Note:</strong> Click "Load Current Settings" to reload most recent saved settings</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ===== SLAVES TAB ===== -->
+            <div class="tab-content" id="slaves-tab">
+                <div class="content-header">
+                    <h2>Modbus RTU Slave Configuration</h2>
+                    <p class="content-description">Configure Modbus RTU slaves and global polling parameters</p>
+                </div>
+
+                <div class="configuration-layout">
+                    <section class="config-panel" aria-labelledby="slave-management-heading">
+                        <header class="panel-header">
+                            <h3 id="slave-management-heading" class="panel-title">
+                                <span class="panel-icon">➕</span>
+                                Add New Slave
+                            </h3>
+                        </header>
+
+                        <form class="slave-form" id="slaveForm">
+                            <div class="form-row">
+                                <div class="input-group compact">
+                                    <label for="slave_id" class="input-label">Slave ID</label>
+                                    <input type="number" 
+                                           id="slave_id" 
+                                           class="text-input"
+                                           placeholder="1"
+                                           min="1" 
+                                           max="247">
+                                </div>
+
+                                <div class="input-group compact">
+                                    <label for="start_reg" class="input-label">Start Register</label>
+                                    <input type="number" 
+                                           id="start_reg" 
+                                           class="text-input"
+                                           placeholder="0"
+                                           min="0" 
+                                           max="65535">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="input-group compact">
+                                    <label for="num_reg" class="input-label">Register Count</label>
+                                    <input type="number" 
+                                           id="num_reg" 
+                                           class="text-input"
+                                           placeholder="10"
+                                           min="1" 
+                                           max="125">
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="slave_name" class="input-label">Slave Name</label>
+                                <input type="text" 
+                                       id="slave_name" 
+                                       class="text-input"
+                                       placeholder="Temperature Sensor 1">
+                            </div>
+
+                            <div class="input-group">
+                                <label for="mqtt_topic" class="input-label">MQTT Topic</label>
+                                <input type="text" 
+                                       id="mqtt_topic" 
+                                       class="text-input"
+                                       placeholder="modbus/slave1/data">
+                            </div>
+
+                            <div class="action-bar compact dual-buttons">
+                                <button type="button" class="btn btn-primary" onclick="addSlave()">
+                                    <span class="btn-icon">➕</span>
+                                    Add Slave Device
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="loadSlaveConfig()">
+                                    <span class="btn-icon">📥</span>
+                                    Load Slave
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="saveSlaveConfig()">
+                                    <span class="btn-icon">💾</span>
+                                    Save Slave
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Statistics Panel -->
+                        <div class="stats-panel">
+                            <h4 class="stats-title">System Statistics</h4>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">Unique Slave IDs</span>
+                                    <span class="stat-value" id="slaveCount">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Total Entries</span>
+                                    <span class="stat-value" id="totalEntries">0</span>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
-                    <section class="form-section" aria-labelledby="ap-heading">
-                        <header class="section-header">
-                            <h3 id="ap-heading" class="section-title">
-                                <span class="section-icon">📡</span>
-                                Access Point Mode (AP)
-                            </h3>
-                            <p class="section-description">Device's own configuration network</p>
-                        </header>
-                        
-                        <div class="input-group">
-                            <label for="ap_ssid" class="input-label">
-                                AP Network Name
-                                <span class="required">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="ap_ssid" 
-                                   name="ap_ssid" 
-                                   class="text-input"
-                                   placeholder="ESP8266_Config"
-                                   aria-required="true">
+                    <section class="config-panel" aria-labelledby="config-management-heading">
+                        <!-- Timeout Settings -->
+                        <div class="polling-section">
+                            <h4 class="section-title">Timeout Settings</h4>
+                            <div class="input-group">
+                                <label for="timeout" class="input-label">Timeout (seconds)</label>
+                                <input type="number" 
+                                    id="timeout" 
+                                    class="text-input"
+                                    placeholder="1"
+                                    step="1">
+                            </div>
+                            <div class="action-stack">
+                                <button class="btn btn-secondary full-width" onclick="loadTimeout()">
+                                    <span class="btn-icon">📥</span>
+                                    Load Timeout
+                                </button>
+                                <button class="btn btn-primary full-width" onclick="saveTimeout()">
+                                    <span class="btn-icon">💾</span>
+                                    Save Timeout
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="input-group">
-                            <label for="ap_password" class="input-label">
-                                AP Password
-                                <span class="required">*</span>
-                            </label>
-                            <input type="text" 
-                                   id="ap_password" 
-                                   name="ap_password" 
-                                   class="text-input"
-                                   placeholder="Minimum 8 characters"
-                                   aria-required="true"
-                                   minlength="8">
-                        </div>
-                    </section>
-                    <!-- Add this after the AP section and before the Network Status section -->
-                    <section class="form-section" aria-labelledby="mqtt-heading">
-                        <header class="section-header">
-                            <h3 id="mqtt-heading" class="section-title">
-                                <span class="section-icon">📡</span>
-                                MQTT Server Configuration
-                            </h3>
-                            <p class="section-description">Configure MQTT broker connection</p>
-                        </header>
-                        
-                        <div class="input-group">
-                            <label for="mqtt_server" class="input-label">
-                                MQTT Server Address
-                                <span class="required">*</span>
-                            </label>
-                            <input type="text" 
-                                id="mqtt_server" 
-                                name="mqtt_server" 
-                                class="text-input"
-                                placeholder="192.168.1.100 or mqtt.example.com"
-                                aria-required="true">
-                            <div class="input-description">
-                                Enter IP address or hostname of your MQTT broker
+                        <div class="polling-section">
+                            <h4 class="section-title">Polling Settings</h4>
+                            <div class="input-group">
+                                <label for="poll_interval" class="input-label">Poll Interval (seconds)</label>
+                                <input type="number" 
+                                    id="poll_interval" 
+                                    class="text-input"
+                                    placeholder="10">
+                            </div>
+                            <div class="action-stack">
+                                <button class="btn btn-secondary full-width" onclick="loadPollInterval()">
+                                    <span class="btn-icon">📥</span>
+                                    Load Poll Interval
+                                </button>
+                                <button class="btn btn-primary full-width" onclick="savePollInterval()">
+                                    <span class="btn-icon">⏱️</span>
+                                    Save Poll Interval
+                                </button>
                             </div>
                         </div>
                     </section>
                 </div>
 
-                <div class="action-bar" style="margin-bottom: 20px;">
-                    <button type="button" 
-                            class="btn btn-secondary" 
-                            onclick="loadSettings()">
-                        <span class="btn-icon">↻</span>
-                        Load Current Settings
-                    </button>
-                    <button type="button" 
-                            class="btn btn-primary" 
-                            onclick="saveSettings()">
-                        <span class="btn-icon">💾</span>
-                        Save WiFi & MQTT Configuration
-                    </button>
-                </div>
-            </form>
+                <section class="slave-list-panel" aria-labelledby="slave-list-heading">
+                    <header class="panel-header">
+                        <h3 id="slave-list-heading" class="panel-title">
+                            <span class="panel-icon">📋</span>
+                            Configured Slaves (Sorted by ID)
+                            <span class="badge" id="slaveCountBadge">0</span>
+                        </h3>
+                    </header>
 
-            <!-- Add this after the form sections, before the action bar -->
-            <section class="form-section" aria-labelledby="ip-heading">
-                <header class="section-header">
-                    <h3 id="ip-heading" class="section-title">
-                        <span class="section-icon">🌐</span>
-                        Network Status
-                    </h3>
-                    <p class="section-description">Current device IP addresses</p>
-                </header>
-                
-                <div class="ip-info-grid">
-                    <div class="ip-info-group">
-                        <h4 class="ip-info-title">
-                            <span class="ip-info-icon">🖧</span>
-                            Station Mode (STA)
-                        </h4>
-                        <div class="ip-info-item">
-                            <span class="ip-label">IP Address:</span>
-                            <span id="sta_ip" class="ip-value">Loading...</span>
-                        </div>
-                        <div class="ip-info-item">
-                            <span class="ip-label">Subnet Mask:</span>
-                            <span id="sta_subnet" class="ip-value">Loading...</span>
-                        </div>
-                        <div class="ip-info-item">
-                            <span class="ip-label">Gateway:</span>
-                            <span id="sta_gateway" class="ip-value">Loading...</span>
-                        </div>
-                        <div class="ip-info-item">
-                            <span class="ip-label">Status:</span>
-                            <span id="sta_status" class="ip-value status-connected">Connected</span>
+                    <div class="table-container">
+                        <table class="data-table slaves-table" aria-describedby="slave-list-heading">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Slave ID</th>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Start Reg</th>
+                                    <th scope="col">Count Reg</th>
+                                    <th scope="col">MQTT Topic</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="slavesTableBody">
+                            </tbody>
+                        </table>
+                        <div class="empty-state" id="emptySlavesState">
+                            <div class="empty-icon">📭</div>
+                            <h4>No Slaves Configured</h4>
+                            <p>Add your first Modbus slave device to get started</p>
                         </div>
                     </div>
+                </section>
+
+                <section class="slave-stats-panel" aria-labelledby="slave-stats-heading">
+                    <header class="panel-header">
+                        <h3 id="slave-stats-heading" class="panel-title">
+                            <span class="panel-icon">📊</span>
+                            Query Statistics (Live)
+                            <span class="badge" id="statsCountBadge">0</span>
+                        </h3>
+                    </header>
+
+                    <div class="table-container">
+                        <table class="data-table slaves-table" aria-describedby="slave-list-heading">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Slave ID</th>
+                                    <th scope="col">Name</th>
+                                    <th scope="col">Total Queries</th>
+                                    <th scope="col">Success</th>
+                                    <th scope="col">Timeout</th>
+                                    <th scope="col">Failed</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statsTableBody">
+                            </tbody>
+                        </table>
+                        <div class="empty-state" id="emptyStatsState">
+                            <div class="empty-icon">📊</div>
+                            <h4>No Statistics Available</h4>
+                            <p>Statistics will appear here as queries are executed</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Info Panel -->
+                <section class="config-panel" aria-labelledby="slaves-info-heading">
+                    <header class="panel-header">
+                        <h3 id="slaves-info-heading" class="panel-title">
+                            <span class="panel-icon">ℹ️</span>
+                            How to Use
+                        </h3>
+                    </header>
                     
-                    <div class="ip-info-group">
-                        <h4 class="ip-info-title">
-                            <span class="ip-info-icon">📡</span>
-                            Access Point (AP)
-                        </h4>
-                        <div class="ip-info-item">
-                            <span class="ip-label">IP Address:</span>
-                            <span id="ap_ip" class="ip-value">Loading...</span>
+                    <div class="section-description">
+                        <p><strong>Modbus Slave Configuration:</strong></p>
+                        <p><strong>Step 1:</strong> Enter Slave ID  and descriptive Slave Name</p>
+                        <p><strong>Step 2:</strong> Set Start Register address and Number of Registers</p>
+                        <p><strong>Step 3:</strong> Select MQTT Topic for data publishing</p>
+                        <p><strong>Step 4:</strong> Click "Add Slave Device" to add to configuration</p>
+                        <p><strong>Step 5:</strong> Click "Save Slave" to confirm configuration and store into LittleFS file.</p>
+                        <p><strong>Device Name Type:</strong>1)Sensor, 2)Meter, 3)Voltage, 4)Energy</p>
+                        <p><strong>Note:</strong> When adding a new sensor, the Name has to have "Sensor" in it. Same to other type of devices. </p>
+                        <br>
+                        <p><strong>System Statistics:</strong></p>
+                        <p><strong>Unique Slave IDs:</strong> Amount of different Slaves ID saved.</p>
+                        <p><strong>Total Entries:</strong> Total amount of Slaves added.</p>
+                        <br>
+                        <p><strong>Global Settings:</strong></p>
+                        <p><strong>Poll Interval:</strong> Set how often to query slaves (in seconds)</p>
+                        <p><strong>Timeout:</strong> Set response timeout for slave devices (in seconds)</p>
+                        <br>
+                        <p><strong>Query Statistics:</strong></p>
+                        <p><strong>Success:</strong> Able to send and receive query</p>
+                        <p><strong>Timeout:</strong> Able to send query but did not receive message after x seconds</p>
+                        <p><strong>Failed:</strong> Failed to send query at the start</p>
+                        <br>
+                        <p><strong>Note:</strong> Click "Load Slave", "Load Timeout", or "Load Poll Interval" to reload most recent saved settings</p>
+                        <p><strong>Note:</strong> When deleting a slave, must click "Save Slave" to confirm the delete.</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ===== SETTINGS TAB ===== -->
+            <div class="tab-content" id="settings-tab">
+                <div class="content-header">
+                    <h2>Slave Configuration Editor</h2>
+                    <p class="content-description">Search for slave configurations and edit them directly</p>
+                </div>
+
+                <div class="configuration-layout">
+                    <section class="config-panel" aria-labelledby="search-heading">
+                        <header class="panel-header">
+                            <h3 id="search-heading" class="panel-title">
+                                <span class="panel-icon">🔍</span>
+                                Search Slave Configuration
+                            </h3>
+                        </header>
+
+                        <form class="search-form" id="searchForm">
+                            <div class="form-row">
+                                <div class="input-group compact">
+                                    <label for="search_slave_id" class="input-label">Slave ID</label>
+                                    <input type="number" 
+                                           id="search_slave_id" 
+                                           class="text-input"
+                                           placeholder="1"
+                                           min="1" 
+                                           max="247"
+                                           required>
+                                </div>
+
+                                <div class="input-group compact">
+                                    <label for="search_slave_name" class="input-label">Slave Name</label>
+                                    <input type="text" 
+                                           id="search_slave_name" 
+                                           class="text-input"
+                                           placeholder="Temperature Sensor 1"
+                                           required>
+                                </div>
+                            </div>
+
+                            <div class="action-bar compact">
+                                <button type="button" class="btn btn-primary" onclick="searchSlaveConfig()">
+                                    <span class="btn-icon">🔍</span>
+                                    Search Configuration
+                                </button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="config-panel" aria-labelledby="edit-heading" id="editSection" style="display: none;">
+                        <header class="panel-header">
+                            <h3 id="edit-heading" class="panel-title">
+                                <span class="panel-icon">✏️</span>
+                                Edit Slave Configuration
+                            </h3>
+                        </header>
+
+                        <div class="input-group">
+                            <label for="config_editor" class="input-label">Configuration JSON</label>
+                            <textarea 
+                                id="config_editor" 
+                                class="text-input"
+                                rows="15"
+                                placeholder="Slave configuration will appear here..."
+                                style="font-family: monospace; resize: vertical; min-height: 300px;"
+                            ></textarea>
                         </div>
-                        <div class="ip-info-item">
-                            <span class="ip-label">Connected Clients:</span>
-                            <span id="ap_clients" class="ip-value">Loading...</span>
+
+                        <div class="action-bar compact">
+                            <button type="button" class="btn btn-secondary" onclick="cancelEdit()">
+                                <span class="btn-icon">❌</span>
+                                Cancel
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="saveEditedConfig()">
+                                <span class="btn-icon">💾</span>
+                                Save Changes
+                            </button>
                         </div>
-                        <div class="ip-info-item">
-                            <span class="ip-label">Status:</span>
-                            <span class="ip-value status-connected">Active</span>
+                    </section>
+                </div>
+
+                <!-- Info Panel -->
+                <section class="config-panel" aria-labelledby="settings-info-heading">
+                    <header class="panel-header">
+                        <h3 id="settings-info-heading" class="panel-title">
+                            <span class="panel-icon">ℹ️</span>
+                            How to Use
+                        </h3>
+                    </header>
+                    
+                    <div class="section-description">
+                        <p><strong>Step 1:</strong> Enter the Slave ID and Slave Name exactly as configured</p>
+                        <p><strong>Step 2:</strong> Click "Search Configuration" to load the slave data</p>
+                        <p><strong>Step 3:</strong> Edit the JSON configuration in the text area</p>
+                        <p><strong>Step 4:</strong> Click "Save Changes" to update the configuration</p>
+                        <p><strong>Note:</strong> The configuration will be validated before saving</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ===== DEBUG TAB ===== -->
+            <div class="tab-content" id="debug-tab">
+                <div class="content-header">
+                    <h2>Debug Console</h2>
+                    <p class="content-description">Monitor MQTT messages in real-time. Table shows structured data parsed from MQTT messages.</p>
+                </div>
+
+                <!-- Simple Debug Toggle -->
+                <div class="debug-controls">
+                    <label class="toggle-label">
+                        <span>MQTT Debug Mode:</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="debugEnabled">
+                            <span class="toggle-slider"></span>
                         </div>
+                        <span id="debugStatus">OFF</span>
+                    </label>
+                    <p class="section-description">
+                        ON: Messages go to MQTT + Web Interface | OFF: Messages go to MQTT only
+                    </p>
+                </div>
+
+                <!-- Raw Data Table - Now the only table -->
+                <div class="config-panel">
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            <span class="nav-icon">📋</span>
+                            MQTT Messages Table
+                        </h3>
+                        <button class="btn btn-secondary" id="clearTable" style="margin-top: 8px;">Clear Table</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table debug-table" id="dataTable">
+                            <thead>
+                                <tr>
+                                    <th>Real Time</th>
+                                    <th>Since Prev</th>
+                                    <th>Since Same</th>
+                                    <th>Device</th>
+                                    <th>ID</th>
+                                    <th>Topic</th>
+                                    <th>Raw JSON</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr>
+                                    <td colspan="7" class="no-data">MQTT Debug Mode is OFF. Enable to see data.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                
-                <div class="action-bar compact">
-                    <button type="button" class="btn btn-secondary" onclick="refreshIPInfo()">
-                        <span class="btn-icon">↻</span>
-                        Refresh IP Info
-                    </button>
-                </div>
-            </section>
 
-            <!-- Info Panel -->
-            <section class="config-panel" aria-labelledby="info-heading">
-                <header class="panel-header">
-                    <h3 id="info-heading" class="panel-title">
-                        <span class="panel-icon">ℹ️</span>
-                        How to Use
-                    </h3>
-                </header>
-                
-                <div class="section-description">
-                    <p><strong>WiFi Configuration:</strong></p>
-                    <p><strong>Step 1:</strong> Enter Station Mode WiFi credentials (network name and password)</p>
-                    <p><strong>Step 2:</strong> Set Access Point name and password for configuration network</p>         
-                    <p><strong>Step 3:</strong> Click "Save WiFi Configuration" to apply changes</p><br>
-                    <p><strong>Note:</strong> Device will restart to use new WiFi settings</p>
-                    <p><strong>Note:</strong> Click "Load Current Settings" to reload most recent saved settings</p>
-                </div>
-            </section>
-
+                <!-- Info Panel -->
+                <section class="config-panel" aria-labelledby="debug-info-heading">
+                    <header class="panel-header">
+                        <h3 id="debug-info-heading" class="panel-title">
+                            <span class="panel-icon">ℹ️</span>
+                            How to Use
+                        </h3>
+                    </header>
+                    
+                    <div class="section-description">
+                        <p><strong>Debug Console - How to Use</strong></p>
+                        
+                        <p><strong>Getting Started:</strong></p>
+                        <p>• Toggle <strong>MQTT Debug Mode</strong> to ON to begin message capture</p>
+                        <p>• Table will automatically display incoming structured data</p>
+                        <br>
+                        <p><strong>Understanding the Display:</strong></p>
+                        <p>• <strong>MQTT Messages Table</strong> - Shows raw JSON exactly as sent to MQTT with syntax highlighting</p>
+                        <p>• <strong>Time Column</strong> - Shows time since previous message (0s = most recent)</p>
+                        <br>
+                        <p><strong>Data Persistence:</strong></p>
+                        <p>• Debug mode only updates and loads when in debug page</p>
+                        <p>• Last 30 messages are stored and reloaded when returning</p>
+                        <p>• Timestamps show actual message receipt time, not viewing time</p>
+                        <br>
+                        <p><strong>Managing Data:</strong></p>
+                        <p>• Use <strong>Clear Table</strong> to reset the data view</p>
+                        <p>• System automatically removes oldest messages after 30 new ones</p>
+                    </div>
+                </section>
+            </div>
         </main>
 
         <footer class="app-footer">
-            <div class="footer-content">
-                <!-- Empty footer as requested -->
-            </div>
+            <div class="footer-content"></div>
         </footer>
     </div>
 
+    <!-- JavaScript Files -->
     <script src="utils.js"></script>
     <script src="script.js"></script>
+    <script src="slaves.js"></script>
+    <script src="settings.js"></script>
+    <script src="debug.js"></script>
 </body>
 </html>

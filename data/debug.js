@@ -359,9 +359,20 @@ class DebugConsole {
     startMessagePolling() {
         setInterval(() => this.checkForMessages(), 1000);
     }
+
+    refreshUI() {
+        // Refresh display when debug tab becomes active
+        this.updateStatusMessages();
+        console.log('Debug tab UI refreshed');
+    }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    new DebugConsole();
+// Initialize immediately for SPA
+window.debugConsole = new DebugConsole();
+
+// Refresh UI when debug tab becomes active
+window.addEventListener('tabChanged', (e) => {
+    if (e.detail.newTab === 'debug') {
+        window.debugConsole.refreshUI();
+    }
 });

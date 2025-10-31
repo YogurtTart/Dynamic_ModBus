@@ -21,7 +21,7 @@ int debugMessageIndex = 0;
 
 void setupWebServer() {
     Serial.println("🌐 Initializing Web Server...");
-    
+
     // Initialize device timing array
     for (int i = 0; i < kMaxDevices; i++) {
         deviceTiming[i].slaveId = 0;
@@ -36,10 +36,8 @@ void setupWebServer() {
     
     // Serve static files
     server.onNotFound(handleStaticFiles);
-    
-    // API endpoints - organized by functionality
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/slaves.html", HTTP_GET, handleSlavesPage);
+
+    server.on("/", []() { serveHtmlFile("/index.html"); }); // Single SPA entry point 
     
     // WiFi endpoints
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
@@ -74,15 +72,23 @@ void setupWebServer() {
 
 // Helper Functions
 void serveHtmlFile(const String& filename) {
+
     if (!fileExists(filename)) {
         Serial.printf("❌ File not found: %s\n", filename.c_str());
         server.send(500, "text/plain", "File not found: " + filename);
         return;
     }
     
-    String html = readFile(filename);
-    server.send(200, "text/html", html);
-    Serial.printf("✅ Served: %s (%d bytes)\n", filename.c_str(), html.length());
+    File file = LittleFS.open(filename, "r");
+    if (!file) {
+        Serial.printf("❌ Failed to open: %s\n", filename.c_str());
+        server.send(500, "text/plain", "Failed to open file");
+        return;
+    }
+    
+    server.streamFile(file, "text/html");  // ← STREAMS DIRECTLY FROM FLASH
+    file.close();
+    Serial.printf("✅ Streamed: %s\n", filename.c_str());
 }
 
 void sendJsonResponse(const JsonDocument& doc) {
@@ -101,17 +107,6 @@ bool parseJsonBody(JsonDocument& doc) {
         return false;
     }
     return true;
-}
-
-// Request Handlers
-void handleRoot() {
-    Serial.println("🌐 Handling root request");
-    serveHtmlFile("/index.html");
-}
-
-void handleSlavesPage() {
-    Serial.println("🌐 Handling slaves page request");
-    serveHtmlFile("/slaves.html");
 }
 
 void handleGetIpInfo() {
@@ -204,9 +199,16 @@ void handleStaticFiles() {
         return;
     }
     
-    String content = readFile(path);
-    server.send(200, contentType, content);
-    Serial.printf("✅ Served file: %s (%d bytes)\n", path.c_str(), content.length());
+    File file = LittleFS.open(path, "r");
+    if (!file) {
+        Serial.printf("❌ Failed to open: %s\n", path.c_str());
+        server.send(500, "text/plain", "Failed to open file");
+        return;
+    }
+    
+    server.streamFile(file, contentType);  // ← STREAMS DIRECTLY FROM FLASH
+    file.close();
+    Serial.printf("✅ Streamed file: %s\n", path.c_str());
 }
 
 String getContentType(const String& filename) {

@@ -320,11 +320,24 @@ class SlavesManager {
             console.log('Error removing slave statistics:', error);
         }
     }
+
+    refreshUI() {
+        // Refresh displays when slaves tab becomes active
+        this.updateSlavesList();
+        this.updateStatsDisplay();
+        console.log('Slaves tab UI refreshed');
+    }
+
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.slavesManager = new SlavesManager();
+// Initialize immediately for SPA
+window.slavesManager = new SlavesManager();
+
+// Refresh UI when slaves tab becomes active
+window.addEventListener('tabChanged', (e) => {
+    if (e.detail.newTab === 'slaves') {
+        window.slavesManager.refreshUI();
+    }
 });
 
 // Backward compatibility

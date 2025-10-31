@@ -125,11 +125,29 @@ class SettingsManager {
         this.currentSlaveName = null;
         StatusManager.showStatus('Edit cancelled', 'info');
     }
+
+    refreshUI() {
+        // Reset forms when settings tab becomes active
+        FormHelper.clearForm(['search_slave_id', 'search_slave_name']);
+        
+        const editSection = document.getElementById('editSection');
+        if (editSection) editSection.style.display = 'none';
+        
+        this.currentSlaveId = null;
+        this.currentSlaveName = null;
+        
+        console.log('Settings tab UI refreshed');
+    }
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.settingsManager = new SettingsManager();
+// Initialize immediately for SPA
+window.settingsManager = new SettingsManager();
+
+// Refresh UI when settings tab becomes active
+window.addEventListener('tabChanged', (e) => {
+    if (e.detail.newTab === 'settings') {
+        window.settingsManager.refreshUI();
+    }
 });
 
 // Backward compatibility
