@@ -10,6 +10,7 @@ class SlavesManager {
 
     init() {
         this.bindEvents();
+        this.initCompositeNameInput();
         this.loadAllConfigs();
         this.startStatsPolling();
     }
@@ -54,11 +55,18 @@ class SlavesManager {
         const slaveId = FormHelper.getValue('slave_id');
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
-        const slaveName = FormHelper.getValue('slave_name');
+        const slaveName = FormHelper.getValue('slave_name'); // Now gets from hidden field
         const mqttTopic = FormHelper.getValue('mqtt_topic');
 
         const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic'];
         if (!FormHelper.validateRequired(requiredFields)) return;
+
+        // // Validate that identifier is not empty
+        const deviceIdentifier = document.getElementById('device_identifier').value.trim();
+        if (!deviceIdentifier) {
+            StatusManager.showStatus('Please enter a device identifier', 'error');
+            return;
+        }
 
         // Check for duplicate ID + Name combination
         const duplicateExists = this.slaves.some(slave => 
@@ -134,7 +142,11 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic']);
+        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
+
+        document.getElementById('device_type').value = 'Sensor';
+        document.getElementById('name_preview').textContent = 'Sensor';
+        document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
     updateSlavesList() {
@@ -366,7 +378,7 @@ class SlavesManager {
         
         let circles = '';
         for (let i = 0; i < 3; i++) {
-            const statusClass = statusMap[statusHistory[i]] || 'status-timeout';
+            const statusClass = statusMap[statusHistory[i]];
             
             // ALWAYS pulse the newest (leftmost) circle, others never pulse
             const pulseClass = (i === 0) ? 'status-pulse' : '';
@@ -395,6 +407,35 @@ class SlavesManager {
         this.updateSlavesList();
         this.updateStatsDisplay();
         console.log('Slaves tab UI refreshed');
+    }
+
+    initCompositeNameInput() {
+        const deviceType = document.getElementById('device_type');
+        const deviceIdentifier = document.getElementById('device_identifier');
+        const namePreview = document.getElementById('name_preview');
+        const hiddenSlaveName = document.getElementById('slave_name');
+
+        const updateName = () => {
+            const type = deviceType.value;
+            const identifier = deviceIdentifier.value.trim();
+            const finalName = identifier ? `${type}_${identifier}` : type;
+            
+            hiddenSlaveName.value = finalName;
+            namePreview.textContent = finalName;
+            
+            // Visual feedback
+            if (identifier) {
+                namePreview.style.color = 'var(--text-primary)';
+            } else {
+                namePreview.style.color = 'var(--error-color)';
+            }
+        };
+
+        deviceType.addEventListener('change', updateName);
+        deviceIdentifier.addEventListener('input', updateName);
+        
+        // Initialize
+        updateName();
     }
 
 }
