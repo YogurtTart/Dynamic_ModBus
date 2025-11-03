@@ -97,14 +97,14 @@ bool initModbus() {
 // ==================== CONFIGURATION LOADING HELPERS ====================
 
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
-    if (slave.name.indexOf("Sensor") >= 0) {
+    if (slave.name.indexOf(DeviceTypes::G01S) >= 0) { 
         slave.tempDivider = slaveObj["tempdivider"] | 1.0f;
         slave.humidDivider = slaveObj["humiddivider"] | 1.0f;
-    } else if (slave.name.indexOf("Meter") >= 0) {
+    } else if (slave.name.indexOf(DeviceTypes::HeylaParam) >= 0) {  
         loadMeterParameters(slave, slaveObj);
-    } else if (slave.name.indexOf("Voltage") >= 0) {
+    } else if (slave.name.indexOf(DeviceTypes::HeylaVoltage) >= 0) { 
         loadVoltageParameters(slave, slaveObj);
-    } else if (slave.name.indexOf("Energy") >= 0) {
+    } else if (slave.name.indexOf(DeviceTypes::HeylaEnergy) >= 0) {  
         loadEnergyParameters(slave, slaveObj);
     }
 }
@@ -335,21 +335,19 @@ void processNonBlockingData() {
     root["mqtt_topic"] = slave.mqttTopic;
 
     // Device-specific data processing
-    if (slave.name.indexOf("Sensor") >= 0) {
-        processSensorData(root, slave);
-        success = true;
-    } else if (slave.name.indexOf("Meter") >= 0) {
-        processMeterData(root, slave);
-        success = true;
-    } else if (slave.name.indexOf("Voltage") >= 0) {
-        processVoltageData(root, slave);
-        success = true;
-    } else if (slave.name.indexOf("Energy") >= 0) {
-        processEnergyData(root, slave);
-        success = true;
-    } else {
-        root["error"] = "Unknown device type";
-    }
+    if (slave.name.indexOf(DeviceTypes::G01S) >= 0){ 
+            processSensorData(root, slave);
+            success = true;
+        } else if (slave.name.indexOf(DeviceTypes::HeylaParam) >= 0){  
+            processMeterData(root, slave);
+            success = true;
+        } else if (slave.name.indexOf(DeviceTypes::HeylaVoltage) >= 0){ 
+            processVoltageData(root, slave);
+            success = true;
+        } else if (slave.name.indexOf(DeviceTypes::HeylaEnergy) >= 0){
+            processEnergyData(root, slave);
+            success = true;
+        }
     
     // Publish results
     publishData(slave, doc, success);

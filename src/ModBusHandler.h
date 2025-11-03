@@ -8,6 +8,15 @@
 #include "MQTTHandler.h"
 #include "WebServer.h"
 
+/********************************TO ADD NEW DEVICE**********************************************/
+struct DeviceTypes {
+    static constexpr const char* G01S = "G01S";
+    static constexpr const char* HeylaParam = "HeylaParam";
+    static constexpr const char* HeylaVoltage = "HeylaVoltage";
+    static constexpr const char* HeylaEnergy = "HeylaEnergy";
+};
+
+
 // Constants
 constexpr uint8_t kMaxStatisticsSlaves = 20;
 constexpr uint8_t kRs485DePin = 5;

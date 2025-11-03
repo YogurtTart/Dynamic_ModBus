@@ -1,3 +1,12 @@
+/****************TO ADD NEW DEVICE***********/
+
+const DEVICE_TYPES = {
+    G01S: "G01S",
+    HeylaParam: "HeylaParam",
+    HeylaVoltage: "HeylaVoltage",
+    HeylaEnergy: "HeylaEnergy"
+};
+
 // slaves.js - Optimized slave configuration
 class SlavesManager {
     constructor() {
@@ -96,14 +105,14 @@ class SlavesManager {
         };
 
         // Add device-specific configurations
-        if (slaveName.includes('Sensor')) {
+        if (slaveName.includes(DEVICE_TYPES.G01S)) {
             slave.tempdivider = 1;
             slave.humiddivider = 1;
-        } else if (slaveName.includes('Meter')) {
+        } else if (slaveName.includes(DEVICE_TYPES.HeylaParam)) {
             this.addMeterConfig(slave);
-        } else if (slaveName.includes('Voltage')) {
+        } else if (slaveName.includes(DEVICE_TYPES.HeylaVoltage)) {
             this.addVoltageConfig(slave);
-        } else if (slaveName.includes('Energy')) {
+        } else if (slaveName.includes(DEVICE_TYPES.HeylaEnergy)) {
             this.addEnergyConfig(slave);
         }
 
@@ -144,8 +153,8 @@ class SlavesManager {
     clearSlaveForm() {
         FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
 
-        document.getElementById('device_type').value = 'Sensor';
-        document.getElementById('name_preview').textContent = 'Sensor';
+        document.getElementById('device_type').value = DEVICE_TYPES.G01S;
+        document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
