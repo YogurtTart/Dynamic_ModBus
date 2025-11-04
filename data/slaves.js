@@ -41,8 +41,7 @@ class SlavesManager {
         try {
             await Promise.all([
                 this.loadSlaveConfig(),
-                this.loadPollInterval(),
-                this.loadTimeout()
+                this.loadPollingConfig(),
             ]);
         } catch (error) {
             console.error('Error loading configurations:', error);
@@ -64,10 +63,11 @@ class SlavesManager {
         const slaveId = FormHelper.getValue('slave_id');
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
-        const slaveName = FormHelper.getValue('slave_name'); // Now gets from hidden field
+        const bitAddress = FormHelper.getValue('bit_address');
+        const slaveName = FormHelper.getValue('slave_name');
         const mqttTopic = FormHelper.getValue('mqtt_topic');
 
-        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic'];
+        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'bit_address', 'mqtt_topic'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
         // // Validate that identifier is not empty
@@ -87,7 +87,7 @@ class SlavesManager {
             return;
         }
 
-        const slave = this.createSlaveConfig(slaveId, startReg, numReg, slaveName, mqttTopic);
+        const slave = this.createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic);
         this.slaves.push(slave);
         this.sortSlavesByID();
         this.updateSlavesList();
@@ -95,11 +95,12 @@ class SlavesManager {
         StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
 
-    createSlaveConfig(slaveId, startReg, numReg, slaveName, mqttTopic) {
+    createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress,  mqttTopic) {
         const slave = {
             id: parseInt(slaveId),
             startReg: parseInt(startReg),
             numReg: parseInt(numReg),
+            bitAddress: parseInt(bitAddress),
             name: slaveName,
             mqttTopic: mqttTopic
         };
@@ -151,7 +152,7 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
+        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'bit_address', 'device_identifier']);
 
         document.getElementById('device_type').value = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
@@ -184,6 +185,7 @@ class SlavesManager {
                 <td>${slave.name}</td>
                 <td>${slave.startReg}</td>
                 <td>${slave.numReg}</td>
+                <td>${slave.bitAddress}-bit</td>
                 <td><code>${slave.mqttTopic}</code></td>
                 <td>
                     <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
@@ -227,57 +229,38 @@ class SlavesManager {
         }
     }
 
-    async savePollInterval() {
+    async savePollingConfig() {
         const interval = FormHelper.getValue('poll_interval');
-        
-        if (!interval || interval < 1) {
-            StatusManager.showStatus('Please enter a valid polling interval', 'error');
-            return;
-        }
-
-        try {
-            await ApiClient.post('/savepollinterval', { pollInterval: parseInt(interval) });
-            this.pollInterval = parseInt(interval);
-            StatusManager.showStatus(`Poll interval saved: ${this.pollInterval} seconds`, 'success');
-        } catch (error) {
-            // Error handled by ApiClient
-        }
-    }
-
-    async loadPollInterval() {
-        try {
-            const config = await ApiClient.get('/getpollinterval');
-            this.pollInterval = config.pollInterval || 10;
-            FormHelper.setValue('poll_interval', this.pollInterval);
-            StatusManager.showStatus(`Poll interval loaded: ${this.pollInterval} seconds`, 'success');
-        } catch (error) {
-            // Error handled by ApiClient
-        }
-    }
-
-    async saveTimeout() {
         const timeoutValue = FormHelper.getValue('timeout');
         
-        if (!timeoutValue || timeoutValue < 1) {
-            StatusManager.showStatus('Please enter a valid timeout (min 1 second)', 'error');
+        if (!interval || interval < 1 || !timeoutValue || timeoutValue < 1) {
+            StatusManager.showStatus('Please enter valid interval and timeout values', 'error');
             return;
         }
 
         try {
-            await ApiClient.post('/savetimeout', { timeout: parseInt(timeoutValue) });
+            await ApiClient.post('/savepollingconfig', { 
+                pollInterval: parseInt(interval), 
+                timeout: parseInt(timeoutValue) 
+            });
+            this.pollInterval = parseInt(interval);
             this.timeout = parseInt(timeoutValue);
-            StatusManager.showStatus(`Timeout saved: ${this.timeout} seconds`, 'success');
+            StatusManager.showStatus(`Polling config saved: ${this.pollInterval}s interval, ${this.timeout}s timeout`, 'success');
         } catch (error) {
             // Error handled by ApiClient
         }
     }
 
-    async loadTimeout() {
+    async loadPollingConfig() {
         try {
-            const config = await ApiClient.get('/gettimeout');
+            const config = await ApiClient.get('/getpollingconfig');
+            this.pollInterval = config.pollInterval || 10;
             this.timeout = config.timeout || 1;
+            
+            FormHelper.setValue('poll_interval', this.pollInterval);
             FormHelper.setValue('timeout', this.timeout);
-            StatusManager.showStatus(`Timeout loaded: ${this.timeout} seconds`, 'success');
+            
+            StatusManager.showStatus(`Polling config loaded: ${this.pollInterval}s interval, ${this.timeout}s timeout`, 'success');
         } catch (error) {
             // Error handled by ApiClient
         }

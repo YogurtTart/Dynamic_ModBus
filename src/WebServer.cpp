@@ -51,10 +51,8 @@ void setupWebServer() {
     server.on("/updateslaveconfig", HTTP_POST, handleUpdateSlaveConfig);
     
     // Configuration endpoints
-    server.on("/savepollinterval", HTTP_POST, handleSavePollInterval);
-    server.on("/getpollinterval", HTTP_GET, handleGetPollInterval);
-    server.on("/savetimeout", HTTP_POST, handleSaveTimeout);
-    server.on("/gettimeout", HTTP_GET, handleGetTimeout);
+    server.on("/savepollingconfig", HTTP_POST, handleSavePollingConfig);
+    server.on("/getpollingconfig", HTTP_GET, handleGetPollingConfig);
     
     // Statistics endpoints
     server.on("/getstatistics", HTTP_GET, handleGetStatistics);
@@ -259,62 +257,36 @@ void handleGetSlaves() {
     }
 }
 
-void handleSavePollInterval() {
-    Serial.println("💾 Saving poll interval");
+void handleSavePollingConfig() {
+    Serial.println("💾 Saving polling configuration");
     
     JsonDocument doc;
     if (!parseJsonBody(doc)) return;
     
     int interval = doc["pollInterval"] | 10;
+    int timeout = doc["timeout"] | 1;
     
-    if (savePollInterval(interval)) {
+    if (savePollingConfig(interval, timeout)) {
         server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.printf("✅ Poll interval saved: %d seconds\n", interval);
+        Serial.printf("✅ Polling config saved: interval=%ds, timeout=%ds\n", interval, timeout);
     } else {
         server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save poll interval");
+        Serial.println("❌ Failed to save polling config");
     }
 }
 
-void handleGetPollInterval() {
-    Serial.println("📡 Returning poll interval");
+void handleGetPollingConfig() {
+    Serial.println("📡 Returning polling configuration");
     
-    int interval = loadPollInterval();
+    int interval, timeout;
+    loadPollingConfig(interval, timeout);
     
     JsonDocument doc;
     doc["pollInterval"] = interval;
-    
-    sendJsonResponse(doc);
-    Serial.printf("✅ Sent poll interval: %d seconds\n", interval);
-}
-
-void handleSaveTimeout() {
-    Serial.println("💾 Saving timeout");
-    
-    JsonDocument doc;
-    if (!parseJsonBody(doc)) return;
-    
-    int timeout = doc["timeout"] | 1;
-    
-    if (saveTimeout(timeout)) {
-        server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.printf("✅ Timeout saved: %d seconds\n", timeout);
-    } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save timeout");
-    }
-}
-
-void handleGetTimeout() {
-    Serial.println("📡 Returning timeout");
-    
-    int timeout = loadTimeout();
-    
-    JsonDocument doc;
     doc["timeout"] = timeout;
     
     sendJsonResponse(doc);
-    Serial.printf("✅ Sent timeout: %d seconds\n", timeout);
+    Serial.printf("✅ Sent polling config: interval=%ds, timeout=%ds\n", interval, timeout);
 }
 
 void handleGetStatistics() {

@@ -1,4 +1,13 @@
 /* ===== SLAVES PAGE STYLES ===== */
+
+/* Form Layout */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
 /* Table Column Widths */
 .data-table.slaves-table th:nth-child(1), 
 .data-table.slaves-table td:nth-child(1) { 
@@ -22,11 +31,16 @@
 
 .data-table.slaves-table th:nth-child(5), 
 .data-table.slaves-table td:nth-child(5) { 
-    width: 150px; min-width: 120px; white-space: normal; word-break: break-word; 
+    width: 100px; text-align: center; min-width: 80px; 
 }
 
 .data-table.slaves-table th:nth-child(6), 
 .data-table.slaves-table td:nth-child(6) { 
+    width: 150px; min-width: 120px; white-space: normal; word-break: break-word; 
+}
+
+.data-table.slaves-table th:nth-child(7), 
+.data-table.slaves-table td:nth-child(7) { 
     width: 80px; text-align: center; min-width: 70px; 
 }
 
@@ -66,18 +80,6 @@
 .slave-stats-panel, .slave-list-panel { 
     background: #1a2435; border: 1px solid var(--border-color); 
     border-radius: var(--radius-lg); padding: var(--space-lg); margin-top: var(--space-xl); 
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .data-table.slaves-table th:nth-child(1), 
-    .data-table.slaves-table td:nth-child(1) { width: 60px; }
-    
-    .data-table.slaves-table th:nth-child(2), 
-    .data-table.slaves-table td:nth-child(2) { width: 100px; }
-    
-    .data-table.slaves-table th:nth-child(5), 
-    .data-table.slaves-table td:nth-child(5) { width: 120px; }
 }
 
 /* Status History Circles */
@@ -189,8 +191,48 @@
     font-family: monospace;
 }
 
+/* ===== BIT ADDRESS DROPDOWN STYLES ===== */
+/* Use same simple style as other text inputs */
+.bit-address-dropdown {
+    width: 100%;
+    padding: var(--space-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    transition: all 0.2s ease;
+    background: #0f172a;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.bit-address-dropdown:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+/* Style dropdown options */
+.bit-address-dropdown option {
+    background-color: #1a2435;
+    color: var(--text-primary);
+    padding: var(--space-sm);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
+    .data-table.slaves-table th:nth-child(1), 
+    .data-table.slaves-table td:nth-child(1) { width: 60px; }
+    
+    .data-table.slaves-table th:nth-child(2), 
+    .data-table.slaves-table td:nth-child(2) { width: 100px; }
+    
+    .data-table.slaves-table th:nth-child(6), 
+    .data-table.slaves-table td:nth-child(6) { width: 120px; }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+    
     .composite-name-input {
         flex-direction: column;
         align-items: stretch;

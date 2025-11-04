@@ -59,7 +59,7 @@ bool writeFile(const String& path, const String& content) {
     return (bytesWritten > 0);
 }
 
-// ✅ NEW: Save slave configuration
+//Save slave configuration
 bool saveSlaveConfig(const JsonDocument& config) {
     Serial.println("💾 Saving slave configuration to LittleFS...");
     
@@ -102,93 +102,58 @@ bool loadSlaveConfig(JsonDocument& config) {
     return true;
 }
 
-bool savePollInterval(int interval) {
-    Serial.printf("💾 Saving poll interval (%d seconds) to LittleFS...\n", interval);
+
+//Save Time Polling configuration
+bool savePollingConfig(int interval, int timeoutSeconds) {
+    Serial.printf("💾 Saving polling config (interval: %ds, timeout: %ds) to LittleFS...\n", interval, timeoutSeconds);
     
     JsonDocument doc;
     doc["pollInterval"] = interval;
+    doc["timeout"] = timeoutSeconds;
     
     String jsonString;
     serializeJson(doc, jsonString);
     
-    bool success = writeFile("/pollinterval.json", jsonString);
+    bool success = writeFile("/polling.json", jsonString);
     if (success) {
-        Serial.println("✅ Poll interval saved successfully");
+        Serial.println("✅ Polling config saved successfully");
     } else {
-        Serial.println("❌ Failed to save poll interval");
+        Serial.println("❌ Failed to save polling config");
     }
 
     modbusReloadSlaves();
     return success;
 }
 
-// ✅ NEW: Load poll interval
-int loadPollInterval() {
-    Serial.println("📖 Loading poll interval from LittleFS...");
+bool loadPollingConfig(int& interval, int& timeoutSeconds) {
+    Serial.println("📖 Loading polling config from LittleFS...");
     
-    if (!fileExists("/pollinterval.json")) {
-        Serial.println("⚠️  No poll interval found, using default (10 seconds)");
-        return 10;
+    if (!fileExists("/polling.json")) {
+        Serial.println("⚠️  No polling config found, using defaults (interval: 10s, timeout: 1s)");
+        interval = 10;
+        timeoutSeconds = 1;
+        return false;
     }
     
-    String jsonString = readFile("/pollinterval.json");
+    String jsonString = readFile("/polling.json");
     if (jsonString.length() == 0) {
-        Serial.println("❌ Empty poll interval file, using default");
-        return 10;
+        Serial.println("❌ Empty polling config file, using defaults");
+        interval = 10;
+        timeoutSeconds = 1;
+        return false;
     }
     
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, jsonString);
     if (error) {
-        Serial.printf("❌ Failed to parse poll interval: %s, using default\n", error.c_str());
-        return 10;
+        Serial.printf("❌ Failed to parse polling config: %s, using defaults\n", error.c_str());
+        interval = 10;
+        timeoutSeconds = 1;
+        return false;
     }
     
-    int interval = doc["pollInterval"] | 10; // Default to 10 if not found
-    Serial.printf("✅ Poll interval loaded: %d seconds\n", interval);
-    return interval;
-}
-
-bool saveTimeout(int timeoutSeconds) {
-    Serial.printf("💾 Saving timeout (%d seconds) to LittleFS...\n", timeoutSeconds);
-    
-    JsonDocument doc;
-    doc["timeout"] = timeoutSeconds;
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    bool success = writeFile("/timeout.json", jsonString);
-    if (success) {
-        Serial.println("✅ Timeout saved successfully");
-    } else {
-        Serial.println("❌ Failed to save timeout");
-    }
-    return success;
-}
-
-int loadTimeout() {
-    Serial.println("📖 Loading timeout from LittleFS...");
-    
-    if (!fileExists("/timeout.json")) {
-        Serial.println("⚠️  No timeout found, using default (5 seconds)");
-        return 5;
-    }
-    
-    String jsonString = readFile("/timeout.json");
-    if (jsonString.length() == 0) {
-        Serial.println("❌ Empty timeout file, using default");
-        return 5;
-    }
-    
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, jsonString);
-    if (error) {
-        Serial.printf("❌ Failed to parse timeout: %s, using default\n", error.c_str());
-        return 5;
-    }
-    
-    int timeout = doc["timeout"] | 1; // Default to 1 seconds if not found
-    Serial.printf("✅ Timeout loaded: %d seconds\n", timeout);
-    return timeout;
+    interval = doc["pollInterval"] | 10;
+    timeoutSeconds = doc["timeout"] | 1;
+    Serial.printf("✅ Polling config loaded: interval=%ds, timeout=%ds\n", interval, timeoutSeconds);
+    return true;
 }

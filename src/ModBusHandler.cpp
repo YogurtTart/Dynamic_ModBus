@@ -176,10 +176,10 @@ bool modbusReloadSlaves() {
     }
     
     // Load configuration settings
-    int newIntervalSeconds = loadPollInterval();
+    int newIntervalSeconds, newTimeoutSeconds;
+    loadPollingConfig(newIntervalSeconds, newTimeoutSeconds);
+    
     updatePollInterval(newIntervalSeconds);
-
-    int newTimeoutSeconds = loadTimeout();
     updateTimeout(newTimeoutSeconds);
     
     // Reset query state when reloading slaves

@@ -305,15 +305,27 @@
                                 </div>
                             </div>
 
+                            <!-- In the slaves tab form, update the bit address section -->
                             <div class="form-row">
                                 <div class="input-group compact">
                                     <label for="num_reg" class="input-label">Register Count</label>
                                     <input type="number" 
-                                           id="num_reg" 
-                                           class="text-input"
-                                           placeholder="10"
-                                           min="1" 
-                                           max="125">
+                                        id="num_reg" 
+                                        class="text-input"
+                                        placeholder="10"
+                                        min="1" 
+                                        max="125">
+                                </div>
+                                
+                                <!-- Bit Address Dropdown with simple text input style -->
+                                <div class="input-group compact">
+                                    <label for="bit_address" class="input-label">Bit Address</label>
+                                    <select id="bit_address" class="bit-address-dropdown">
+                                        <option value="8">8-bit</option>
+                                        <option value="16">16-bit</option>
+                                        <option value="32">32-bit</option>
+                                        <option value="64">64-bit</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -382,7 +394,14 @@
                     <section class="config-panel" aria-labelledby="config-management-heading">
                         <!-- Timeout Settings -->
                         <div class="polling-section">
-                            <h4 class="section-title">Timeout Settings</h4>
+                            <h4 class="section-title">Polling Settings</h4>
+                            <div class="input-group">
+                                <label for="poll_interval" class="input-label">Poll Interval (seconds)</label>
+                                <input type="number" 
+                                    id="poll_interval" 
+                                    class="text-input"
+                                    placeholder="10">
+                            </div>
                             <div class="input-group">
                                 <label for="timeout" class="input-label">Timeout (seconds)</label>
                                 <input type="number" 
@@ -392,34 +411,13 @@
                                     step="1">
                             </div>
                             <div class="action-stack">
-                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadTimeout()">
+                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadPollingConfig()">
                                     <span class="btn-icon">📥</span>
-                                    Load Timeout
+                                    Load Polling Config
                                 </button>
-                                <button class="btn btn-primary full-width" onclick="window.slavesManager.saveTimeout()">
+                                <button class="btn btn-primary full-width" onclick="window.slavesManager.savePollingConfig()">
                                     <span class="btn-icon">💾</span>
-                                    Save Timeout
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="polling-section">
-                            <h4 class="section-title">Polling Settings</h4>
-                            <div class="input-group">
-                                <label for="poll_interval" class="input-label">Poll Interval (seconds)</label>
-                                <input type="number" 
-                                    id="poll_interval" 
-                                    class="text-input"
-                                    placeholder="10">
-                            </div>
-                            <div class="action-stack">
-                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadPollInterval()">
-                                    <span class="btn-icon">📥</span>
-                                    Load Poll Interval
-                                </button>
-                                <button class="btn btn-primary full-width" onclick="window.slavesManager.savePollInterval()">
-                                    <span class="btn-icon">⏱️</span>
-                                    Save Poll Interval
+                                    Save Polling Config
                                 </button>
                             </div>
                         </div>
@@ -443,6 +441,7 @@
                                     <th scope="col">Name</th>
                                     <th scope="col">Start Reg</th>
                                     <th scope="col">Count Reg</th>
+                                    <th scope="col">Bit Address</th>
                                     <th scope="col">MQTT Topic</th>
                                     <th scope="col">Actions</th>
                                 </tr>

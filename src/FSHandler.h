@@ -10,7 +10,7 @@ bool writeFile(const String& path, const String& content);
 
 bool saveSlaveConfig(const JsonDocument& config);
 bool loadSlaveConfig(JsonDocument& config);
-bool savePollInterval(int interval);
-int loadPollInterval();
-bool saveTimeout(int timeoutSeconds);  
-int loadTimeout();  
+
+// ✅ COMBINED: Only the new combined functions
+bool savePollingConfig(int interval, int timeoutSeconds);
+bool loadPollingConfig(int& interval, int& timeoutSeconds);

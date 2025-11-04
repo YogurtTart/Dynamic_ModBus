@@ -54,12 +54,8 @@ void handleGetSlaveConfig();
 void handleUpdateSlaveConfig();
 
 // Polling Configuration
-void handleSavePollInterval();
-void handleGetPollInterval();
-
-// Timeout Configuration
-void handleSaveTimeout();
-void handleGetTimeout();
+void handleSavePollingConfig();
+void handleGetPollingConfig();
 
 // Statistics
 void handleGetStatistics();
