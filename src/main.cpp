@@ -8,11 +8,13 @@
 #include "MQTTHandler.h"
 #include "ModBusHandler.h"
 
+// ==================== SYSTEM INITIALIZATION ====================
+
 void forceResetEEPROM() {
     Serial.println("🔄 FORCING EEPROM RESET...");
     EEPROM.begin(EEPROM_SIZE);
     
-    // Create default WiFi params
+    // Create default WiFi parameters
     WifiParams defaultParams;
     defaultParams.magic = 0xDEADBEEF;
     strcpy(defaultParams.STAWifiID, "Tanand_Hardware");
@@ -29,26 +31,6 @@ void forceResetEEPROM() {
     
     Serial.println("✅ EEPROM reset to defaults");
     delay(1000);
-}
-
-// System initialization
-void initializeSystem();
-void handleSystemOperations();
-
-void setup() {
-    Serial.begin(9600);
-    Serial.println("\n🔌 ESP8266 ModBus Gateway Starting...");
-    delay(1000);
-
-    //forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
-
-    initializeSystem();
-    Serial.println("🎉 System fully initialized and ready!");
-}
-
-void loop() {
-    handleSystemOperations();
-    delay(10); // Small delay for stability
 }
 
 void initializeSystem() {
@@ -87,4 +69,21 @@ void handleSystemOperations() {
     }
     
     ArduinoOTA.handle();      // Handle OTA updates
+}
+
+// ==================== ARDUINO MAIN FUNCTIONS ====================
+
+void setup() {
+    Serial.begin(9600);
+    Serial.println("\n🔌 ESP8266 ModBus Gateway Starting...");
+
+    //forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
+
+    initializeSystem();
+    Serial.println("🎉 System fully initialized and ready!");
+}
+
+void loop() {
+    handleSystemOperations();
+    delay(10); // Small delay for stability
 }

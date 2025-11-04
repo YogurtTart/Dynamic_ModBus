@@ -1,13 +1,17 @@
-/****************TO ADD NEW DEVICE***********/
+// ==================== DEVICE TYPE CONSTANTS ====================
 
 const DEVICE_TYPES = {
     G01S: "G01S",
-    HeylaParam: "HeylaParam",
+    HeylaParam: "HeylaParam", 
     HeylaVoltage: "HeylaVoltage",
     HeylaEnergy: "HeylaEnergy"
 };
 
-// slaves.js - Optimized slave configuration
+// ==================== SLAVES MANAGER CLASS ====================
+
+/**
+ * @class SlavesManager - Manages Modbus slave configuration and statistics
+ */
 class SlavesManager {
     constructor() {
         this.slaves = [];
@@ -16,6 +20,8 @@ class SlavesManager {
         this.statsPollInterval = null;
         this.init();
     }
+
+    // ==================== INITIALIZATION ====================
 
     init() {
         this.bindEvents();
@@ -48,7 +54,8 @@ class SlavesManager {
         }
     }
 
-    // Helper functions
+    // ==================== SLAVE MANAGEMENT ====================
+
     sortSlavesByID() {
         this.slaves.sort((a, b) => a.id - b.id);
     }
@@ -70,7 +77,7 @@ class SlavesManager {
         const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'bit_address', 'mqtt_topic'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
-        // // Validate that identifier is not empty
+        // Validate that identifier is not empty
         const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         if (!deviceIdentifier) {
             StatusManager.showStatus('Please enter a device identifier', 'error');
@@ -95,7 +102,7 @@ class SlavesManager {
         StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
 
-    createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress,  mqttTopic) {
+    createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic) {
         const slave = {
             id: parseInt(slaveId),
             startReg: parseInt(startReg),
@@ -159,6 +166,8 @@ class SlavesManager {
         document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
+    // ==================== UI UPDATES ====================
+
     updateSlavesList() {
         const list = document.getElementById('slavesTableBody');
         const emptyState = document.getElementById('emptySlavesState');
@@ -205,6 +214,8 @@ class SlavesManager {
             StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
         }
     }
+
+    // ==================== CONFIGURATION PERSISTENCE ====================
 
     async saveSlaveConfig() {
         const config = { slaves: this.slaves };
@@ -266,7 +277,8 @@ class SlavesManager {
         }
     }
 
-    // Statistics functions
+    // ==================== STATISTICS MANAGEMENT ====================
+
     startStatsPolling() {
         this.statsPollInterval = setInterval(() => this.fetchStatistics(), 2000);
     }
@@ -357,6 +369,9 @@ class SlavesManager {
         });
     }
 
+    /**
+     * @brief Render status history as colored circles
+     */
     renderStatusHistory(statusHistory) {
         if (!statusHistory || statusHistory.length < 3) {
             return '<div class="status-history">---</div>';
@@ -394,13 +409,20 @@ class SlavesManager {
         }
     }
 
+    // ==================== UI MANAGEMENT ====================
+
+    /**
+     * @brief Refresh UI when slaves tab becomes active
+     */
     refreshUI() {
-        // Refresh displays when slaves tab becomes active
         this.updateSlavesList();
         this.updateStatsDisplay();
         console.log('Slaves tab UI refreshed');
     }
 
+    /**
+     * @brief Initialize composite name input with device type and identifier
+     */
     initCompositeNameInput() {
         const deviceType = document.getElementById('device_type');
         const deviceIdentifier = document.getElementById('device_identifier');
@@ -429,8 +451,9 @@ class SlavesManager {
         // Initialize
         updateName();
     }
-
 }
+
+// ==================== GLOBAL INITIALIZATION ====================
 
 // Initialize immediately for SPA
 window.slavesManager = new SlavesManager();

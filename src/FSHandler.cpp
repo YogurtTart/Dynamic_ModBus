@@ -1,5 +1,7 @@
 #include "FSHandler.h"
 
+// ==================== FILE SYSTEM OPERATIONS ====================
+
 bool initFileSystem() {
     Serial.println("🔧 Attempting to mount LittleFS...");
     if (!LittleFS.begin()) {
@@ -59,7 +61,8 @@ bool writeFile(const String& path, const String& content) {
     return (bytesWritten > 0);
 }
 
-//Save slave configuration
+// ==================== SLAVE CONFIGURATION FUNCTIONS ====================
+
 bool saveSlaveConfig(const JsonDocument& config) {
     Serial.println("💾 Saving slave configuration to LittleFS...");
     
@@ -102,8 +105,8 @@ bool loadSlaveConfig(JsonDocument& config) {
     return true;
 }
 
+// ==================== POLLING CONFIGURATION FUNCTIONS ====================
 
-//Save Time Polling configuration
 bool savePollingConfig(int interval, int timeoutSeconds) {
     Serial.printf("💾 Saving polling config (interval: %ds, timeout: %ds) to LittleFS...\n", interval, timeoutSeconds);
     

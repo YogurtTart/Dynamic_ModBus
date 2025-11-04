@@ -8,7 +8,11 @@
 #include "MQTTHandler.h"
 #include "WebServer.h"
 
-/********************************TO ADD NEW DEVICE**********************************************/
+// ==================== DEVICE TYPE DEFINITIONS ====================
+
+/**
+ * @brief Supported device type identifiers
+ */
 struct DeviceTypes {
     static constexpr const char* G01S = "G01S";
     static constexpr const char* HeylaParam = "HeylaParam";
@@ -16,32 +20,41 @@ struct DeviceTypes {
     static constexpr const char* HeylaEnergy = "HeylaEnergy";
 };
 
+// ==================== CONSTANTS ====================
 
-// Constants
 constexpr uint8_t kMaxStatisticsSlaves = 20;
 constexpr uint8_t kRs485DePin = 5;
 constexpr unsigned long kDefaultQueryInterval = 200; // ms
 
-// Forward declarations
-extern int slaveCount;
-extern unsigned long timeoutDuration;
+// ==================== STRUCTURES ====================
 
-// Structures
+/**
+ * @brief Meter parameter configuration
+ */
 struct MeterParameter {
     float ct;
     float pt;
     float divider;
 };
 
+/**
+ * @brief Voltage parameter configuration  
+ */
 struct VoltageParameter {
     float pt;
     float divider;
 };
 
+/**
+ * @brief Energy parameter configuration
+ */
 struct EnergyParameter {
     float divider;
 };
 
+/**
+ * @brief Complete slave device configuration
+ */
 struct SensorSlave {
     uint8_t id;
     uint16_t startRegister;
@@ -67,6 +80,9 @@ struct SensorSlave {
     EnergyParameter totalActiveEnergy, importActiveEnergy, exportActiveEnergy;
 };
 
+/**
+ * @brief Query statistics for each slave
+ */
 struct SlaveStatistics {
     uint8_t slaveId;
     char slaveName[32];
@@ -77,50 +93,65 @@ struct SlaveStatistics {
     char statusHistory[3]; // Stores last 3 statuses as chars: 'S','F','T'
 };
 
-// ModBus Initialization
+// ==================== MODBUS INITIALIZATION ====================
+
 bool initModbus();
 bool modbusReloadSlaves();
 
-// Query Management
+// ==================== QUERY MANAGEMENT ====================
+
 void updateNonBlockingQuery();
 void updatePollInterval(int intervalSeconds);
 void updateTimeout(int timeoutSeconds);
 
-// Data Processing
+// ==================== DATA PROCESSING ====================
+
 float convertRegisterToTemperature(uint16_t registerValue, float divider = 1.0f);
 float convertRegisterToHumidity(uint16_t registerValue, float divider = 1.0f);
 float readEnergyValue(uint16_t registerIndex, float divider);
 
-// Statistics
+// ==================== STATISTICS MANAGEMENT ====================
+
 void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout);
 String getStatisticsJson();
 void removeSlaveStatistic(uint8_t slaveId, const char* slaveName);
 
-// Utility Functions
+// ==================== UTILITY FUNCTIONS ====================
+
 uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord);
 
-// Configuration loading helpers
+// ==================== CONFIGURATION HELPERS ====================
+
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj);
 void loadMeterParameters(SensorSlave& slave, JsonObject slaveObj);
 void loadVoltageParameters(SensorSlave& slave, JsonObject slaveObj);
 void loadEnergyParameters(SensorSlave& slave, JsonObject slaveObj);
 
-// Data processing helpers
+// ==================== DATA PROCESSING HELPERS ====================
+
 void processSensorData(JsonObject& root, const SensorSlave& slave);
 void processMeterData(JsonObject& root, const SensorSlave& slave);
 void processVoltageData(JsonObject& root, const SensorSlave& slave);
 void processEnergyData(JsonObject& root, const SensorSlave& slave);
 void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success);
 
-// Error handling helpers
+// ==================== ERROR HANDLING ====================
+
 void handleQueryStartFailure();
 void handleQueryTimeout();
 void checkCycleCompletion();
 
-// Forward declarations for timing functions
+// ==================== TIMING FUNCTIONS ====================
+
 unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName);
 String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName);
 String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer);
 
-// Debug Batch Seperator
+// ==================== DEBUG FUNCTIONS ====================
+
 void addBatchSeparatorMessage();
+
+// ==================== EXTERNAL VARIABLES ====================
+
+extern int slaveCount;
+extern unsigned long timeoutDuration;

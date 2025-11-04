@@ -1,15 +1,17 @@
 #include "WebServer.h"
 
-// Constants
+// ==================== CONSTANTS ====================
+
 constexpr int kMaxDebugMessages = 30;
 constexpr int kWebServerPort = 80;
 constexpr int kMaxDevices = 20;
 
-// Global Variables
+// ==================== GLOBAL VARIABLES ====================
+
 ESP8266WebServer server(kWebServerPort);
 bool debugEnabled = false;
 
-// ==================== ENHANCED DYNAMIC TIMING VARIABLES ====================
+// Enhanced dynamic timing variables
 unsigned long lastSequenceTime = 0;
 unsigned long systemStartTime = 0;
 DeviceTiming deviceTiming[kMaxDevices];
@@ -18,6 +20,9 @@ uint8_t deviceTimeCount = 0;
 String debugMessages[kMaxDebugMessages];
 int debugMessageCount = 0;
 int debugMessageIndex = 0;
+
+// ==================== WEB SERVER INITIALIZATION ====================
+
 
 void setupWebServer() {
     Serial.println("🌐 Initializing Web Server...");
@@ -37,7 +42,8 @@ void setupWebServer() {
     // Serve static files
     server.onNotFound(handleStaticFiles);
 
-    server.on("/", []() { serveHtmlFile("/index.html"); }); // Single SPA entry point 
+    // SPA endpoint
+    server.on("/", []() { serveHtmlFile("/index.html"); });
     
     // WiFi endpoints
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
@@ -62,15 +68,15 @@ void setupWebServer() {
     server.on("/toggledebug", HTTP_POST, handleToggleDebug);
     server.on("/getdebugstate", HTTP_GET, handleGetDebugState);
     server.on("/getdebugmessages", HTTP_GET, handleGetDebugMessages);
-    server.on("/cleartable", HTTP_POST, handleClearTable); 
+    server.on("/cleartable", HTTP_POST, handleClearTable);
     
     server.begin();
     Serial.println("✅ HTTP server started on port 80");
 }
 
-// Helper Functions
-void serveHtmlFile(const String& filename) {
+// ==================== HELPER FUNCTIONS ====================
 
+void serveHtmlFile(const String& filename) {
     if (!fileExists(filename)) {
         Serial.printf("❌ File not found: %s\n", filename.c_str());
         server.send(500, "text/plain", "File not found: " + filename);
@@ -84,7 +90,7 @@ void serveHtmlFile(const String& filename) {
         return;
     }
     
-    server.streamFile(file, "text/html");  // ← STREAMS DIRECTLY FROM FLASH
+    server.streamFile(file, "text/html");
     file.close();
     Serial.printf("✅ Streamed: %s\n", filename.c_str());
 }
@@ -106,6 +112,9 @@ bool parseJsonBody(JsonDocument& doc) {
     }
     return true;
 }
+
+// ==================== WIFI CONFIGURATION HANDLERS ====================
+
 
 void handleGetIpInfo() {
     Serial.println("📡 Returning IP information");
@@ -183,6 +192,8 @@ void handleGetWifi() {
     sendJsonResponse(doc);
 }
 
+// ==================== STATIC FILE HANDLING ====================
+
 void handleStaticFiles() {
     String path = server.uri();
     Serial.printf("📁 Static file request: %s\n", path.c_str());
@@ -208,7 +219,7 @@ void handleStaticFiles() {
         return;
     }
     
-    server.streamFile(file, contentType);  // ← STREAMS DIRECTLY FROM FLASH
+    server.streamFile(file, contentType);
     file.close();
     Serial.printf("✅ Streamed file: %s\n", path.c_str());
 }
@@ -224,6 +235,8 @@ String getContentType(const String& filename) {
     if (filename.endsWith(".json")) return "application/json";
     return "text/plain";
 }
+
+// ==================== SLAVE CONFIGURATION HANDLERS ====================
 
 void handleSaveSlaves() {
     Serial.println("💾 Saving slave configuration");
@@ -255,60 +268,6 @@ void handleGetSlaves() {
         server.send(200, "application/json", "{\"slaves\":[]}");
         Serial.println("✅ Sent empty slave configuration");
     }
-}
-
-void handleSavePollingConfig() {
-    Serial.println("💾 Saving polling configuration");
-    
-    JsonDocument doc;
-    if (!parseJsonBody(doc)) return;
-    
-    int interval = doc["pollInterval"] | 10;
-    int timeout = doc["timeout"] | 1;
-    
-    if (savePollingConfig(interval, timeout)) {
-        server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.printf("✅ Polling config saved: interval=%ds, timeout=%ds\n", interval, timeout);
-    } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save polling config");
-    }
-}
-
-void handleGetPollingConfig() {
-    Serial.println("📡 Returning polling configuration");
-    
-    int interval, timeout;
-    loadPollingConfig(interval, timeout);
-    
-    JsonDocument doc;
-    doc["pollInterval"] = interval;
-    doc["timeout"] = timeout;
-    
-    sendJsonResponse(doc);
-    Serial.printf("✅ Sent polling config: interval=%ds, timeout=%ds\n", interval, timeout);
-}
-
-void handleGetStatistics() {
-    Serial.println("📊 Returning query statistics");
-    
-    String statsJson = getStatisticsJson();
-    server.send(200, "application/json", statsJson);
-    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJson.length());
-}
-
-void handleRemoveSlaveStats() {
-    Serial.println("🗑️ Removing slave statistics");
-    
-    JsonDocument doc;
-    if (!parseJsonBody(doc)) return;
-    
-    uint8_t slaveId = doc["slaveId"];
-    const char* slaveName = doc["slaveName"];
-    
-    removeSlaveStatistic(slaveId, slaveName);
-    server.send(200, "application/json", "{\"status\":\"success\"}");
-    Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
 }
 
 void handleGetSlaveConfig() {
@@ -428,6 +387,66 @@ void handleUpdateSlaveConfig() {
         Serial.println("❌ Failed to save updated slave configuration");
     }
 }
+
+// ==================== POLLING CONFIGURATION HANDLERS ====================
+
+void handleSavePollingConfig() {
+    Serial.println("💾 Saving polling configuration");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
+    
+    int interval = doc["pollInterval"] | 10;
+    int timeout = doc["timeout"] | 1;
+    
+    if (savePollingConfig(interval, timeout)) {
+        server.send(200, "application/json", "{\"status\":\"success\"}");
+        Serial.printf("✅ Polling config saved: interval=%ds, timeout=%ds\n", interval, timeout);
+    } else {
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save polling config");
+    }
+}
+
+void handleGetPollingConfig() {
+    Serial.println("📡 Returning polling configuration");
+    
+    int interval, timeout;
+    loadPollingConfig(interval, timeout);
+    
+    JsonDocument doc;
+    doc["pollInterval"] = interval;
+    doc["timeout"] = timeout;
+    
+    sendJsonResponse(doc);
+    Serial.printf("✅ Sent polling config: interval=%ds, timeout=%ds\n", interval, timeout);
+}
+
+// ==================== STATISTICS HANDLERS ====================
+
+void handleGetStatistics() {
+    Serial.println("📊 Returning query statistics");
+    
+    String statsJson = getStatisticsJson();
+    server.send(200, "application/json", statsJson);
+    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJson.length());
+}
+
+void handleRemoveSlaveStats() {
+    Serial.println("🗑️ Removing slave statistics");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
+    
+    uint8_t slaveId = doc["slaveId"];
+    const char* slaveName = doc["slaveName"];
+    
+    removeSlaveStatistic(slaveId, slaveName);
+    server.send(200, "application/json", "{\"status\":\"success\"}");
+    Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
+}
+
+// ==================== DEBUG MANAGEMENT HANDLERS ====================
 
 void handleToggleDebug() {
     JsonDocument doc;

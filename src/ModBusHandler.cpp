@@ -1,11 +1,7 @@
 #include "ModBusHandler.h"
 
-// Constants
-constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
-constexpr unsigned long kDefaultTimeout = 1000;          // 1 second
-constexpr unsigned long kQueryInterval = 200;            // 0.2 seconds between slaves
+// ==================== GLOBAL VARIABLES ====================
 
-// Global Variables
 ModbusMaster node;
 SensorSlave* slaves = nullptr;
 int slaveCount = 0;
@@ -33,6 +29,11 @@ bool waitingForResponse = false;
 // Statistics
 SlaveStatistics slaveStats[kMaxStatisticsSlaves];
 uint8_t slaveStatsCount = 0;
+
+// Constants
+constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
+constexpr unsigned long kDefaultTimeout = 1000;          // 1 second
+constexpr unsigned long kQueryInterval = 200;            // 0.2 seconds between slaves
 
 // ==================== RS485 CONTROL FUNCTIONS ====================
 
@@ -82,6 +83,9 @@ float calculateVoltage(uint16_t registerValue, float pt, float divider) {
 
 // ==================== MODBUS INITIALIZATION ====================
 
+/**
+ * @brief Initialize Modbus communication
+ */
 bool initModbus() {
     pinMode(kRs485DePin, OUTPUT);
     digitalWrite(kRs485DePin, LOW);
@@ -96,6 +100,9 @@ bool initModbus() {
 
 // ==================== CONFIGURATION LOADING HELPERS ====================
 
+/**
+ * @brief Load device-specific parameters based on device type
+ */
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
     if (slave.name.indexOf(DeviceTypes::G01S) >= 0) { 
         slave.tempDivider = slaveObj["tempdivider"] | 1.0f;
@@ -166,6 +173,9 @@ void loadEnergyParameters(SensorSlave& slave, JsonObject slaveObj) {
 
 // ==================== SLAVE CONFIGURATION MANAGEMENT ====================
 
+/**
+ * @brief Reload slave configurations from file system
+ */
 bool modbusReloadSlaves() {
     Serial.println("🔄 Reloading slaves...");
     
@@ -276,7 +286,10 @@ void processEnergyData(JsonObject& root, const SensorSlave& slave) {
     root["Export_Active_Energy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
 }
 
-void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success) {
+/**
+ * @brief Publish data to MQTT and debug console
+ */
+void publishData(const SensorSlave& slave, const JsonDocument& doc) {
     
     // Get timing data
     String sameDeviceDelta = getSameDeviceDelta(slave.id, slave.name.c_str(), false);
@@ -298,6 +311,9 @@ void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success
 
 // ==================== NON-BLOCKING QUERY STATE MACHINE ====================
 
+/**
+ * @brief Start a non-blocking query for current slave
+ */
 bool startNonBlockingQuery() {
     if (currentSlaveIndex >= slaveCount) {
         return false;
@@ -322,6 +338,9 @@ bool startNonBlockingQuery() {
     return (result == node.ku8MBSuccess);
 }
 
+/**
+ * @brief Process received data for current slave
+ */
 void processNonBlockingData() {
     SensorSlave& slave = slaves[currentSlaveIndex];
     JsonDocument doc;
@@ -337,20 +356,16 @@ void processNonBlockingData() {
     // Device-specific data processing
     if (slave.name.indexOf(DeviceTypes::G01S) >= 0){ 
             processSensorData(root, slave);
-            success = true;
         } else if (slave.name.indexOf(DeviceTypes::HeylaParam) >= 0){  
             processMeterData(root, slave);
-            success = true;
         } else if (slave.name.indexOf(DeviceTypes::HeylaVoltage) >= 0){ 
             processVoltageData(root, slave);
-            success = true;
         } else if (slave.name.indexOf(DeviceTypes::HeylaEnergy) >= 0){
             processEnergyData(root, slave);
-            success = true;
         }
     
     // Publish results
-    publishData(slave, doc, success);
+    publishData(slave, doc);
     waitingForResponse = false;
 }
 
@@ -370,6 +385,7 @@ void checkCycleCompletion() {
         currentState = STATE_START_QUERY;
     }
 }
+
 
 void handleQueryStartFailure() {
     Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
@@ -521,7 +537,7 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
             newStat->timeoutCount = timeout ? 1 : 0;
             newStat->failedCount = (!success && !timeout) ? 1 : 0;
             
-            // ADD THIS: INITIALIZE STATUS HISTORY FOR NEW SLAVE
+            // Initialize status history for new slave
             strcpy(newStat->statusHistory, "   "); // Start with 3 spaces
 
             
@@ -529,6 +545,9 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
     }
 }
 
+/**
+ * @brief Get statistics as JSON string
+ */
 String getStatisticsJson() {
     JsonDocument doc;
     JsonArray statsArray = doc.to<JsonArray>();
@@ -579,8 +598,11 @@ float readEnergyValue(uint16_t registerIndex, float divider) {
     return (value / 100.0f) / divider;
 }
 
-// ==================== Debug Batch Seperator ====================
+// ==================== DEBUG BATCH SEPARATOR ====================
 
+/**
+ * @brief Add batch separator message for debug console
+ */
 void addBatchSeparatorMessage() {
     if (!debugEnabled) return;
     
