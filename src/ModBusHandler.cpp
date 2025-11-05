@@ -78,9 +78,6 @@ float calculateVoltage(uint16_t registerValue, float pt, float divider) {
 
 // ==================== MODBUS INITIALIZATION ====================
 
-/**
- * @brief Initialize Modbus communication
- */
 bool initModbus() {
     pinMode(kRs485DePin, OUTPUT);
     digitalWrite(kRs485DePin, LOW);
@@ -95,27 +92,40 @@ bool initModbus() {
 
 // ==================== CONFIGURATION LOADING HELPERS ====================
 
-/**
- * @brief Load device-specific parameters based on device type
- */
+DeviceType determineDeviceType(const String& name) {
+    if (name.indexOf(DeviceTypes::G01S) >= 0) return DEVICE_G01S;
+    if (name.indexOf(DeviceTypes::HeylaParam) >= 0) return DEVICE_HEYLA_PARAM;
+    if (name.indexOf(DeviceTypes::HeylaVoltage) >= 0) return DEVICE_HEYLA_VOLTAGE;
+    if (name.indexOf(DeviceTypes::HeylaEnergy) >= 0) return DEVICE_HEYLA_ENERGY;
+    return DEVICE_G01S; // Default fallback
+}
+
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
-    if (slave.name.indexOf(DeviceTypes::G01S) >= 0) { 
-        slave.tempDivider = slaveObj["tempdivider"] | 1.0f;
-        slave.humidDivider = slaveObj["humiddivider"] | 1.0f;
-    } else if (slave.name.indexOf(DeviceTypes::HeylaParam) >= 0) {  
-        loadMeterParameters(slave, slaveObj);
-    } else if (slave.name.indexOf(DeviceTypes::HeylaVoltage) >= 0) { 
-        loadVoltageParameters(slave, slaveObj);
-    } else if (slave.name.indexOf(DeviceTypes::HeylaEnergy) >= 0) {  
-        loadEnergyParameters(slave, slaveObj);
+    switch(slave.deviceType) {
+        case DEVICE_G01S:
+            slave.config.sensor.tempDivider = slaveObj["tempdivider"] | 1.0f;
+            slave.config.sensor.humidDivider = slaveObj["humiddivider"] | 1.0f;
+            break;
+            
+        case DEVICE_HEYLA_PARAM:
+            loadMeterParameters(slave.config.meter, slaveObj);
+            break;
+            
+        case DEVICE_HEYLA_VOLTAGE:
+            loadVoltageParameters(slave.config.voltage, slaveObj);
+            break;
+            
+        case DEVICE_HEYLA_ENERGY:
+            loadEnergyParameters(slave.config.energy, slaveObj);
+            break;
     }
 }
 
-void loadMeterParameters(SensorSlave& slave, JsonObject slaveObj) {
+void loadMeterParameters(MeterConfig& meterConfig, JsonObject slaveObj) {
     #define LOAD_METER_PARAM(field) \
-        slave.field.ct = slaveObj[#field]["ct"] | 1.0f; \
-        slave.field.pt = slaveObj[#field]["pt"] | 1.0f; \
-        slave.field.divider = slaveObj[#field]["divider"] | 1.0f;
+        meterConfig.field.ct = slaveObj[#field]["ct"] | 1.0f; \
+        meterConfig.field.pt = slaveObj[#field]["pt"] | 1.0f; \
+        meterConfig.field.divider = slaveObj[#field]["divider"] | 1.0f;
     
     LOAD_METER_PARAM(aCurrent);
     LOAD_METER_PARAM(bCurrent);
@@ -141,14 +151,14 @@ void loadMeterParameters(SensorSlave& slave, JsonObject slaveObj) {
     #undef LOAD_METER_PARAM
 }
 
-void loadVoltageParameters(SensorSlave& slave, JsonObject slaveObj) {
+void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject slaveObj) {
     #define LOAD_VOLTAGE_PARAM(field) \
         if (slaveObj[#field].is<JsonObject>()) { \
-            slave.field.pt = slaveObj[#field]["pt"] | 1.0f; \
-            slave.field.divider = slaveObj[#field]["divider"] | 1.0f; \
+            voltageConfig.field.pt = slaveObj[#field]["pt"] | 1.0f; \
+            voltageConfig.field.divider = slaveObj[#field]["divider"] | 1.0f; \
         } else { \
-            slave.field.pt = 1.0f; \
-            slave.field.divider = 1.0f; \
+            voltageConfig.field.pt = 1.0f; \
+            voltageConfig.field.divider = 1.0f; \
         }
     
     LOAD_VOLTAGE_PARAM(aVoltage);
@@ -160,17 +170,14 @@ void loadVoltageParameters(SensorSlave& slave, JsonObject slaveObj) {
     #undef LOAD_VOLTAGE_PARAM
 }
 
-void loadEnergyParameters(SensorSlave& slave, JsonObject slaveObj) {
-    slave.totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
-    slave.importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f;
-    slave.exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
+void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject slaveObj) {
+    energyConfig.totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
+    energyConfig.importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f;
+    energyConfig.exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
 }
 
 // ==================== SLAVE CONFIGURATION MANAGEMENT ====================
 
-/**
- * @brief Reload slave configurations from file system
- */
 bool modbusReloadSlaves() {
     Serial.println("🔄 Reloading slaves...");
     
@@ -209,7 +216,6 @@ bool modbusReloadSlaves() {
     // Load each slave configuration
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
-        slaves[i] = SensorSlave{};
         
         // Load basic fields
         slaves[i].id = slaveObj["id"];
@@ -218,10 +224,12 @@ bool modbusReloadSlaves() {
         slaves[i].name = slaveObj["name"].as<String>();
         slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
         
-        // Load device-specific parameters
+        // Determine device type and load appropriate parameters
+        slaves[i].deviceType = determineDeviceType(slaves[i].name);
         loadDeviceParameters(slaves[i], slaveObj);
         
-        Serial.printf("✅ Slave: ID=%d, Name=%s\n", slaves[i].id, slaves[i].name.c_str());
+        Serial.printf("✅ Slave: ID=%d, Name=%s, Type=%d\n", 
+                     slaves[i].id, slaves[i].name.c_str(), slaves[i].deviceType);
     }
     
     Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
@@ -230,62 +238,58 @@ bool modbusReloadSlaves() {
 
 // ==================== DATA PROCESSING HELPERS ====================
 
-void processSensorData(JsonObject& root, const SensorSlave& slave) {
-    root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), slave.tempDivider);
-    root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), slave.humidDivider);
+void processSensorData(JsonObject& root, const SensorConfig& sensorConfig) {
+    root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), sensorConfig.tempDivider);
+    root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), sensorConfig.humidDivider);
 }
 
-void processMeterData(JsonObject& root, const SensorSlave& slave) {
+void processMeterData(JsonObject& root, const MeterConfig& meterConfig) {
     // Current values
-    root["A_Current"] = calculateCurrent(node.getResponseBuffer(0), slave.aCurrent.ct, slave.aCurrent.divider);
-    root["B_Current"] = calculateCurrent(node.getResponseBuffer(1), slave.bCurrent.ct, slave.bCurrent.divider);
-    root["C_Current"] = calculateCurrent(node.getResponseBuffer(2), slave.cCurrent.ct, slave.cCurrent.divider);
-    root["Zero_Phase_Current"] = calculateCurrent(node.getResponseBuffer(3), slave.zeroPhaseCurrent.ct, slave.zeroPhaseCurrent.divider);
+    root["A_Current"] = calculateCurrent(node.getResponseBuffer(0), meterConfig.aCurrent.ct, meterConfig.aCurrent.divider);
+    root["B_Current"] = calculateCurrent(node.getResponseBuffer(1), meterConfig.bCurrent.ct, meterConfig.bCurrent.divider);
+    root["C_Current"] = calculateCurrent(node.getResponseBuffer(2), meterConfig.cCurrent.ct, meterConfig.cCurrent.divider);
+    root["Zero_Phase_Current"] = calculateCurrent(node.getResponseBuffer(3), meterConfig.zeroPhaseCurrent.ct, meterConfig.zeroPhaseCurrent.divider);
     
     // Active Power
-    root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), slave.aActivePower.pt, slave.aActivePower.ct, slave.aActivePower.divider);
-    root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), slave.bActivePower.pt, slave.bActivePower.ct, slave.bActivePower.divider);
-    root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), slave.cActivePower.pt, slave.cActivePower.ct, slave.cActivePower.divider);
-    root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), slave.totalActivePower.pt, slave.totalActivePower.ct, slave.totalActivePower.divider);
+    root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), meterConfig.aActivePower.pt, meterConfig.aActivePower.ct, meterConfig.aActivePower.divider);
+    root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), meterConfig.bActivePower.pt, meterConfig.bActivePower.ct, meterConfig.bActivePower.divider);
+    root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), meterConfig.cActivePower.pt, meterConfig.cActivePower.ct, meterConfig.cActivePower.divider);
+    root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), meterConfig.totalActivePower.pt, meterConfig.totalActivePower.ct, meterConfig.totalActivePower.divider);
     
     // Reactive Power
-    root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), slave.aReactivePower.pt, slave.aReactivePower.ct, slave.aReactivePower.divider);
-    root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), slave.bReactivePower.pt, slave.bReactivePower.ct, slave.bReactivePower.divider);
-    root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), slave.cReactivePower.pt, slave.cReactivePower.ct, slave.cReactivePower.divider);
-    root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), slave.totalReactivePower.pt, slave.totalReactivePower.ct, slave.totalReactivePower.divider);
+    root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), meterConfig.aReactivePower.pt, meterConfig.aReactivePower.ct, meterConfig.aReactivePower.divider);
+    root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), meterConfig.bReactivePower.pt, meterConfig.bReactivePower.ct, meterConfig.bReactivePower.divider);
+    root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), meterConfig.cReactivePower.pt, meterConfig.cReactivePower.ct, meterConfig.cReactivePower.divider);
+    root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), meterConfig.totalReactivePower.pt, meterConfig.totalReactivePower.ct, meterConfig.totalReactivePower.divider);
     
     // Apparent Power
-    root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), slave.aApparentPower.pt, slave.aApparentPower.ct, slave.aApparentPower.divider);
-    root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), slave.bApparentPower.pt, slave.bApparentPower.ct, slave.bApparentPower.divider);
-    root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), slave.cApparentPower.pt, slave.cApparentPower.ct, slave.cApparentPower.divider);
-    root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), slave.totalApparentPower.pt, slave.totalApparentPower.ct, slave.totalApparentPower.divider);
+    root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), meterConfig.aApparentPower.pt, meterConfig.aApparentPower.ct, meterConfig.aApparentPower.divider);
+    root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), meterConfig.bApparentPower.pt, meterConfig.bApparentPower.ct, meterConfig.bApparentPower.divider);
+    root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), meterConfig.cApparentPower.pt, meterConfig.cApparentPower.ct, meterConfig.cApparentPower.divider);
+    root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), meterConfig.totalApparentPower.pt, meterConfig.totalApparentPower.ct, meterConfig.totalApparentPower.divider);
     
     // Power Factor
-    root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), slave.aPowerFactor.divider);
-    root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), slave.bPowerFactor.divider);
-    root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), slave.cPowerFactor.divider);
-    root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), slave.totalPowerFactor.divider);
+    root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), meterConfig.aPowerFactor.divider);
+    root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), meterConfig.bPowerFactor.divider);
+    root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), meterConfig.cPowerFactor.divider);
+    root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), meterConfig.totalPowerFactor.divider);
 }
 
-void processVoltageData(JsonObject& root, const SensorSlave& slave) {
-    root["A_Voltage"] = calculateVoltage(node.getResponseBuffer(0), slave.aVoltage.pt, slave.aVoltage.divider);
-    root["B_Voltage"] = calculateVoltage(node.getResponseBuffer(1), slave.bVoltage.pt, slave.bVoltage.divider);
-    root["C_Voltage"] = calculateVoltage(node.getResponseBuffer(2), slave.cVoltage.pt, slave.cVoltage.divider);
-    root["Phase_Voltage_Mean"] = calculateVoltage(node.getResponseBuffer(3), slave.phaseVoltageMean.pt, slave.phaseVoltageMean.divider);
-    root["Zero_Sequence_Voltage"] = calculateVoltage(node.getResponseBuffer(4), slave.zeroSequenceVoltage.pt, slave.zeroSequenceVoltage.divider);
+void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig) {
+    root["A_Voltage"] = calculateVoltage(node.getResponseBuffer(0), voltageConfig.aVoltage.pt, voltageConfig.aVoltage.divider);
+    root["B_Voltage"] = calculateVoltage(node.getResponseBuffer(1), voltageConfig.bVoltage.pt, voltageConfig.bVoltage.divider);
+    root["C_Voltage"] = calculateVoltage(node.getResponseBuffer(2), voltageConfig.cVoltage.pt, voltageConfig.cVoltage.divider);
+    root["Phase_Voltage_Mean"] = calculateVoltage(node.getResponseBuffer(3), voltageConfig.phaseVoltageMean.pt, voltageConfig.phaseVoltageMean.divider);
+    root["Zero_Sequence_Voltage"] = calculateVoltage(node.getResponseBuffer(4), voltageConfig.zeroSequenceVoltage.pt, voltageConfig.zeroSequenceVoltage.divider);
 }
 
-void processEnergyData(JsonObject& root, const SensorSlave& slave) {
-    root["Total_Active_Energy"] = readEnergyValue(0, slave.totalActiveEnergy.divider);
-    root["Import_Active_Energy"] = readEnergyValue(2, slave.importActiveEnergy.divider);
-    root["Export_Active_Energy"] = readEnergyValue(4, slave.exportActiveEnergy.divider);
+void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig) {
+    root["Total_Active_Energy"] = readEnergyValue(0, energyConfig.totalActiveEnergy.divider);
+    root["Import_Active_Energy"] = readEnergyValue(2, energyConfig.importActiveEnergy.divider);
+    root["Export_Active_Energy"] = readEnergyValue(4, energyConfig.exportActiveEnergy.divider);
 }
 
-/**
- * @brief Publish data to MQTT and debug console
- */
 void publishData(const SensorSlave& slave, const JsonDocument& doc) {
-    
     // Get timing data
     String sameDeviceDelta = getSameDeviceDelta(slave.id, slave.name.c_str(), false);
     getSameDeviceDelta(slave.id, slave.name.c_str(), true); // Reset for next
@@ -301,14 +305,10 @@ void publishData(const SensorSlave& slave, const JsonDocument& doc) {
     if (debugEnabled) {
         addDebugMessage(slave.mqttTopic.c_str(), output.c_str(), formattedDelta.c_str(), sameDeviceDelta.c_str());
     }
-    
 }
 
 // ==================== NON-BLOCKING QUERY STATE MACHINE ====================
 
-/**
- * @brief Start a non-blocking query for current slave
- */
 bool startNonBlockingQuery() {
     if (currentSlaveIndex >= slaveCount) {
         return false;
@@ -333,9 +333,6 @@ bool startNonBlockingQuery() {
     return (result == node.ku8MBSuccess);
 }
 
-/**
- * @brief Process received data for current slave
- */
 void processNonBlockingData() {
     SensorSlave& slave = slaves[currentSlaveIndex];
     JsonDocument doc;
@@ -347,15 +344,23 @@ void processNonBlockingData() {
     root["mqtt_topic"] = slave.mqttTopic;
 
     // Device-specific data processing
-    if (slave.name.indexOf(DeviceTypes::G01S) >= 0){ 
-            processSensorData(root, slave);
-        } else if (slave.name.indexOf(DeviceTypes::HeylaParam) >= 0){  
-            processMeterData(root, slave);
-        } else if (slave.name.indexOf(DeviceTypes::HeylaVoltage) >= 0){ 
-            processVoltageData(root, slave);
-        } else if (slave.name.indexOf(DeviceTypes::HeylaEnergy) >= 0){
-            processEnergyData(root, slave);
-        }
+    switch(slave.deviceType) {
+        case DEVICE_G01S:
+            processSensorData(root, slave.config.sensor);
+            break;
+            
+        case DEVICE_HEYLA_PARAM:
+            processMeterData(root, slave.config.meter);
+            break;
+            
+        case DEVICE_HEYLA_VOLTAGE:
+            processVoltageData(root, slave.config.voltage);
+            break;
+            
+        case DEVICE_HEYLA_ENERGY:
+            processEnergyData(root, slave.config.energy);
+            break;
+    }
     
     // Publish results
     publishData(slave, doc);
@@ -378,7 +383,6 @@ void checkCycleCompletion() {
         currentState = STATE_START_QUERY;
     }
 }
-
 
 void handleQueryStartFailure() {
     Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
@@ -538,9 +542,6 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
     }
 }
 
-/**
- * @brief Get statistics as JSON string
- */
 String getStatisticsJson() {
     JsonDocument doc;
     JsonArray statsArray = doc.to<JsonArray>();
@@ -591,11 +592,8 @@ float readEnergyValue(uint16_t registerIndex, float divider) {
     return (value / 100.0f) / divider;
 }
 
-// ==================== DEBUG BATCH SEPARATOR ====================
+// ==================== DEBUG PAGE BATCH SEPARATOR ====================
 
-/**
- * @brief Add batch separator message for debug console
- */
 void addBatchSeparatorMessage() {
     if (!debugEnabled) return;
     
