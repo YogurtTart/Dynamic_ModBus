@@ -30,11 +30,6 @@ bool waitingForResponse = false;
 SlaveStatistics slaveStats[kMaxStatisticsSlaves];
 uint8_t slaveStatsCount = 0;
 
-// Constants
-constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
-constexpr unsigned long kDefaultTimeout = 1000;          // 1 second
-constexpr unsigned long kQueryInterval = 200;            // 0.2 seconds between slaves
-
 // ==================== RS485 CONTROL FUNCTIONS ====================
 
 void preTransmission() { 
@@ -345,8 +340,6 @@ void processNonBlockingData() {
     SensorSlave& slave = slaves[currentSlaveIndex];
     JsonDocument doc;
     JsonObject root = doc.to<JsonObject>();
-    
-    bool success = false;
 
     // Common fields for all devices
     root["id"] = slave.id;
@@ -398,7 +391,7 @@ void handleQueryStartFailure() {
     root["error"] = "Failed to start Modbus query";
     root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
 
-    publishData(slaves[currentSlaveIndex], doc, false);
+    publishData(slaves[currentSlaveIndex], doc);
 }
 
 void handleQueryTimeout() {
@@ -414,7 +407,7 @@ void handleQueryTimeout() {
     root["error"] = "Modbus timeout - no response from device";
     root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
     
-    publishData(slaves[currentSlaveIndex], doc, false);
+    publishData(slaves[currentSlaveIndex], doc);
     waitingForResponse = false;
 }
 

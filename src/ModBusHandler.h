@@ -26,6 +26,10 @@ constexpr uint8_t kMaxStatisticsSlaves = 20;
 constexpr uint8_t kRs485DePin = 5;
 constexpr unsigned long kDefaultQueryInterval = 200; // ms
 
+constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
+constexpr unsigned long kDefaultTimeout = 1000;          // 1 second
+constexpr unsigned long kQueryInterval = 200;            // 0.2 seconds between slaves
+
 // ==================== STRUCTURES ====================
 
 /**
@@ -133,7 +137,7 @@ void processSensorData(JsonObject& root, const SensorSlave& slave);
 void processMeterData(JsonObject& root, const SensorSlave& slave);
 void processVoltageData(JsonObject& root, const SensorSlave& slave);
 void processEnergyData(JsonObject& root, const SensorSlave& slave);
-void publishData(const SensorSlave& slave, const JsonDocument& doc, bool success);
+void publishData(const SensorSlave& slave, const JsonDocument& doc);
 
 // ==================== ERROR HANDLING ====================
 
