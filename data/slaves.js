@@ -66,71 +66,41 @@ class SlavesManager {
         return uniqueIDs.size;
     }
 
-addSlave() {
-    const slaveId = FormHelper.getValue('slave_id');
-    const startReg = FormHelper.getValue('start_reg');
-    const numReg = FormHelper.getValue('num_reg');
-    const bitAddress = FormHelper.getValue('bit_address');
-    const slaveName = FormHelper.getValue('slave_name');
-    const mqttTopic = FormHelper.getValue('mqtt_topic');
+    addSlave() {
+        const slaveId = FormHelper.getValue('slave_id');
+        const startReg = FormHelper.getValue('start_reg');
+        const numReg = FormHelper.getValue('num_reg');
+        const bitAddress = FormHelper.getValue('bit_address');
+        const slaveName = FormHelper.getValue('slave_name');
+        const mqttTopic = FormHelper.getValue('mqtt_topic');
 
-    const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'bit_address', 'mqtt_topic'];
-    if (!FormHelper.validateRequired(requiredFields)) return;
+        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'bit_address', 'mqtt_topic'];
+        if (!FormHelper.validateRequired(requiredFields)) return;
 
-    // Validate that identifier is not empty
-    const deviceIdentifier = document.getElementById('device_identifier').value.trim();
-    if (!deviceIdentifier) {
-        StatusManager.showStatus('Please enter a device identifier', 'error');
-        return;
-    }
-
-    // Check for duplicate ID + Name combination
-    const duplicateExists = this.slaves.some(slave => 
-        slave.id === parseInt(slaveId) && slave.name === slaveName
-    );
-    
-    if (duplicateExists) {
-        StatusManager.showStatus(`Error: Slave ID ${slaveId} already has name "${slaveName}"`, 'error');
-        return;
-    }
-
-    const slave = this.createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic);
-    
-    // 1. First update UI immediately (optimistic update)
-    this.slaves.push(slave);
-    this.sortSlavesByID();
-    this.updateSlavesList();
-    this.clearSlaveForm();
-    
-    // DON'T show success here - wait for save result
-    StatusManager.showStatus('Adding slave...', 'info');
-
-    // 2. Then try to save to backend (with error handling)
-    this.saveSlaveConfig().then(success => {
-        if (success) {
-            StatusManager.showStatus('Modbus slave added successfully!', 'success');
-        } else {
-            // If save failed, remove from UI and show error
-            StatusManager.showStatus('Failed to save slave to device - removed from list', 'error');
-            this.removeSlaveFromUI(parseInt(slaveId), slaveName);
+        // Validate that identifier is not empty
+        const deviceIdentifier = document.getElementById('device_identifier').value.trim();
+        if (!deviceIdentifier) {
+            StatusManager.showStatus('Please enter a device identifier', 'error');
+            return;
         }
-    }).catch(error => {
-        StatusManager.showStatus('Failed to save slave: ' + error.message, 'error');
-        this.removeSlaveFromUI(parseInt(slaveId), slaveName);
-    });
-}
 
-    // Optional: Method to remove slave from UI if save fails
-    removeSlaveFromUI(slaveId, slaveName) {
-        const index = this.slaves.findIndex(slave => 
-            slave.id === slaveId && slave.name === slaveName
+        // Check for duplicate ID + Name combination
+        const duplicateExists = this.slaves.some(slave => 
+            slave.id === parseInt(slaveId) && slave.name === slaveName
         );
-        if (index !== -1) {
-            this.slaves.splice(index, 1);
-            this.updateSlavesList();
+        
+        if (duplicateExists) {
+            StatusManager.showStatus(`Error: Slave ID ${slaveId} already has name "${slaveName}"`, 'error');
+            return;
         }
-    }
 
+        const slave = this.createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic);
+        this.slaves.push(slave);
+        this.sortSlavesByID();
+        this.updateSlavesList();
+        this.clearSlaveForm();
+        StatusManager.showStatus('Modbus slave added successfully!', 'success');
+    }
 
     createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic) {
         const slave = {
@@ -196,19 +166,6 @@ addSlave() {
         document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
-    deleteSlave(index) {
-        if (confirm('Are you sure you want to delete this Modbus slave?')) {
-            const slave = this.slaves[index];
-            this.slaves.splice(index, 1);
-            this.updateSlavesList();
-            this.removeSlaveStats(slave.id, slave.name);
-
-            this.saveSlaveConfig();
-
-            StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
-        }
-    }
-
     // ==================== UI UPDATES ====================
 
     updateSlavesList() {
@@ -248,6 +205,16 @@ addSlave() {
         `).join('');
     }
 
+    deleteSlave(index) {
+        if (confirm('Are you sure you want to delete this Modbus slave?')) {
+            const slave = this.slaves[index];
+            this.slaves.splice(index, 1);
+            this.updateSlavesList();
+            this.removeSlaveStats(slave.id, slave.name);
+            StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
+        }
+    }
+
     // ==================== CONFIGURATION PERSISTENCE ====================
 
     async saveSlaveConfig() {
@@ -256,10 +223,8 @@ addSlave() {
         try {
             await ApiClient.post('/saveslaves', config);
             StatusManager.showStatus('Slave configuration saved successfully!', 'success');
-            return true;
         } catch (error) {
             // Error handled by ApiClient
-            return false; // Failure
         }
     }
 
@@ -315,7 +280,7 @@ addSlave() {
     // ==================== STATISTICS MANAGEMENT ====================
 
     startStatsPolling() {
-        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 3000);
+        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 2000);
     }
 
     async fetchStatistics() {
