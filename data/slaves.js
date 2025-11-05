@@ -99,6 +99,9 @@ class SlavesManager {
         this.sortSlavesByID();
         this.updateSlavesList();
         this.clearSlaveForm();
+
+        this.saveSlaveConfig();
+
         StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
 
@@ -166,6 +169,19 @@ class SlavesManager {
         document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
+        deleteSlave(index) {
+        if (confirm('Are you sure you want to delete this Modbus slave?')) {
+            const slave = this.slaves[index];
+            this.slaves.splice(index, 1);
+            this.updateSlavesList();
+            this.removeSlaveStats(slave.id, slave.name);
+
+            this.saveSlaveConfig();
+
+            StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
+        }
+    }
+
     // ==================== UI UPDATES ====================
 
     updateSlavesList() {
@@ -203,16 +219,6 @@ class SlavesManager {
                 </td>
             </tr>
         `).join('');
-    }
-
-    deleteSlave(index) {
-        if (confirm('Are you sure you want to delete this Modbus slave?')) {
-            const slave = this.slaves[index];
-            this.slaves.splice(index, 1);
-            this.updateSlavesList();
-            this.removeSlaveStats(slave.id, slave.name);
-            StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
-        }
     }
 
     // ==================== CONFIGURATION PERSISTENCE ====================
