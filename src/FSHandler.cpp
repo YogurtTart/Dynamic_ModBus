@@ -64,44 +64,79 @@ bool writeFile(const String& path, const String& content) {
 // ==================== SLAVE CONFIGURATION FUNCTIONS ====================
 
 bool saveSlaveConfig(const JsonDocument& config) {
-    Serial.println("💾 Saving slave configuration to LittleFS...");
+    Serial.println("💾 Saving slave configuration to LittleFS (STREAMING MODE)...");
     
-    String jsonString;
-    serializeJson(config, jsonString);
+    // MEMORY PROTECTION: Check available heap
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("📊 Free heap before save: %d bytes\n", freeHeap);
     
-    bool success = writeFile("/slaves.json", jsonString);
-    if (success) {
-        Serial.println("✅ Slave configuration saved successfully");
-    } else {
-        Serial.println("❌ Failed to save slave configuration");
+    if (freeHeap < 10000) {
+        Serial.println("🆘 CRITICAL: Not enough memory for JSON serialization - ABORTING");
+        return false;
     }
-
-    modbusReloadSlaves();
-
-    return success;
+    
+    // OPEN file for writing
+    File file = LittleFS.open("/slaves.json", "w");
+    if (!file) {
+        Serial.println("❌ Failed to open slaves.json for writing");
+        return false;
+    }
+    
+    // STREAMING: Write JSON directly to file (no large String)
+    size_t bytesWritten = serializeJson(config, file);
+    file.close();
+    
+    if (bytesWritten == 0) {
+        Serial.println("❌ Failed to write slave configuration");
+        return false;
+    }
+    
+    Serial.printf("✅ Wrote %d bytes to slaves.json. Free heap after: %d bytes\n", 
+                  bytesWritten, ESP.getFreeHeap());
+    return true;
 }
 
 bool loadSlaveConfig(JsonDocument& config) {
-    Serial.println("📖 Loading slave configuration from LittleFS...");
+    Serial.println("📖 Loading slave configuration from LittleFS (STREAMING MODE)...");
+    
+    // MEMORY PROTECTION: Check available heap
+    uint32_t freeHeap = ESP.getFreeHeap();
+    Serial.printf("📊 Free heap before load: %d bytes\n", freeHeap);
+    
+    if (freeHeap < 15000) {
+        Serial.println("🆘 CRITICAL: Not enough memory for JSON parsing - ABORTING");
+        return false;
+    }
     
     if (!fileExists("/slaves.json")) {
         Serial.println("⚠️  No slave configuration found, using defaults");
         return false;
     }
     
-    String jsonString = readFile("/slaves.json");
-    if (jsonString.length() == 0) {
-        Serial.println("❌ Empty slave configuration file");
+    // OPEN: Use file streaming instead of reading entire file to RAM
+    File file = LittleFS.open("/slaves.json", "r");
+    if (!file) {
+        Serial.println("❌ Failed to open slaves.json for reading");
         return false;
     }
     
-    DeserializationError error = deserializeJson(config, jsonString);
+    size_t fileSize = file.size();
+    Serial.printf("📁 File size: %d bytes\n", fileSize);
+    
+    if (fileSize > 5000) {
+        Serial.println("⚠️  WARNING: Large JSON file - memory may be tight");
+    }
+    
+    // MEMORY OPTIMIZED: Parse directly from file stream
+    DeserializationError error = deserializeJson(config, file);
+    file.close(); // Important: close file when done
+    
     if (error) {
         Serial.printf("❌ Failed to parse slave config: %s\n", error.c_str());
         return false;
     }
 
-    Serial.println("✅ Slave configuration loaded successfully");
+    Serial.printf("✅ Slave configuration loaded successfully. Free heap after: %d bytes\n", ESP.getFreeHeap());
     return true;
 }
 
