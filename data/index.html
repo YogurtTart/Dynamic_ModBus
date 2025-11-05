@@ -12,12 +12,15 @@
 </head>
 <body class="dark-mode">
     <div class="app-container">
+        
+        <!-- ==================== HEADER ==================== -->
         <header class="app-header">
             <div class="header-content">
                 <h1 class="app-title">ESP8266 Configuration Portal</h1>
             </div>
         </header>
 
+        <!-- ==================== NAVIGATION ==================== -->
         <nav class="main-nav">
             <div class="nav-container">
                 <a href="#wifi" class="nav-item active" data-tab="wifi">
@@ -39,6 +42,7 @@
             </div>
         </nav>
 
+        <!-- ==================== MAIN CONTENT ==================== -->
         <main class="main-content">
             <!-- Status Message (Global) -->
             <div class="status-message" id="status" aria-live="polite"></div>
@@ -52,6 +56,7 @@
 
                 <form class="configuration-form" id="wifiForm">
                     <div class="form-grid">
+                        <!-- Station Mode Section -->
                         <section class="form-section" aria-labelledby="sta-heading">
                             <header class="section-header">
                                 <h3 id="sta-heading" class="section-title">
@@ -88,6 +93,7 @@
                             </div>
                         </section>
 
+                        <!-- Access Point Section -->
                         <section class="form-section" aria-labelledby="ap-heading">
                             <header class="section-header">
                                 <h3 id="ap-heading" class="section-title">
@@ -125,6 +131,7 @@
                             </div>
                         </section>
 
+                        <!-- MQTT Configuration Section -->
                         <section class="form-section" aria-labelledby="mqtt-heading">
                             <header class="section-header">
                                 <h3 id="mqtt-heading" class="section-title">
@@ -165,10 +172,10 @@
                                     Enter Port of your MQTT broker
                                 </div>
                             </div>
-
                         </section>
                     </div>
 
+                    <!-- Action Buttons -->
                     <div class="action-bar" style="margin-bottom: 20px;">
                         <button type="button" 
                                 class="btn btn-secondary" 
@@ -185,6 +192,7 @@
                     </div>
                 </form>
 
+                <!-- Network Status Section -->
                 <section class="form-section" aria-labelledby="ip-heading">
                     <header class="section-header">
                         <h3 id="ip-heading" class="section-title">
@@ -274,6 +282,7 @@
                 </div>
 
                 <div class="configuration-layout">
+                    <!-- Slave Management Panel -->
                     <section class="config-panel" aria-labelledby="slave-management-heading">
                         <header class="panel-header">
                             <h3 id="slave-management-heading" class="panel-title">
@@ -305,7 +314,6 @@
                                 </div>
                             </div>
 
-                            <!-- In the slaves tab form, update the bit address section -->
                             <div class="form-row">
                                 <div class="input-group compact">
                                     <label for="num_reg" class="input-label">Register Count</label>
@@ -317,7 +325,7 @@
                                         max="125">
                                 </div>
                                 
-                                <!-- Bit Address Dropdown with simple text input style -->
+                                <!-- Bit Address Dropdown -->
                                 <div class="input-group compact">
                                     <label for="bit_address" class="input-label">Bit Address</label>
                                     <select id="bit_address" class="bit-address-dropdown">
@@ -329,6 +337,7 @@
                                 </div>
                             </div>
 
+                            <!-- Composite Name Input -->
                             <div class="input-group">
                                 <label for="slave_name" class="input-label">Slave Name</label>
                                 <div class="composite-name-input">
@@ -347,7 +356,7 @@
                                 <div class="name-preview">
                                     Final Name: <span id="name_preview">Sensor_Temperature1</span>
                                 </div>
-                                <!-- Keep hidden field for backward compatibility -->
+                                <!-- Hidden field for backward compatibility -->
                                 <input type="hidden" id="slave_name" name="slave_name">
                             </div>
 
@@ -359,6 +368,7 @@
                                        placeholder="modbus/slave1/data">
                             </div>
 
+                            <!-- Action Buttons -->
                             <div class="action-bar compact dual-buttons">
                                 <button type="button" class="btn btn-primary" onclick="window.slavesManager.addSlave()">
                                     <span class="btn-icon">➕</span>
@@ -391,8 +401,8 @@
                         </div>
                     </section>
 
+                    <!-- Polling Configuration Panel -->
                     <section class="config-panel" aria-labelledby="config-management-heading">
-                        <!-- Timeout Settings -->
                         <div class="polling-section">
                             <h4 class="section-title">Polling Settings</h4>
                             <div class="input-group">
@@ -424,6 +434,7 @@
                     </section>
                 </div>
 
+                <!-- Slave List Panel -->
                 <section class="slave-list-panel" aria-labelledby="slave-list-heading">
                     <header class="panel-header">
                         <h3 id="slave-list-heading" class="panel-title">
@@ -457,6 +468,7 @@
                     </div>
                 </section>
 
+                <!-- Statistics Panel -->
                 <section class="slave-stats-panel" aria-labelledby="slave-stats-heading">
                     <header class="panel-header">
                         <h3 id="slave-stats-heading" class="panel-title">
@@ -535,6 +547,7 @@
                 </div>
 
                 <div class="configuration-layout">
+                    <!-- Search Panel -->
                     <section class="config-panel" aria-labelledby="search-heading">
                         <header class="panel-header">
                             <h3 id="search-heading" class="panel-title">
@@ -575,6 +588,7 @@
                         </form>
                     </section>
 
+                    <!-- Edit Panel -->
                     <section class="config-panel" aria-labelledby="edit-heading" id="editSection" style="display: none;">
                         <header class="panel-header">
                             <h3 id="edit-heading" class="panel-title">
@@ -633,7 +647,7 @@
                     <p class="content-description">Monitor MQTT messages in real-time. Table shows structured data parsed from MQTT messages.</p>
                 </div>
 
-                <!-- Simple Debug Toggle -->
+                <!-- Debug Controls -->
                 <div class="debug-controls">
                     <label class="toggle-label">
                         <span>MQTT Debug Mode:</span>
@@ -648,7 +662,7 @@
                     </p>
                 </div>
 
-                <!-- Raw Data Table - Now the only table -->
+                <!-- MQTT Messages Table -->
                 <div class="config-panel">
                     <div class="panel-header">
                         <h3 class="panel-title">
@@ -712,12 +726,13 @@
             </div>
         </main>
 
+        <!-- ==================== FOOTER ==================== -->
         <footer class="app-footer">
             <div class="footer-content"></div>
         </footer>
     </div>
 
-    <!-- JavaScript Files -->
+    <!-- ==================== JAVASCRIPT FILES ==================== -->
     <script src="utils.js"></script>
     <script src="script.js"></script>
     <script src="slaves.js"></script>

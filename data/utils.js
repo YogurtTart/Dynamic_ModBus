@@ -1,7 +1,14 @@
 // ===== GLOBAL UTILITIES & SPA NAVIGATION =====
 
-// ===== STATUS MANAGEMENT =====
+// ==================== STATUS MANAGEMENT ====================
+
+/**
+ * @class StatusManager - Manages status message display
+ */
 class StatusManager {
+    /**
+     * @brief Show status message with specified type
+     */
     static showStatus(message, type = 'info') {
         const status = document.getElementById('status');
         if (!status) {
@@ -24,8 +31,15 @@ class StatusManager {
     }
 }
 
-// ===== API CLIENT =====
+// ==================== API CLIENT ====================
+
+/**
+ * @class ApiClient - Handles HTTP requests to the ESP8266 server
+ */
 class ApiClient {
+    /**
+     * @brief Make HTTP request with error handling
+     */
     static async request(url, options = {}) {
         try {
             const response = await fetch(url, options);
@@ -37,10 +51,16 @@ class ApiClient {
         }
     }
 
+    /**
+     * @brief Make GET request
+     */
     static async get(url) {
         return this.request(url);
     }
 
+    /**
+     * @brief Make POST request with JSON data
+     */
     static async post(url, data) {
         return this.request(url, {
             method: 'POST',
@@ -49,6 +69,9 @@ class ApiClient {
         });
     }
 
+    /**
+     * @brief Make POST request with FormData
+     */
     static async postForm(url, formData) {
         try {
             const response = await fetch(url, {
@@ -64,26 +87,43 @@ class ApiClient {
     }
 }
 
-// ===== FORM HELPER =====
+// ==================== FORM HELPER ====================
+
+/**
+ * @class FormHelper - Utility functions for form management
+ */
 class FormHelper {
+
     static getElement(id) {
         return document.getElementById(id);
     }
 
+    /**
+     * @brief Get value from form element
+     */
     static getValue(id) {
         const element = this.getElement(id);
         return element ? element.value : '';
     }
 
+    /**
+     * @brief Set value of form element
+     */
     static setValue(id, value) {
         const element = this.getElement(id);
         if (element) element.value = value || '';
     }
 
+    /**
+     * @brief Clear multiple form fields
+     */
     static clearForm(ids) {
         ids.forEach(id => this.setValue(id, ''));
     }
 
+    /**
+     * @brief Validate required form fields
+     */
     static validateRequired(ids) {
         for (const id of ids) {
             if (!this.getValue(id)) {
@@ -96,18 +136,28 @@ class FormHelper {
     }
 }
 
-// ===== SPA NAVIGATION SYSTEM =====
+// ==================== SPA NAVIGATION SYSTEM ====================
+
+/**
+ * @class SPANavigation - Single Page Application navigation controller
+ */
 class SPANavigation {
     constructor() {
         this.currentTab = 'wifi';
         this.init();
     }
 
+    /**
+     * @brief Initialize navigation system
+     */
     init() {
         this.setupEventListeners();
         this.loadInitialTab();
     }
 
+    /**
+     * @brief Set up navigation event listeners
+     */
     setupEventListeners() {
         // Navigation click events
         document.querySelectorAll('.nav-item').forEach(item => {
@@ -118,6 +168,9 @@ class SPANavigation {
         });
     }
 
+    /**
+     * @brief Load initial tab based on URL hash or active nav
+     */
     loadInitialTab() {
         // Check URL hash first, then fallback to active nav item
         const hashTab = window.location.hash.replace('#', '');
@@ -133,10 +186,16 @@ class SPANavigation {
         }
     }
 
+    /**
+     * @brief Check if tab name is valid
+     */
     isValidTab(tab) {
         return ['wifi', 'slaves', 'settings', 'debug'].includes(tab);
     }
 
+    /**
+     * @brief Switch to specified tab
+     */
     switchTab(tab, updateHistory = true) {
         if (!this.isValidTab(tab) || tab === this.currentTab) return;
 
@@ -162,13 +221,7 @@ class SPANavigation {
             navItem.classList.add('active');
         }
 
-        // // Update URL hash and history
-        // if (updateHistory) {
-        //     window.history.pushState({ tab }, '', `#${tab}`);
-        // }
-
         // Update current tab
-        //const previousTab = this.currentTab;
         this.currentTab = tab;
 
         // Trigger tab-specific initialization
@@ -179,13 +232,12 @@ class SPANavigation {
             detail: { newTab: tab }
         }));
 
-        // window.dispatchEvent(new CustomEvent('tabChanged', { 
-        //     detail: { previousTab, newTab: tab }
-        // }));
-
         console.log(`Switched to tab: ${tab}`);
     }
 
+    /**
+     * @brief Initialize tab-specific functionality
+     */
     initializeTab(tab) {
         switch(tab) {
             case 'wifi':
@@ -203,6 +255,9 @@ class SPANavigation {
         }
     }
 
+    /**
+     * @brief Initialize WiFi tab
+     */
     initializeWifiTab() {
         // Refresh WiFi UI when tab becomes active
         if (window.wifiManager && typeof window.wifiManager.refreshUI === 'function') {
@@ -210,6 +265,9 @@ class SPANavigation {
         }
     }
 
+    /**
+     * @brief Initialize slaves tab
+     */
     initializeSlavesTab() {
         // Refresh slaves UI when tab becomes active
         if (window.slavesManager && typeof window.slavesManager.refreshUI === 'function') {
@@ -217,6 +275,9 @@ class SPANavigation {
         }
     }
 
+    /**
+     * @brief Initialize settings tab
+     */
     initializeSettingsTab() {
         // Refresh settings UI when tab becomes active
         if (window.settingsManager && typeof window.settingsManager.refreshUI === 'function') {
@@ -224,6 +285,9 @@ class SPANavigation {
         }
     }
 
+    /**
+     * @brief Initialize debug tab
+     */
     initializeDebugTab() {
         // Refresh debug UI when tab becomes active
         if (window.debugConsole && typeof window.debugConsole.refreshUI === 'function') {
@@ -231,42 +295,60 @@ class SPANavigation {
         }
     }
 
-    // Public method to get current tab
+    /**
+     * @brief Get current active tab
+     */
     getCurrentTab() {
         return this.currentTab;
     }
 
-    // Public method to programmatically switch tabs
+    /**
+     * @brief Programmatically switch tabs
+     */
     goToTab(tab) {
         this.switchTab(tab);
     }
 
-    // Refresh current tab
+    /**
+     * @brief Refresh current tab
+     */
     refreshCurrentTab() {
         this.initializeTab(this.currentTab);
     }
 }
 
-// ===== GLOBAL NAVIGATION FUNCTIONS =====
-// These can be called from other scripts
+// ==================== GLOBAL NAVIGATION FUNCTIONS ====================
 
+/**
+ * @brief Switch to specified tab (global function)
+ */
 function switchToTab(tabName) {
     if (window.spaNavigation) {
         window.spaNavigation.goToTab(tabName);
     }
 }
 
+/**
+ * @brief Get current active tab (global function)
+ */
 function getCurrentTab() {
     return window.spaNavigation ? window.spaNavigation.getCurrentTab() : 'wifi';
 }
 
+/**
+ * @brief Refresh current tab (global function)
+ */
 function refreshCurrentTab() {
     if (window.spaNavigation) {
         window.spaNavigation.refreshCurrentTab();
     }
 }
 
-// ===== INITIALIZATION =====
+// ==================== GLOBAL INITIALIZATION ====================
+
+/**
+ * @brief Initialize when DOM is loaded
+ */
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize SPA Navigation
     window.spaNavigation = new SPANavigation();
@@ -274,7 +356,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add loading state management
     let isLoading = false;
     
-    // Enhanced status message function that works across tabs
+    /**
+     * @brief Enhanced status message function that works across tabs
+     */
     window.showStatusMessage = function(message, type = 'info', duration = 5000) {
         const statusElement = document.getElementById('status');
         if (!statusElement) return;
@@ -303,7 +387,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }, duration);
     };
     
-    // Enhanced loading state function
+    /**
+     * @brief Enhanced loading state function
+     */
     window.setLoadingState = function(button, isLoading) {
         if (!button) return;
         
@@ -319,7 +405,8 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('ESP8266 SPA Navigation & Utilities initialized');
 });
 
-// ===== ERROR HANDLING =====
+// ==================== ERROR HANDLING ====================
+
 window.addEventListener('error', function(e) {
     console.error('SPA Navigation Error:', e.error);
     if (window.showStatusMessage) {
