@@ -7,6 +7,7 @@
 #include "FSHandler.h"
 #include "MQTTHandler.h"
 #include "ModBusHandler.h"
+#include "TemplateInitializer.h"
 
 // ==================== SYSTEM INITIALIZATION ====================
 
@@ -53,6 +54,7 @@ void initializeSystem() {
     
     Serial.println("🔌 Initializing ModBus...");
     initModbus();
+    createDefaultTemplates();
     modbusReloadSlaves();
 }
 

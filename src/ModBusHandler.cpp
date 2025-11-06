@@ -92,19 +92,18 @@ bool initModbus() {
 
 // ==================== CONFIGURATION LOADING HELPERS ====================
 
-DeviceType determineDeviceType(const String& name) {
-    if (name.indexOf(DeviceTypes::G01S) >= 0) return DEVICE_G01S;
-    if (name.indexOf(DeviceTypes::HeylaParam) >= 0) return DEVICE_HEYLA_PARAM;
-    if (name.indexOf(DeviceTypes::HeylaVoltage) >= 0) return DEVICE_HEYLA_VOLTAGE;
-    if (name.indexOf(DeviceTypes::HeylaEnergy) >= 0) return DEVICE_HEYLA_ENERGY;
+DeviceType determineDeviceTypeFromString(const String& deviceTypeStr) {
+    if (deviceTypeStr == "G01S") return DEVICE_G01S;
+    if (deviceTypeStr == "HeylaParam") return DEVICE_HEYLA_PARAM;
+    if (deviceTypeStr == "HeylaVoltage") return DEVICE_HEYLA_VOLTAGE;
+    if (deviceTypeStr == "HeylaEnergy") return DEVICE_HEYLA_ENERGY;
     return DEVICE_G01S; // Default fallback
 }
 
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
     switch(slave.deviceType) {
         case DEVICE_G01S:
-            slave.config.sensor.tempDivider = slaveObj["tempdivider"] | 1.0f;
-            slave.config.sensor.humidDivider = slaveObj["humiddivider"] | 1.0f;
+            loadG01SParameters(slave.config.sensor, slaveObj);
             break;
             
         case DEVICE_HEYLA_PARAM:
@@ -119,6 +118,11 @@ void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
             loadEnergyParameters(slave.config.energy, slaveObj);
             break;
     }
+}
+
+void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj) {
+    sensorConfig.tempDivider = paramsObj["tempdivider"] | 1.0f;
+    sensorConfig.humidDivider = paramsObj["humiddivider"] | 1.0f;
 }
 
 void loadMeterParameters(MeterConfig& meterConfig, JsonObject slaveObj) {
@@ -179,7 +183,7 @@ void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject slaveObj) {
 // ==================== SLAVE CONFIGURATION MANAGEMENT ====================
 
 bool modbusReloadSlaves() {
-    Serial.println("🔄 Reloading slaves...");
+    Serial.println("🔄 Reloading slaves with template system...");
     
     JsonDocument config;
     if (!loadSlaveConfig(config)) {
@@ -213,9 +217,23 @@ bool modbusReloadSlaves() {
     slaves = new SensorSlave[newSlaveCount]();
     slaveCount = newSlaveCount;
     
-    // Load each slave configuration
+    // Load each slave configuration WITH TEMPLATE MERGE
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
+        
+        // 🆕 Load template and merge with override
+        JsonDocument templateDoc;
+        JsonObject templateConfig = templateDoc.to<JsonObject>();
+        JsonDocument mergedDoc;
+        JsonObject mergedConfig = mergedDoc.to<JsonObject>();
+        
+        const char* deviceType = slaveObj["deviceType"];
+        if (!loadDeviceTemplate(deviceType, templateConfig)) {
+            Serial.printf("❌ Template not found for slave %d: %s\n", slaveObj["id"].as<int>(), deviceType);
+            continue; // Skip this slave if no template
+        }
+        
+        mergeWithOverride(slaveObj, templateConfig, mergedConfig);
         
         // Load basic fields
         slaves[i].id = slaveObj["id"];
@@ -223,16 +241,16 @@ bool modbusReloadSlaves() {
         slaves[i].registerCount = slaveObj["numReg"];
         slaves[i].name = slaveObj["name"].as<String>();
         slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
+        slaves[i].deviceType = determineDeviceTypeFromString(deviceType); // 🆕 New function
         
-        // Determine device type and load appropriate parameters
-        slaves[i].deviceType = determineDeviceType(slaves[i].name);
-        loadDeviceParameters(slaves[i], slaveObj);
+        // 🆕 Load device parameters from MERGED config (template + override)
+        loadDeviceParameters(slaves[i], mergedConfig);
         
-        Serial.printf("✅ Slave: ID=%d, Name=%s, Type=%d\n", 
-                     slaves[i].id, slaves[i].name.c_str(), slaves[i].deviceType);
+        Serial.printf("✅ Slave: ID=%d, Name=%s, Type=%s\n", 
+                     slaves[i].id, slaves[i].name.c_str(), deviceType);
     }
     
-    Serial.printf("✅ Reloaded %d slaves\n", slaveCount);
+    Serial.printf("✅ Reloaded %d slaves with template system\n", slaveCount);
     return true;
 }
 

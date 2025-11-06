@@ -7,6 +7,7 @@
 #include "FSHandler.h"
 #include "MQTTHandler.h"
 #include "WebServer.h"
+#include "TemplateManager.h"
 
 /********************************TO ADD NEW DEVICE**********************************************/
 struct DeviceTypes {
@@ -126,11 +127,12 @@ void removeSlaveStatistic(uint8_t slaveId, const char* slaveName);
 uint32_t readUint32FromRegisters(uint16_t highWord, uint16_t lowWord);
 
 // ==================== CONFIGURATION HELPERS ====================
-DeviceType determineDeviceType(const String& name);
+DeviceType determineDeviceTypeFromString(const String& deviceTypeStr);
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj);
 void loadMeterParameters(MeterConfig& meterConfig, JsonObject slaveObj);
 void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject slaveObj);
 void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject slaveObj);
+void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj);
 
 // ==================== DATA PROCESSING HELPERS ====================
 void processSensorData(JsonObject& root, const SensorConfig& sensorConfig);

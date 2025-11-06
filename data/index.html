@@ -547,48 +547,7 @@
                 </div>
 
                 <div class="configuration-layout">
-                    <!-- Search Panel -->
-                    <section class="config-panel" aria-labelledby="search-heading">
-                        <header class="panel-header">
-                            <h3 id="search-heading" class="panel-title">
-                                <span class="panel-icon">🔍</span>
-                                Search Slave Configuration
-                            </h3>
-                        </header>
-
-                        <form class="search-form" id="searchForm">
-                            <div class="form-row">
-                                <div class="input-group compact">
-                                    <label for="search_slave_id" class="input-label">Slave ID</label>
-                                    <input type="number" 
-                                           id="search_slave_id" 
-                                           class="text-input"
-                                           placeholder="1"
-                                           min="1" 
-                                           max="247"
-                                           required>
-                                </div>
-
-                                <div class="input-group compact">
-                                    <label for="search_slave_name" class="input-label">Slave Name</label>
-                                    <input type="text" 
-                                           id="search_slave_name" 
-                                           class="text-input"
-                                           placeholder="Temperature Sensor 1"
-                                           required>
-                                </div>
-                            </div>
-
-                            <div class="action-bar compact">
-                                <button type="button" class="btn btn-primary" onclick="window.settingsManager.searchSlaveConfig()">
-                                    <span class="btn-icon">🔍</span>
-                                    Search Configuration
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-
-                    <!-- Edit Panel -->
+                    <!-- Edit Panel (Left Side - Larger like "Add New Slave") -->
                     <section class="config-panel" aria-labelledby="edit-heading" id="editSection" style="display: none;">
                         <header class="panel-header">
                             <h3 id="edit-heading" class="panel-title">
@@ -618,6 +577,45 @@
                                 Save Changes
                             </button>
                         </div>
+                    </section>
+
+                    <!-- Search Panel (Right Side - Smaller like "Polling Configuration") -->
+                    <section class="config-panel" aria-labelledby="search-heading">
+                        <header class="panel-header">
+                            <h3 id="search-heading" class="panel-title">
+                                <span class="panel-icon">🔍</span>
+                                Search Slave Configuration
+                            </h3>
+                        </header>
+
+                        <form class="search-form" id="searchForm">
+                            <div class="input-group">
+                                <label for="search_slave_id" class="input-label">Slave ID</label>
+                                <input type="number" 
+                                    id="search_slave_id" 
+                                    class="text-input"
+                                    placeholder="1"
+                                    min="1" 
+                                    max="247"
+                                    required>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="search_slave_name" class="input-label">Slave Name</label>
+                                <input type="text" 
+                                    id="search_slave_name" 
+                                    class="text-input"
+                                    placeholder="Temperature Sensor 1"
+                                    required>
+                            </div>
+
+                            <div class="action-stack">
+                                <button type="button" class="btn btn-primary full-width" onclick="window.settingsManager.searchSlaveConfig()">
+                                    <span class="btn-icon">🔍</span>
+                                    Search Configuration
+                                </button>
+                            </div>
+                        </form>
                     </section>
                 </div>
 

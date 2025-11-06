@@ -6,6 +6,7 @@
 
 #include "EEEProm.h"
 #include "FSHandler.h"
+#include "TemplateManager.h"
 
 // ==================== EXTERNAL DECLARATIONS ====================
 

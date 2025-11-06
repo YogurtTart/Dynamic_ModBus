@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "ModBusHandler.h"
+#include "TemplateManager.h"
 
 // ==================== FILE SYSTEM FUNCTIONS ====================
 

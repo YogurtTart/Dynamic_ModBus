@@ -71,14 +71,14 @@ class SlavesManager {
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
         const bitAddress = FormHelper.getValue('bit_address');
+        const deviceType = FormHelper.getValue('device_type'); // 🆕 Get device type
+        const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         const slaveName = FormHelper.getValue('slave_name');
         const mqttTopic = FormHelper.getValue('mqtt_topic');
 
-        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'slave_name', 'bit_address', 'mqtt_topic'];
+        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'bit_address', 'mqtt_topic'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
-        // Validate that identifier is not empty
-        const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         if (!deviceIdentifier) {
             StatusManager.showStatus('Please enter a device identifier', 'error');
             return;
@@ -94,68 +94,22 @@ class SlavesManager {
             return;
         }
 
-        const slave = this.createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic);
-        this.slaves.push(slave);
-        this.sortSlavesByID();
-        this.updateSlavesList();
-        this.clearSlaveForm();
-        StatusManager.showStatus('Modbus slave added successfully!', 'success');
-    }
-
-    createSlaveConfig(slaveId, startReg, numReg, slaveName, bitAddress, mqttTopic) {
+        // 🆕 Create MINIMAL slave config (NO parameters)
         const slave = {
             id: parseInt(slaveId),
             startReg: parseInt(startReg),
             numReg: parseInt(numReg),
             bitAddress: parseInt(bitAddress),
             name: slaveName,
-            mqttTopic: mqttTopic
+            mqttTopic: mqttTopic,
+            deviceType: deviceType // 🆕 CRITICAL: Store device type
         };
 
-        // Add device-specific configurations
-        if (slaveName.includes(DEVICE_TYPES.G01S)) {
-            slave.tempdivider = 1;
-            slave.humiddivider = 1;
-        } else if (slaveName.includes(DEVICE_TYPES.HeylaParam)) {
-            this.addMeterConfig(slave);
-        } else if (slaveName.includes(DEVICE_TYPES.HeylaVoltage)) {
-            this.addVoltageConfig(slave);
-        } else if (slaveName.includes(DEVICE_TYPES.HeylaEnergy)) {
-            this.addEnergyConfig(slave);
-        }
-
-        return slave;
-    }
-
-    addMeterConfig(slave) {
-        const meterConfigs = [
-            'ACurrent', 'BCurrent', 'CCurrent', 'ZeroPhaseCurrent',
-            'AActiveP', 'BActiveP', 'CActiveP', 'Total3PActiveP',
-            'AReactiveP', 'BReactiveP', 'CReactiveP', 'Total3PReactiveP',
-            'AApparentP', 'BApparentP', 'CApparentP', 'Total3PApparentP',
-            'APowerF', 'BPowerF', 'CPowerF', 'Total3PPowerF'
-        ];
-        
-        meterConfigs.forEach(config => {
-            slave[config] = { ct: 1, pt: 1, divider: 1 };
-        });
-    }
-
-    addVoltageConfig(slave) {
-        const voltageConfigs = [
-            'AVoltage', 'BVoltage', 'CVoltage', 
-            'PhaseVoltageMean', 'ZeroSequenceVoltage'
-        ];
-        
-        voltageConfigs.forEach(config => {
-            slave[config] = { pt: 1.0, divider: 1.0 };
-        });
-    }
-
-    addEnergyConfig(slave) {
-        slave.totalActiveEnergy = { divider: 1.0 };
-        slave.importActiveEnergy = { divider: 1.0 };
-        slave.exportActiveEnergy = { divider: 1.0 };
+        this.slaves.push(slave);
+        this.sortSlavesByID();
+        this.updateSlavesList();
+        this.clearSlaveForm();
+        StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
 
     clearSlaveForm() {
@@ -218,13 +172,34 @@ class SlavesManager {
     // ==================== CONFIGURATION PERSISTENCE ====================
 
     async saveSlaveConfig() {
-        const config = { slaves: this.slaves };
+        // 🆕 Create minimal config - only basic info + deviceType
+        const config = { 
+            slaves: this.slaves.map(slave => ({
+                id: slave.id,
+                startReg: slave.startReg,
+                numReg: slave.numReg,
+                bitAddress: slave.bitAddress,
+                name: slave.name,
+                mqttTopic: slave.mqttTopic,
+                deviceType: slave.deviceType // 🆕 CRITICAL: Include deviceType
+                // 🚫 NO parameters here - they come from template
+            }))
+        };
 
-        try {
+        console.log("💾 Saving MINIMAL config:", JSON.stringify(config));
+
+    try {
             await ApiClient.post('/saveslaves', config);
+            
+            // 🆕 CRITICAL: Force ModBusHandler to reload slaves
+            setTimeout(() => {
+                window.slavesManager.loadSlaveConfig(); // Reload frontend
+                // Backend will reload automatically via modbusReloadSlaves in WebServer
+            }, 1000);
+            
             StatusManager.showStatus('Slave configuration saved successfully!', 'success');
         } catch (error) {
-            // Error handled by ApiClient
+            console.error("❌ Error saving slaves:", error);
         }
     }
 
@@ -434,7 +409,7 @@ class SlavesManager {
             const identifier = deviceIdentifier.value.trim();
             const finalName = identifier ? `${type}_${identifier}` : type;
             
-            hiddenSlaveName.value = finalName;
+            hiddenSlaveName.value = finalName; // 🆕 Update hidden field
             namePreview.textContent = finalName;
             
             // Visual feedback

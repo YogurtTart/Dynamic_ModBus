@@ -247,6 +247,7 @@ void handleSaveSlaves() {
     Serial.printf("📥 Received slave config: %d bytes\n", server.arg("plain").length());
     
     if (saveSlaveConfig(doc)) {
+        modbusReloadSlaves();
         server.send(200, "application/json", "{\"status\":\"success\"}");
         Serial.println("✅ Slave configuration saved successfully");
     } else {
@@ -271,33 +272,36 @@ void handleGetSlaves() {
 }
 
 void handleGetSlaveConfig() {
-    Serial.println("🔍 Searching for specific slave");
+    Serial.println("🔍 Getting specific slave with template merge");
     
+    // 1. Get the request data (which slave to load)
     String body = server.arg("plain");
     if (body.length() == 0) {
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Empty request body\"}");
         return;
     }
     
+    // 2. Parse the JSON request
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, body);
-    
     if (error) {
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
     
+    // 3. Extract which slave we're looking for
     uint8_t slaveId = doc["slaveId"];
     const char* slaveName = doc["slaveName"];
+    Serial.printf("🔎 Loading slave ID: %d, Name: %s\n", slaveId, slaveName);
     
-    Serial.printf("🔎 Searching for slave ID: %d, Name: %s\n", slaveId, slaveName);
-    
+    // 4. Load ALL slaves from file
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
         return;
     }
     
+    // 5. Find the specific slave we want
     JsonArray slavesArray = configDoc["slaves"];
     bool slaveFound = false;
     JsonObject foundSlave;
@@ -315,14 +319,42 @@ void handleGetSlaveConfig() {
         return;
     }
     
-    String response;
-    serializeJson(foundSlave, response);
-    server.send(200, "application/json", response);
-    Serial.printf("✅ Found slave configuration for ID %d: %s\n", slaveId, slaveName);
+    // 6. 🆕 TEMPLATE SYSTEM: Load the device template
+    JsonDocument templateDoc;
+    JsonObject templateConfig = templateDoc.to<JsonObject>();
+    JsonDocument mergedDoc;
+    JsonObject mergedConfig = mergedDoc.to<JsonObject>();
+    
+    const char* deviceType = foundSlave["deviceType"];
+    if (loadDeviceTemplate(deviceType, templateConfig)) {
+        // 7. 🆕 Merge template defaults + slave overrides
+        mergeWithOverride(foundSlave, templateConfig, mergedConfig);
+        
+        // 8. Add the basic slave info to the merged config
+        mergedConfig["id"] = foundSlave["id"];
+        mergedConfig["name"] = foundSlave["name"];
+        mergedConfig["deviceType"] = foundSlave["deviceType"];
+        mergedConfig["startReg"] = foundSlave["startReg"];
+        mergedConfig["numReg"] = foundSlave["numReg"];
+        mergedConfig["mqttTopic"] = foundSlave["mqttTopic"];
+        mergedConfig["bitAddress"] = foundSlave["bitAddress"];
+        
+        // 9. Send the COMPLETE config to UI
+        String response;
+        serializeJson(mergedConfig, response);
+        server.send(200, "application/json", response);
+        Serial.printf("✅ Sent merged config for slave %d: %s (template: %s)\n", slaveId, slaveName, deviceType);
+    } else {
+        // Fallback if no template found
+        String response;
+        serializeJson(foundSlave, response);
+        server.send(200, "application/json", response);
+        Serial.printf("⚠️  No template found for slave %d, sent raw config\n", slaveId);
+    }
 }
 
 void handleUpdateSlaveConfig() {
-    Serial.println("💾 Updating specific slave");
+    Serial.println("💾 Updating specific slave with template system");
     
     String body = server.arg("plain");
     if (body.length() == 0) {
@@ -334,20 +366,25 @@ void handleUpdateSlaveConfig() {
     DeserializationError error = deserializeJson(updateDoc, body);
     
     if (error) {
+        Serial.printf("❌ JSON parse error: %s\n", error.c_str());
         server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
         return;
     }
     
+    // 🆕 DEBUG: Print what we received
+    Serial.printf("📥 Received update: %s\n", body.c_str());
+    
+    // 🆕 FIX: Check for basic required fields
     if (!updateDoc["id"].is<int>() || !updateDoc["name"].is<const char*>()) {
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing required fields: id and name\"}");
+        Serial.println("❌ Missing id or name fields");
+        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing required fields: id or name\"}");
         return;
     }
     
     uint8_t slaveId = updateDoc["id"];
     const char* slaveName = updateDoc["name"];
     
-    Serial.printf("🔄 Updating slave ID: %d, Name: %s\n", slaveId, slaveName);
-    
+    // 🆕 FIX: Get deviceType from slave config, not from updateDoc
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
         server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
@@ -357,25 +394,82 @@ void handleUpdateSlaveConfig() {
     JsonArray slavesArray = configDoc["slaves"];
     bool slaveFound = false;
     int slaveIndex = -1;
+    const char* deviceType = nullptr;
     
     for (size_t i = 0; i < slavesArray.size(); i++) {
         JsonObject slave = slavesArray[i];
         if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
             slaveIndex = i;
             slaveFound = true;
+            deviceType = slave["deviceType"]; // 🆕 Get deviceType from existing slave
             break;
         }
     }
     
-    if (!slaveFound) {
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
+    if (!slaveFound || deviceType == nullptr) {
+        Serial.printf("❌ Slave not found or no deviceType: ID=%d, Name=%s\n", slaveId, slaveName);
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found or no deviceType\"}");
         return;
     }
     
-    // Replace the slave object with the updated one
-    slavesArray[slaveIndex].clear();
+    Serial.printf("🔄 Updating slave ID: %d, Name: %s, Type: %s\n", slaveId, slaveName, deviceType);
+    
+    // Load template for this device type
+    JsonDocument templateDoc;
+    JsonObject templateConfig = templateDoc.to<JsonObject>();
+    
+    if (!loadDeviceTemplate(deviceType, templateConfig)) {
+        Serial.printf("❌ Template not found for: %s\n", deviceType);
+        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Template not found for device type\"}");
+        return;
+    }
+    
+    // 🆕 FIX: Create a copy with ONLY parameter fields (no basic slave info)
+    JsonDocument paramsOnlyDoc;
+    JsonObject paramsOnly = paramsOnlyDoc.to<JsonObject>();
+    
+    // Copy only parameter fields (exclude basic slave info)
     for (JsonPair kv : updateDoc.as<JsonObject>()) {
-        slavesArray[slaveIndex][kv.key()] = kv.value();
+        const char* key = kv.key().c_str();
+        // 🆕 Only include fields that are NOT basic slave info
+        if (strcmp(key, "id") != 0 && 
+            strcmp(key, "name") != 0 &&
+            strcmp(key, "deviceType") != 0 &&
+            strcmp(key, "startReg") != 0 &&
+            strcmp(key, "numReg") != 0 &&
+            strcmp(key, "mqttTopic") != 0 &&
+            strcmp(key, "bitAddress") != 0) {
+            paramsOnly[key].set(kv.value());
+        }
+    }
+    
+    Serial.printf("📊 Comparing %d parameter fields against template\n", paramsOnly.size());
+    
+    // Detect overrides by comparing submitted PARAMETERS vs template
+    JsonDocument overrideDoc;
+    JsonObject overrideOutput = overrideDoc.to<JsonObject>();
+    detectOverrides(paramsOnly, templateConfig, overrideOutput);
+    
+    Serial.printf("📊 Detected %d parameter overrides\n", overrideOutput.size());
+    
+    // Update the slave - keep only basic info + override
+    slavesArray[slaveIndex].clear();
+    
+    // 🆕 Store basic fields DIRECTLY (not in override)
+    slavesArray[slaveIndex]["id"] = slaveId;
+    slavesArray[slaveIndex]["name"] = slaveName;
+    slavesArray[slaveIndex]["deviceType"] = deviceType;
+    slavesArray[slaveIndex]["startReg"] = updateDoc["startReg"];  // 🆕 Updated if changed
+    slavesArray[slaveIndex]["numReg"] = updateDoc["numReg"];      // 🆕 Updated if changed
+    slavesArray[slaveIndex]["mqttTopic"] = updateDoc["mqttTopic"]; // 🆕 Updated if changed
+    slavesArray[slaveIndex]["bitAddress"] = updateDoc["bitAddress"]; // 🆕 Updated if changed
+    
+    // Only add override if there are any parameter overrides
+    if (overrideOutput.size() > 0) {
+        slavesArray[slaveIndex]["override"] = overrideOutput;
+        Serial.printf("💾 Storing parameter overrides: %d parameters\n", overrideOutput.size());
+    } else {
+        Serial.println("💾 No parameter overrides to store");
     }
     
     if (saveSlaveConfig(configDoc)) {
