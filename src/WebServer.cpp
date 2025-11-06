@@ -241,15 +241,44 @@ String getContentType(const String& filename) {
 void handleSaveSlaves() {
     Serial.println("💾 Saving slave configuration");
     
-    JsonDocument doc;
-    if (!parseJsonBody(doc)) return;
+    JsonDocument newDoc;
+    if (!parseJsonBody(newDoc)) return;
     
     Serial.printf("📥 Received slave config: %d bytes\n", server.arg("plain").length());
     
-    if (saveSlaveConfig(doc)) {
+    // 🆕 FIX: Load existing config first to preserve overrides
+    JsonDocument existingDoc;
+    if (loadSlaveConfig(existingDoc)) {
+        JsonArray existingSlaves = existingDoc["slaves"];
+        JsonArray newSlaves = newDoc["slaves"];
+        
+        // 🆕 Merge overrides from existing slaves into new slaves
+        for (int i = 0; i < newSlaves.size(); i++) {
+            JsonObject newSlave = newSlaves[i];
+            uint8_t newId = newSlave["id"];
+            const char* newName = newSlave["name"];
+            
+            // Find matching slave in existing config
+            for (JsonObject existingSlave : existingSlaves) {
+                if (existingSlave["id"] == newId && 
+                    strcmp(existingSlave["name"], newName) == 0) {
+                    
+                    // 🆕 Preserve override if it exists
+                    if (existingSlave["override"].is<JsonObject>()) {
+                        newSlave["override"] = existingSlave["override"];
+                        Serial.printf("✅ Preserved overrides for slave %d: %s\n", newId, newName);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Now save the merged config
+    if (saveSlaveConfig(newDoc)) {
         modbusReloadSlaves();
         server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.println("✅ Slave configuration saved successfully");
+        Serial.println("✅ Slave configuration saved successfully with preserved overrides");
     } else {
         server.send(500, "application/json", "{\"status\":\"error\"}");
         Serial.println("❌ Failed to save slave configuration");
