@@ -305,6 +305,7 @@ void processSensorData(JsonObject& root, const SensorConfig& sensorConfig) {
 }
 
 void processMeterData(JsonObject& root, const MeterConfig& meterConfig) {
+
     Serial.printf("🔍 PROCESS METER - ACurrent: ct=%.1f, pt=%.1f, divider=%.1f\n",
                  meterConfig.aCurrent.ct, meterConfig.aCurrent.pt, meterConfig.aCurrent.divider);
     // Current values
@@ -405,6 +406,8 @@ void processNonBlockingData() {
     root["id"] = slave.id;
     root["name"] = slave.name;
     root["mqtt_topic"] = slave.mqttTopic;
+    root["start_reg"] = slave.startRegister;
+    root["num_reg"] = slave.registerCount;
 
     // Device-specific data processing
     switch(slave.deviceType) {

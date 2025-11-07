@@ -500,14 +500,15 @@ void handleUpdateSlaveConfig() {
     } else {
         Serial.println("💾 No parameter overrides to store");
     }
-    
+
+    // Now save the  config
     if (saveSlaveConfig(configDoc)) {
-        server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Slave configuration updated successfully\"}");
-        Serial.printf("✅ Successfully updated slave ID %d: %s\n", slaveId, slaveName);
         modbusReloadSlaves();
+        server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Slave configuration updated successfully\"}");
+        Serial.println("✅ Slave configuration saved successfully with preserved overrides");
     } else {
-        server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Failed to save configuration\"}");
-        Serial.println("❌ Failed to save updated slave configuration");
+        server.send(500, "application/json", "{\"status\":\"error\"}");
+        Serial.println("❌ Failed to save slave configuration");
     }
 }
 
