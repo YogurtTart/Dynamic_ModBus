@@ -57,6 +57,7 @@ float convertRegisterToHumidity(uint16_t registerValue, float divider) {
 }
 
 float calculateCurrent(uint16_t registerValue, float ct, float divider) {
+    Serial.printf("🔍 CALC CURRENT: reg=%d, ct=%.1f, divider=%.1f\n", registerValue, ct, divider);
     return (registerValue * ct / 10000.0f) / divider;
 }
 
@@ -121,15 +122,32 @@ void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
 }
 
 void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj) {
-    sensorConfig.tempDivider = paramsObj["tempdivider"] | 1.0f;
-    sensorConfig.humidDivider = paramsObj["humiddivider"] | 1.0f;
+    // 🆕 Extract from nested "sensor" object
+    JsonObject sensorObj = paramsObj["sensor"].as<JsonObject>();
+    
+    sensorConfig.tempDivider = sensorObj["tempdivider"] | 1.0f;
+    sensorConfig.humidDivider = sensorObj["humiddivider"] | 1.0f;
+    
+    // 🆕 DEBUG
+    Serial.printf("🔍 G01S LOADED: tempDivider=%.1f, humidDivider=%.1f\n", 
+                 sensorConfig.tempDivider, sensorConfig.humidDivider);
 }
 
-void loadMeterParameters(MeterConfig& meterConfig, JsonObject slaveObj) {
+void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj) {
+    // 🆕 Extract from nested "meter" object
+      JsonObject meterObj = paramsObj["meter"].as<JsonObject>();
+    
     #define LOAD_METER_PARAM(field) \
-        meterConfig.field.ct = slaveObj[#field]["ct"] | 1.0f; \
-        meterConfig.field.pt = slaveObj[#field]["pt"] | 1.0f; \
-        meterConfig.field.divider = slaveObj[#field]["divider"] | 1.0f;
+        if (meterObj[#field].is<JsonObject>()) { \
+            JsonObject paramObj = meterObj[#field].as<JsonObject>(); \
+            meterConfig.field.ct = paramObj["ct"] | 1.0f; \
+            meterConfig.field.pt = paramObj["pt"] | 1.0f; \
+            meterConfig.field.divider = paramObj["divider"] | 1.0f; \
+            Serial.printf("🔍 %s: ct=%.1f, pt=%.1f, div=%.1f\n", #field, \
+                         meterConfig.field.ct, meterConfig.field.pt, meterConfig.field.divider); \
+        } else { \
+            Serial.printf("❌ %s object not found!\n", #field); \
+        }
     
     LOAD_METER_PARAM(aCurrent);
     LOAD_METER_PARAM(bCurrent);
@@ -155,14 +173,19 @@ void loadMeterParameters(MeterConfig& meterConfig, JsonObject slaveObj) {
     #undef LOAD_METER_PARAM
 }
 
-void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject slaveObj) {
+void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
+
+    JsonObject voltageObj = paramsObj["voltage"].as<JsonObject>();
+    
     #define LOAD_VOLTAGE_PARAM(field) \
-        if (slaveObj[#field].is<JsonObject>()) { \
-            voltageConfig.field.pt = slaveObj[#field]["pt"] | 1.0f; \
-            voltageConfig.field.divider = slaveObj[#field]["divider"] | 1.0f; \
+        if (voltageObj[#field].is<JsonObject>()) { \
+            JsonObject paramObj = voltageObj[#field].as<JsonObject>(); \
+            voltageConfig.field.pt = paramObj["pt"] | 1.0f; \
+            voltageConfig.field.divider = paramObj["divider"] | 1.0f; \
+            Serial.printf("🔍 %s: pt=%.1f, div=%.1f\n", #field, \
+                         voltageConfig.field.pt, voltageConfig.field.divider); \
         } else { \
-            voltageConfig.field.pt = 1.0f; \
-            voltageConfig.field.divider = 1.0f; \
+            Serial.printf("❌ %s object not found!\n", #field); \
         }
     
     LOAD_VOLTAGE_PARAM(aVoltage);
@@ -174,10 +197,25 @@ void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject slaveObj) {
     #undef LOAD_VOLTAGE_PARAM
 }
 
-void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject slaveObj) {
-    energyConfig.totalActiveEnergy.divider = slaveObj["totalActiveEnergy"]["divider"] | 1.0f;
-    energyConfig.importActiveEnergy.divider = slaveObj["importActiveEnergy"]["divider"] | 1.0f;
-    energyConfig.exportActiveEnergy.divider = slaveObj["exportActiveEnergy"]["divider"] | 1.0f;
+void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject paramsObj) {
+    // 🆕 Extract from nested "energy" object
+    JsonObject energyObj = paramsObj["energy"].as<JsonObject>();
+    
+    // 🆕 Handle double nesting for energy parameters
+    #define LOAD_ENERGY_PARAM(field) \
+        if (energyObj[#field].is<JsonObject>()) { \
+            JsonObject paramObj = energyObj[#field].as<JsonObject>(); \
+            energyConfig.field.divider = paramObj["divider"] | 1.0f; \
+            Serial.printf("🔍 %s: div=%.1f\n", #field, energyConfig.field.divider); \
+        } else { \
+            Serial.printf("❌ %s object not found!\n", #field); \
+        }
+    
+    LOAD_ENERGY_PARAM(totalActiveEnergy);
+    LOAD_ENERGY_PARAM(importActiveEnergy);
+    LOAD_ENERGY_PARAM(exportActiveEnergy);
+    
+    #undef LOAD_ENERGY_PARAM
 }
 
 // ==================== SLAVE CONFIGURATION MANAGEMENT ====================
@@ -221,13 +259,15 @@ bool modbusReloadSlaves() {
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
         
+        // Get deviceType FIRST before any merging
+        const char* deviceType = slaveObj["deviceType"];
+        
         // 🆕 Load template and merge with override
         JsonDocument templateDoc;
         JsonObject templateConfig = templateDoc.to<JsonObject>();
         JsonDocument mergedDoc;
         JsonObject mergedConfig = mergedDoc.to<JsonObject>();
         
-        const char* deviceType = slaveObj["deviceType"];
         if (!loadDeviceTemplate(deviceType, templateConfig)) {
             Serial.printf("❌ Template not found for slave %d: %s\n", slaveObj["id"].as<int>(), deviceType);
             continue; // Skip this slave if no template
@@ -235,17 +275,18 @@ bool modbusReloadSlaves() {
         
         mergeWithOverride(slaveObj, templateConfig, mergedConfig);
         
-        // Load basic fields
-        slaves[i].id = slaveObj["id"];
-        slaves[i].startRegister = slaveObj["startReg"];
-        slaves[i].registerCount = slaveObj["numReg"];
-        slaves[i].name = slaveObj["name"].as<String>();
-        slaves[i].mqttTopic = slaveObj["mqttTopic"].as<String>();
-        slaves[i].deviceType = determineDeviceTypeFromString(deviceType); // 🆕 New function
+        // Load basic fields - use mergedConfig if available, otherwise fallback to slaveObj
+        slaves[i].id = mergedConfig["id"] | slaveObj["id"];
+        slaves[i].startRegister = mergedConfig["startReg"] | slaveObj["startReg"];
+        slaves[i].registerCount = mergedConfig["numReg"] | slaveObj["numReg"];
+        slaves[i].name = mergedConfig["name"] | slaveObj["name"].as<String>();
+        slaves[i].mqttTopic = mergedConfig["mqttTopic"] | slaveObj["mqttTopic"].as<String>();
+        slaves[i].deviceType = determineDeviceTypeFromString(deviceType); // Use original deviceType
         
         // 🆕 Load device parameters from MERGED config (template + override)
         loadDeviceParameters(slaves[i], mergedConfig);
         
+        // SIMPLIFIED Debug - just show basic info
         Serial.printf("✅ Slave: ID=%d, Name=%s, Type=%s\n", 
                      slaves[i].id, slaves[i].name.c_str(), deviceType);
     }
@@ -257,11 +298,15 @@ bool modbusReloadSlaves() {
 // ==================== DATA PROCESSING HELPERS ====================
 
 void processSensorData(JsonObject& root, const SensorConfig& sensorConfig) {
+     Serial.printf("🔍 PROCESS G01S - USING: tempDivider=%.1f, humidDivider=%.1f\n", 
+                 sensorConfig.tempDivider, sensorConfig.humidDivider);
     root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), sensorConfig.tempDivider);
     root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), sensorConfig.humidDivider);
 }
 
 void processMeterData(JsonObject& root, const MeterConfig& meterConfig) {
+    Serial.printf("🔍 PROCESS METER - ACurrent: ct=%.1f, pt=%.1f, divider=%.1f\n",
+                 meterConfig.aCurrent.ct, meterConfig.aCurrent.pt, meterConfig.aCurrent.divider);
     // Current values
     root["A_Current"] = calculateCurrent(node.getResponseBuffer(0), meterConfig.aCurrent.ct, meterConfig.aCurrent.divider);
     root["B_Current"] = calculateCurrent(node.getResponseBuffer(1), meterConfig.bCurrent.ct, meterConfig.bCurrent.divider);
