@@ -113,11 +113,13 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'bit_address', 'device_identifier']);
+        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
 
+        document.getElementById('bit_address').value = 1;
         document.getElementById('device_type').value = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
+        
     }
 
     // ==================== UI UPDATES ====================
@@ -148,7 +150,7 @@ class SlavesManager {
                 <td>${slave.name}</td>
                 <td>${slave.startReg}</td>
                 <td>${slave.numReg}</td>
-                <td>${slave.bitAddress}-bit</td>
+                <td>${slave.bitAddress}</td>
                 <td><code>${slave.mqttTopic}</code></td>
                 <td>
                     <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
