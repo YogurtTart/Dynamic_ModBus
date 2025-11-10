@@ -21,3 +21,7 @@ extern PubSubClient mqttClient;
 void reconnectMQTT();
 void publishMessage(const char* topic, const char* payload);
 void checkMQTT();
+
+// 🆕 ADDED: Connection status helpers
+bool isMQTTConnected();
+String getMQTTServer();

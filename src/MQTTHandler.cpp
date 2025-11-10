@@ -1,8 +1,8 @@
 #include "MQTTHandler.h"
 #include <Arduino.h>
 
-// Global variables
-const char* mqttServer = "192.168.31.66";
+// ==================== GLOBAL VARIABLES ====================
+// ✅ REMOVED: Hard-coded mqttServer - now uses currentParams.mqttServer
 const uint16_t mqttPort = 1883;
 const char* mqttTopicPub = "Lora/receive";
 unsigned long previousMQTTReconnect = 0;
@@ -10,6 +10,8 @@ const unsigned long mqttReconnectInterval = 20000;  // 20 seconds
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
+
+// ==================== MQTT CONNECTION MANAGEMENT ====================
 
 void checkMQTT() {
     unsigned long now = millis();
@@ -27,22 +29,28 @@ void checkMQTT() {
 }
 
 void reconnectMQTT() {
-    mqttClient.setServer(currentParams.mqttServer, mqttPort);
+    // ✅ USE CONFIG: Get server from EEPROM settings
+    const char* server = currentParams.mqttServer;
+    uint16_t port = atoi(currentParams.mqttPort); // Convert port string to int
+    
+    mqttClient.setServer(server, port);
 
     Serial.print("🔌 Attempting MQTT connection to ");
-    Serial.print(currentParams.mqttServer);
+    Serial.print(server);
     Serial.print(":");
-    Serial.print(mqttPort);
+    Serial.print(port);
     Serial.println("...");
     
     if (mqttClient.connect("ESP8266_LoRa_Client")) {
-        Serial.println("✅ connected");
+        Serial.println("✅ MQTT connected");
     } else {
-        Serial.print("❌ failed, rc=");
+        Serial.print("❌ MQTT failed, rc=");
         Serial.print(mqttClient.state());
         Serial.println(" try again in 20 seconds");
     }
 }
+
+// ==================== MESSAGE PUBLISHING ====================
 
 // ✅ Centralized publish function
 void publishMessage(const char* topic, const char* payload) {
@@ -55,4 +63,14 @@ void publishMessage(const char* topic, const char* payload) {
     } else {
         Serial.println("⚠️ MQTT not connected, message not sent");
     }
+}
+
+// 🆕 ADDED: Connection status helper
+bool isMQTTConnected() {
+    return mqttClient.connected();
+}
+
+// 🆕 ADDED: Get MQTT server info
+String getMQTTServer() {
+    return String(currentParams.mqttServer) + ":" + String(currentParams.mqttPort);
 }

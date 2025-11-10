@@ -25,3 +25,4 @@ extern WifiParams currentParams;
 void initEEEPROM();
 void saveWifi(WifiParams &newParams);
 void loadWifi();
+void resetToDefaults();

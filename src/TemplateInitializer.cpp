@@ -2,6 +2,7 @@
 #include "FSHandler.h"
 #include "TemplateManager.h"
 
+// ==================== DEVICE TEMPLATE BUILDERS ====================
 
 void addG01SConfig(JsonObject& templateObj) {
     JsonObject sensorParams = templateObj["sensor"].to<JsonObject>();
@@ -10,7 +11,9 @@ void addG01SConfig(JsonObject& templateObj) {
 }
 
 void addMeterConfig(JsonObject& templateObj) {
-    // ✅ FIXED: Use camelCase to match C++ struct
+    JsonObject meterParams = templateObj["meter"].to<JsonObject>();
+    
+    // All parameters
     const char* meterConfigs[] = {
         "aCurrent", "bCurrent", "cCurrent", "zeroPhaseCurrent",
         "aActivePower", "bActivePower", "cActivePower", "totalActivePower",
@@ -19,30 +22,39 @@ void addMeterConfig(JsonObject& templateObj) {
         "aPowerFactor", "bPowerFactor", "cPowerFactor", "totalPowerFactor"
     };
     
-    JsonObject meterParams = templateObj["meter"].to<JsonObject>();
+    // ✅ ONLY these get 1000 divider
+    const char* power1000Configs[] = {
+        "aActivePower", "bActivePower", "cActivePower",
+        "aReactivePower", "bReactivePower", "cReactivePower", 
+        "aApparentPower", "bApparentPower", "cApparentPower"
+    };
     
     for (const char* config : meterConfigs) {
         JsonObject param = meterParams[config].to<JsonObject>();
         param["ct"] = 1.0;
         param["pt"] = 1.0;
 
-        // 🆕 SET 1000 DIVIDER FOR POWER VALUES, 1.0 FOR OTHERS
-        if (strstr(config, "ActivePower") != nullptr) { // Contains "Power"
-            param["divider"] = 1000.0;
-        } else {
-            param["divider"] = 1.0;
+        // ✅ SIMPLE: Check if this config is in the 1000-divider list
+        bool is1000Divider = false;
+        for (const char* powerConfig : power1000Configs) {
+            if (strcmp(config, powerConfig) == 0) {
+                is1000Divider = true;
+                break;
+            }
         }
+        
+        param["divider"] = is1000Divider ? 1000.0 : 1.0;
     }
 }
 
 void addVoltageConfig(JsonObject& templateObj) {
-    // ✅ FIXED: Use camelCase to match C++ struct
+    JsonObject voltageParams = templateObj["voltage"].to<JsonObject>();
+    
+    // ✅ OPTIMIZED: Single array definition
     const char* voltageConfigs[] = {
         "aVoltage", "bVoltage", "cVoltage", 
         "phaseVoltageMean", "zeroSequenceVoltage"
     };
-    
-    JsonObject voltageParams = templateObj["voltage"].to<JsonObject>();
     
     for (const char* config : voltageConfigs) {
         JsonObject param = voltageParams[config].to<JsonObject>();
@@ -64,34 +76,42 @@ void addEnergyConfig(JsonObject& templateObj) {
     exportActiveEnergy["divider"] = 1.0;
 }
 
+// ==================== TEMPLATE CREATION ====================
+
 bool createDefaultTemplates() {
+    // ✅ OPTIMIZED: Single file existence check
     if (fileExists("/templates.json")) {
         Serial.println("✅ Templates already exist, skipping creation");
         return true;
     }
 
+    Serial.println("📝 Creating default templates...");
     JsonDocument templatesDoc;
 
-    // G01S Template
-    JsonObject g01sTemplate = templatesDoc["G01S"].to<JsonObject>();
-    addG01SConfig(g01sTemplate);
+    // ✅ OPTIMIZED: Template definitions in array
+    struct TemplateDef {
+        const char* name;
+        void (*builder)(JsonObject&);
+    };
+    
+    TemplateDef templates[] = {
+        {"G01S", addG01SConfig},
+        {"HeylaParam", addMeterConfig},
+        {"HeylaVoltage", addVoltageConfig},
+        {"HeylaEnergy", addEnergyConfig}
+    };
 
-    // HeylaParam Template - FIXED: camelCase
-    JsonObject heylaParamTemplate = templatesDoc["HeylaParam"].to<JsonObject>();
-    addMeterConfig(heylaParamTemplate);
-
-    // HeylaVoltage Template - FIXED: camelCase  
-    JsonObject heylaVoltageTemplate = templatesDoc["HeylaVoltage"].to<JsonObject>();
-    addVoltageConfig(heylaVoltageTemplate);
-
-    // HeylaEnergy Template - Already correct
-    JsonObject heylaEnergyTemplate = templatesDoc["HeylaEnergy"].to<JsonObject>();
-    addEnergyConfig(heylaEnergyTemplate);
+    // Create all templates
+    for (const auto& templateDef : templates) {
+        JsonObject templateObj = templatesDoc[templateDef.name].to<JsonObject>();
+        templateDef.builder(templateObj);
+        Serial.printf("✅ Created template: %s\n", templateDef.name);
+    }
 
     // Save to file
     bool success = saveTemplates(templatesDoc);
     if (success) {
-        Serial.println("✅ Default templates created successfully with camelCase naming");
+        Serial.println("✅ Default templates created successfully");
         
         // Debug: Print the created templates
         String jsonString;
@@ -101,5 +121,24 @@ bool createDefaultTemplates() {
     } else {
         Serial.println("❌ Failed to create default templates");
     }
+    
     return success;
+}
+
+// 🆕 ADDED: Check if templates need creation
+bool templatesNeedCreation() {
+    return !fileExists("/templates.json");
+}
+
+// 🆕 ADDED: Get template count
+int getTemplateCount() {
+    if (!fileExists("/templates.json")) {
+        return 0;
+    }
+    
+    JsonDocument templatesDoc;
+    if (loadTemplates(templatesDoc)) {
+        return templatesDoc.size();
+    }
+    return 0;
 }

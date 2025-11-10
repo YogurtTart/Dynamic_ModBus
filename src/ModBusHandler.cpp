@@ -30,6 +30,9 @@ bool waitingForResponse = false;
 SlaveStatistics slaveStats[kMaxStatisticsSlaves];
 uint8_t slaveStatsCount = 0;
 
+// ==================== MEMORY SAFETY MACRO ====================
+#define CLEANUP(ptr) do { if(ptr) { delete[] ptr; ptr = nullptr; } } while(0)
+
 // ==================== RS485 CONTROL FUNCTIONS ====================
 
 void preTransmission() { 
@@ -56,10 +59,7 @@ float convertRegisterToHumidity(uint16_t registerValue, float divider) {
     return (registerValue * 0.1f) / divider;
 }
 
-// 🆕 UPDATE calculation functions to accept uint64_t
-
 float calculateCurrent(uint64_t registerValue, float ct, float divider) {
-    Serial.printf("🔍 CALC CURRENT: reg=%llu, ct=%.1f, divider=%.1f\n", registerValue, ct, divider);
     return (registerValue * ct / 10000.0f) / divider;
 }
 
@@ -104,25 +104,20 @@ DeviceType determineDeviceTypeFromString(const String& deviceTypeStr) {
     if (deviceTypeStr == "HeylaParam") return DEVICE_HEYLA_PARAM;
     if (deviceTypeStr == "HeylaVoltage") return DEVICE_HEYLA_VOLTAGE;
     if (deviceTypeStr == "HeylaEnergy") return DEVICE_HEYLA_ENERGY;
-    return DEVICE_G01S; // Default fallback
+    return DEVICE_G01S;
 }
 
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
-
-    Serial.printf("🔍 Register size: %d\n", slave.registerSize);
     switch(slave.deviceType) {
         case DEVICE_G01S:
             loadG01SParameters(slave.config.sensor, slaveObj);
             break;
-            
         case DEVICE_HEYLA_PARAM:
             loadMeterParameters(slave.config.meter, slaveObj);
             break;
-            
         case DEVICE_HEYLA_VOLTAGE:
             loadVoltageParameters(slave.config.voltage, slaveObj);
             break;
-            
         case DEVICE_HEYLA_ENERGY:
             loadEnergyParameters(slave.config.energy, slaveObj);
             break;
@@ -130,20 +125,13 @@ void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
 }
 
 void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj) {
-    // 🆕 Extract from nested "sensor" object
     JsonObject sensorObj = paramsObj["sensor"].as<JsonObject>();
-    
     sensorConfig.tempDivider = sensorObj["tempdivider"] | 1.0f;
     sensorConfig.humidDivider = sensorObj["humiddivider"] | 1.0f;
-    
-    // 🆕 DEBUG
-    Serial.printf("🔍 G01S LOADED: tempDivider=%.1f, humidDivider=%.1f\n", 
-                 sensorConfig.tempDivider, sensorConfig.humidDivider);
 }
 
 void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj) {
-    // 🆕 Extract from nested "meter" object
-      JsonObject meterObj = paramsObj["meter"].as<JsonObject>();
+    JsonObject meterObj = paramsObj["meter"].as<JsonObject>();
     
     #define LOAD_METER_PARAM(field) \
         if (meterObj[#field].is<JsonObject>()) { \
@@ -151,10 +139,6 @@ void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj) {
             meterConfig.field.ct = paramObj["ct"] | 1.0f; \
             meterConfig.field.pt = paramObj["pt"] | 1.0f; \
             meterConfig.field.divider = paramObj["divider"] | 1.0f; \
-            Serial.printf("🔍 %s: ct=%.1f, pt=%.1f, div=%.1f\n", #field, \
-                         meterConfig.field.ct, meterConfig.field.pt, meterConfig.field.divider); \
-        } else { \
-            Serial.printf("❌ %s object not found!\n", #field); \
         }
     
     LOAD_METER_PARAM(aCurrent);
@@ -182,7 +166,6 @@ void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj) {
 }
 
 void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
-
     JsonObject voltageObj = paramsObj["voltage"].as<JsonObject>();
     
     #define LOAD_VOLTAGE_PARAM(field) \
@@ -190,10 +173,6 @@ void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
             JsonObject paramObj = voltageObj[#field].as<JsonObject>(); \
             voltageConfig.field.pt = paramObj["pt"] | 1.0f; \
             voltageConfig.field.divider = paramObj["divider"] | 1.0f; \
-            Serial.printf("🔍 %s: pt=%.1f, div=%.1f\n", #field, \
-                         voltageConfig.field.pt, voltageConfig.field.divider); \
-        } else { \
-            Serial.printf("❌ %s object not found!\n", #field); \
         }
     
     LOAD_VOLTAGE_PARAM(aVoltage);
@@ -206,17 +185,12 @@ void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
 }
 
 void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject paramsObj) {
-    // 🆕 Extract from nested "energy" object
     JsonObject energyObj = paramsObj["energy"].as<JsonObject>();
     
-    // 🆕 Handle double nesting for energy parameters
     #define LOAD_ENERGY_PARAM(field) \
         if (energyObj[#field].is<JsonObject>()) { \
             JsonObject paramObj = energyObj[#field].as<JsonObject>(); \
             energyConfig.field.divider = paramObj["divider"] | 1.0f; \
-            Serial.printf("🔍 %s: div=%.1f\n", #field, energyConfig.field.divider); \
-        } else { \
-            Serial.printf("❌ %s object not found!\n", #field); \
         }
     
     LOAD_ENERGY_PARAM(totalActiveEnergy);
@@ -237,53 +211,43 @@ bool modbusReloadSlaves() {
         return false;
     }
     
-    // Load configuration settings
     int newIntervalSeconds, newTimeoutSeconds;
     loadPollingConfig(newIntervalSeconds, newTimeoutSeconds);
     
     updatePollInterval(newIntervalSeconds);
     updateTimeout(newTimeoutSeconds);
     
-    // Reset query state when reloading slaves
     currentState = STATE_IDLE;
     currentSlaveIndex = 0;
     waitingForResponse = false;
 
-    // Get the slaves array
     JsonArray slavesArray = config["slaves"];
     int newSlaveCount = slavesArray.size();
     
-    // Free old memory before allocating new
     if (slaves != nullptr) {
         delete[] slaves;
         slaves = nullptr;
     }
     
-    // Allocate new memory and initialize to zero
     slaves = new SensorSlave[newSlaveCount]();
     slaveCount = newSlaveCount;
     
-    // Load each slave configuration WITH TEMPLATE MERGE
     for (int i = 0; i < slaveCount; i++) {
         JsonObject slaveObj = slavesArray[i];
         
-        // Get deviceType FIRST before any merging
         const char* deviceType = slaveObj["deviceType"];
         
-        // 🆕 Load template and merge with override
         JsonDocument templateDoc;
         JsonObject templateConfig = templateDoc.to<JsonObject>();
         JsonDocument mergedDoc;
         JsonObject mergedConfig = mergedDoc.to<JsonObject>();
         
         if (!loadDeviceTemplate(deviceType, templateConfig)) {
-            Serial.printf("❌ Template not found for slave %d: %s\n", slaveObj["id"].as<int>(), deviceType);
-            continue; // Skip this slave if no template
+            continue;
         }
         
         mergeWithOverride(slaveObj, templateConfig, mergedConfig);
         
-        // 🆕 FIX: Load registerSize BEFORE template merge
         slaves[i].id = mergedConfig["id"] | slaveObj["id"];
         slaves[i].startRegister = mergedConfig["startReg"] | slaveObj["startReg"];
         slaves[i].registerCount = mergedConfig["numReg"] | slaveObj["numReg"];
@@ -291,27 +255,18 @@ bool modbusReloadSlaves() {
         slaves[i].mqttTopic = mergedConfig["mqttTopic"] | slaveObj["mqttTopic"].as<String>();
         slaves[i].deviceType = determineDeviceTypeFromString(deviceType);
         
-        // 🆕 CRITICAL FIX: Load registerSize DIRECTLY from slaveObj, NOT mergedConfig
         if (slaveObj["registerSize"].is<int>()) {
             int size = slaveObj["registerSize"];
             if (size >= 1 && size <= 4) {
                 slaves[i].registerSize = static_cast<RegisterSize>(size);
-                Serial.printf("✅ LOADED registerSize: %d\n", slaves[i].registerSize);
             } else {
                 slaves[i].registerSize = SIZE_16BIT;
-                Serial.printf("❌ INVALID registerSize: %d, defaulting to 1\n", size);
             }
         } else {
             slaves[i].registerSize = SIZE_16BIT;
-            Serial.printf("❌ NO registerSize in config, defaulting to 1\n");
         }
         
-        // 🆕 Load device parameters from MERGED config
         loadDeviceParameters(slaves[i], mergedConfig);
-        
-        // SIMPLIFIED Debug - just show basic info
-        Serial.printf("✅ Slave: ID=%d, Name=%s, Type=%s\n", 
-                     slaves[i].id, slaves[i].name.c_str(), deviceType);
     }
     
     Serial.printf("✅ Reloaded %d slaves with template system\n", slaveCount);
@@ -321,27 +276,21 @@ bool modbusReloadSlaves() {
 // ==================== DATA PROCESSING HELPERS ====================
 
 void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint64_t* combinedValues, RegisterSize regSize) {
-
-        // Convert back to uint16_t for existing functions (G01S is always 16-bit)
-        uint16_t tempRaw = combinedValues[0] & 0xFFFF;
-        uint16_t humidRaw = combinedValues[1] & 0xFFFF;
-        
-        // Use existing functions
-        root["temperature"] = convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider);
-        root["humidity"] = convertRegisterToHumidity(humidRaw, sensorConfig.humidDivider);
-   
+    uint16_t tempRaw = combinedValues[0] & 0xFFFF;
+    uint16_t humidRaw = combinedValues[1] & 0xFFFF;
+    
+    root["temperature"] = convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider);
+    root["humidity"] = convertRegisterToHumidity(humidRaw, sensorConfig.humidDivider);
 }
 
 void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize) {
     int valueIndex = 0;
     
-    // Current values (unsigned - no change)
     root["A_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.aCurrent.ct, meterConfig.aCurrent.divider);
     root["B_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.bCurrent.ct, meterConfig.bCurrent.divider);
     root["C_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.cCurrent.ct, meterConfig.cCurrent.divider);
     root["Zero_Phase_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.zeroPhaseCurrent.ct, meterConfig.zeroPhaseCurrent.divider);
     
-    // 🆕 ACTIVE POWER - USE SMART SIGN CONVERSION
     root["A_Active_Power_(kW)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize), 
         meterConfig.aActivePower.pt, meterConfig.aActivePower.ct, meterConfig.aActivePower.divider
@@ -359,43 +308,40 @@ void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t
         meterConfig.totalActivePower.pt, meterConfig.totalActivePower.ct, meterConfig.totalActivePower.divider
     );
     
-    // 🆕 REACTIVE POWER - USE SMART SIGN CONVERSION
-    root["A_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+    root["A_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.aReactivePower.pt, meterConfig.aReactivePower.ct, meterConfig.aReactivePower.divider
     );
-    root["B_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+    root["B_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.bReactivePower.pt, meterConfig.bReactivePower.ct, meterConfig.bReactivePower.divider
     );
-    root["C_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+    root["C_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.cReactivePower.pt, meterConfig.cReactivePower.ct, meterConfig.cReactivePower.divider
     );
-    root["Total_Reactive_Power_(VAr)"] = calculateThreePhasePower(
+    root["Total_Reactive_Power_(kVAr)"] = calculateThreePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.totalReactivePower.pt, meterConfig.totalReactivePower.ct, meterConfig.totalReactivePower.divider
     );
     
-    // 🆕 APPARENT POWER - USE SMART SIGN CONVERSION
-    root["A_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+    root["A_Apparent_Power_(kVA)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.aApparentPower.pt, meterConfig.aApparentPower.ct, meterConfig.aApparentPower.divider
     );
-    root["B_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+    root["B_Apparent_Power_(kVA)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.bApparentPower.pt, meterConfig.bApparentPower.ct, meterConfig.bApparentPower.divider
     );
-    root["C_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+    root["C_Apparent_Power_(kVA)"] = calculateSinglePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.cApparentPower.pt, meterConfig.cApparentPower.ct, meterConfig.cApparentPower.divider
     );
-    root["Total_Apparent_Power_(VA)"] = calculateThreePhasePower(
+    root["Total_Apparent_Power_(kVA)"] = calculateThreePhasePower(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.totalApparentPower.pt, meterConfig.totalApparentPower.ct, meterConfig.totalApparentPower.divider
     );
     
-    // 🆕 POWER FACTOR - USE SMART SIGN CONVERSION
     root["A_Power_Factor"] = calculatePowerFactor(
         convertToSigned(combinedValues[valueIndex++], regSize),
         meterConfig.aPowerFactor.divider
@@ -415,7 +361,6 @@ void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t
 }
 
 void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize) {
-
     int valueIndex = 0;
     
     root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.aVoltage.pt, voltageConfig.aVoltage.divider);
@@ -426,7 +371,6 @@ void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, ui
 }
 
 void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
-    
     int valueIndex = 0;
     
     root["Total_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.totalActiveEnergy.divider);
@@ -435,14 +379,12 @@ void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint6
 }
 
 void publishData(const SensorSlave& slave, const JsonDocument& doc) {
-    // Get timing data
     String sameDeviceDelta = getSameDeviceDelta(slave.id, slave.name.c_str(), false);
-    getSameDeviceDelta(slave.id, slave.name.c_str(), true); // Reset for next
+    getSameDeviceDelta(slave.id, slave.name.c_str(), true);
     
     unsigned long timeDelta = calculateTimeDelta(slave.id, slave.name.c_str());
     String formattedDelta = formatTimeDelta(timeDelta);
     
-    // Publish message
     String output;
     serializeJson(doc, output);
     publishMessage(slave.mqttTopic.c_str(), output.c_str());
@@ -450,6 +392,29 @@ void publishData(const SensorSlave& slave, const JsonDocument& doc) {
     if (debugEnabled) {
         addDebugMessage(slave.mqttTopic.c_str(), output.c_str(), formattedDelta.c_str(), sameDeviceDelta.c_str());
     }
+}
+
+// ==================== COMMON ERROR HANDLER ====================
+
+void publishSlaveError(uint8_t slaveId, const char* slaveName, const char* errorMsg) {
+    JsonDocument doc;
+    JsonObject root = doc.to<JsonObject>();
+    root["id"] = slaveId;
+    root["name"] = slaveName;
+    root["error"] = errorMsg;
+    
+    for (int i = 0; i < slaveCount; i++) {
+        if (slaves[i].id == slaveId && slaves[i].name == slaveName) {
+            root["mqtt_topic"] = slaves[i].mqttTopic;
+            publishData(slaves[i], doc);
+            return;
+        }
+    }
+    
+    root["mqtt_topic"] = "unknown";
+    String output;
+    serializeJson(doc, output);
+    publishMessage("errors", output.c_str());
 }
 
 // ==================== NON-BLOCKING QUERY STATE MACHINE ====================
@@ -461,14 +426,13 @@ bool startNonBlockingQuery() {
     
     SensorSlave& slave = slaves[currentSlaveIndex];
     
-    // Re-initialize Modbus for this slave
     node.begin(slave.id, Serial);
     node.preTransmission(preTransmission);
     node.postTransmission(postTransmission);
     node.clearResponseBuffer();
     node.clearTransmitBuffer();
 
-    delay(300); // Stabilization delay
+    delay(300);
 
     uint8_t result = node.readHoldingRegisters(slave.startRegister, slave.registerCount);
     queryStartTime = millis();
@@ -483,7 +447,6 @@ void processNonBlockingData() {
     JsonDocument doc;
     JsonObject root = doc.to<JsonObject>();
 
-    // Common fields for all devices
     root["id"] = slave.id;
     root["name"] = slave.name;
     root["mqtt_topic"] = slave.mqttTopic;
@@ -491,15 +454,12 @@ void processNonBlockingData() {
     root["num_reg"] = slave.registerCount;
     root["register_size"] = slave.registerSize;
 
-    // 🆕 STEP 1: Read ALL raw registers into array
     uint16_t* rawRegisters = new uint16_t[slave.registerCount];
     readAllRegistersIntoArray(rawRegisters, slave.registerCount);
     
-    // 🆕 STEP 2: Combine registers based on registerSize
     uint16_t combinedCount = 0;
     uint64_t* combinedValues = combineRegistersBySize(rawRegisters, slave.registerCount, slave.registerSize, combinedCount);
     
-    // 🆕 STEP 3: Process data with combined array
     switch(slave.deviceType) {
         case DEVICE_G01S:
             processSensorData(root, slave.config.sensor, combinedValues, slave.registerSize);
@@ -515,11 +475,9 @@ void processNonBlockingData() {
             break;
     }
     
-    // Clean up memory
-    delete[] rawRegisters;
-    delete[] combinedValues;
+    CLEANUP(rawRegisters);
+    CLEANUP(combinedValues);
     
-    // Publish results
     publishData(slave, doc);
     waitingForResponse = false;
 }
@@ -532,7 +490,6 @@ void checkCycleCompletion() {
         currentState = STATE_WAITING;
         lastActionTime = currentTime;
         
-        // 🎯 ADD BATCH SEPARATOR
         addBatchSeparatorMessage();
         
         Serial.printf("🎉 Cycle complete - sequence time reset to: %lu\n", currentTime);
@@ -544,31 +501,13 @@ void checkCycleCompletion() {
 void handleQueryStartFailure() {
     Serial.printf("❌ Failed to start query for slave %d\n", slaves[currentSlaveIndex].id);
     updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, false);
-
-    JsonDocument doc;
-    JsonObject root = doc.to<JsonObject>();
-    root["id"] = slaves[currentSlaveIndex].id;
-    root["name"] = slaves[currentSlaveIndex].name;
-    root["error"] = "Failed to start Modbus query";
-    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
-
-    publishData(slaves[currentSlaveIndex], doc);
+    publishSlaveError(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), "Failed to start Modbus query");
 }
 
 void handleQueryTimeout() {
-    Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", 
-                  slaves[currentSlaveIndex].id, timeoutDuration);
-
+    Serial.printf("⏰ TIMEOUT on slave %d after %lu ms - SKIPPING TO NEXT!\n", slaves[currentSlaveIndex].id, timeoutDuration);
     updateSlaveStatistic(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), false, true);
-
-    JsonDocument doc;
-    JsonObject root = doc.to<JsonObject>();
-    root["id"] = slaves[currentSlaveIndex].id;
-    root["name"] = slaves[currentSlaveIndex].name;
-    root["error"] = "Modbus timeout - no response from device";
-    root["mqtt_topic"] = slaves[currentSlaveIndex].mqttTopic;
-    
-    publishData(slaves[currentSlaveIndex], doc);
+    publishSlaveError(slaves[currentSlaveIndex].id, slaves[currentSlaveIndex].name.c_str(), "Modbus timeout - no response from device");
     waitingForResponse = false;
 }
 
@@ -618,9 +557,7 @@ void updateNonBlockingQuery() {
             
         case STATE_WAITING:
             if (currentTime - lastActionTime >= pollInterval) {
-                Serial.printf("🔄 NEW CYCLE | Waited: %lums | Expected: %lums | Diff: %lums\n", 
-                            currentTime - lastActionTime, pollInterval, 
-                            (currentTime - lastActionTime) - pollInterval);
+                Serial.printf("🔄 NEW CYCLE | Waited: %lums | Expected: %lums | Diff: %lums\n", currentTime - lastActionTime, pollInterval, (currentTime - lastActionTime) - pollInterval);
                 currentState = STATE_START_QUERY;
                 currentSlaveIndex = 0;
                 lastActionTime = currentTime;
@@ -633,14 +570,13 @@ void updateNonBlockingQuery() {
 // ==================== CONFIGURATION MANAGEMENT ====================
 
 void updateTimeout(int newTimeoutSeconds) {
-    timeoutDuration = newTimeoutSeconds * 1000; // Convert to milliseconds
+    timeoutDuration = newTimeoutSeconds * 1000;
     Serial.printf("⏱️  Timeout updated to: %d seconds (%lu ms)\n", newTimeoutSeconds, timeoutDuration);
 }
 
 void updatePollInterval(int newIntervalSeconds) {
-    pollInterval = newIntervalSeconds * 1000; // Convert to milliseconds
+    pollInterval = newIntervalSeconds * 1000;
     
-    // If we're currently waiting, reset the timer
     if (currentState == STATE_WAITING) {
         lastActionTime = millis();
     }
@@ -651,10 +587,8 @@ void updatePollInterval(int newIntervalSeconds) {
 // ==================== STATISTICS MANAGEMENT ====================
 
 void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, bool timeout) {
-    // Quick validation
     if (slaveId == 0 || slaveName == nullptr) return;
     
-    // Find existing stats for this slave
     for (int i = 0; i < slaveStatsCount; i++) {
         if (slaveStats[i].slaveId == slaveId && strcmp(slaveStats[i].slaveName, slaveName) == 0) {
             slaveStats[i].totalQueries++;
@@ -666,36 +600,29 @@ void updateSlaveStatistic(uint8_t slaveId, const char* slaveName, bool success, 
                 slaveStats[i].failedCount++;
             }
             
-            // Shift history right (oldest drops off)
             slaveStats[i].statusHistory[2] = slaveStats[i].statusHistory[1];
             slaveStats[i].statusHistory[1] = slaveStats[i].statusHistory[0];
             
-            // Add new status at beginning (newest on left)
             if (success) slaveStats[i].statusHistory[0] = 'S';
             else if (timeout) slaveStats[i].statusHistory[0] = 'T';
             else slaveStats[i].statusHistory[0] = 'F';
             
             return;
-
         }
     }
     
-    // Create new stats entry if not found and we have space
     if (slaveStatsCount < kMaxStatisticsSlaves) {
-            SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
-            newStat->slaveId = slaveId;
-            strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
-            newStat->slaveName[sizeof(newStat->slaveName) - 1] = '\0';
-            newStat->totalQueries = 1;
-            newStat->successCount = success ? 1 : 0;
-            newStat->timeoutCount = timeout ? 1 : 0;
-            newStat->failedCount = (!success && !timeout) ? 1 : 0;
-            
-            // Initialize status history for new slave
-            strcpy(newStat->statusHistory, "   "); // Start with 3 spaces
-
-            
-            slaveStatsCount++;
+        SlaveStatistics* newStat = &slaveStats[slaveStatsCount];
+        newStat->slaveId = slaveId;
+        strncpy(newStat->slaveName, slaveName, sizeof(newStat->slaveName) - 1);
+        newStat->slaveName[sizeof(newStat->slaveName) - 1] = '\0';
+        newStat->totalQueries = 1;
+        newStat->successCount = success ? 1 : 0;
+        newStat->timeoutCount = timeout ? 1 : 0;
+        newStat->failedCount = (!success && !timeout) ? 1 : 0;
+        
+        strcpy(newStat->statusHistory, "   ");
+        slaveStatsCount++;
     }
 }
 
@@ -724,7 +651,6 @@ void removeSlaveStatistic(uint8_t slaveId, const char* slaveName) {
     
     for (int i = 0; i < slaveStatsCount; i++) {
         if (slaveStats[i].slaveId == slaveId && strcmp(slaveStats[i].slaveName, slaveName) == 0) {
-            // Shift all subsequent elements left
             for (int j = i; j < slaveStatsCount - 1; j++) {
                 slaveStats[j] = slaveStats[j + 1];
             }
@@ -748,8 +674,6 @@ float readEnergyValue(uint16_t registerIndex, float divider) {
     uint32_t value = readUint32FromRegisters(highWord, lowWord);
     return (value / 100.0f) / divider;
 }
-
-// ==================== DEBUG PAGE BATCH SEPARATOR ====================
 
 void addBatchSeparatorMessage() {
     if (!debugEnabled) return;
@@ -783,13 +707,9 @@ uint64_t combineRegisters(uint16_t* registers, RegisterSize size, uint16_t start
 }
 
 uint64_t* combineRegistersBySize(uint16_t* rawRegisters, uint16_t numRawRegisters, RegisterSize regSize, uint16_t& combinedCount) {
-    // Calculate how many combined values we'll have
     combinedCount = numRawRegisters / regSize;
-    
-    // Allocate array for combined values
     uint64_t* combinedArray = new uint64_t[combinedCount];
     
-    // Combine registers according to size
     for (int i = 0; i < combinedCount; i++) {
         uint16_t startIndex = i * regSize;
         combinedArray[i] = combineRegisters(rawRegisters, regSize, startIndex);
@@ -798,31 +718,20 @@ uint64_t* combineRegistersBySize(uint16_t* rawRegisters, uint16_t numRawRegister
     return combinedArray;
 }
 
-// 🆕 ADD THIS FUNCTION - Proper sign extension for different register sizes
 int64_t convertToSigned(uint64_t value, RegisterSize regSize) {
     switch(regSize) {
         case SIZE_16BIT:
-            // For 16-bit values - extend sign bit
             return (int16_t)(value & 0xFFFF);
-            
         case SIZE_32BIT:
-            // For 32-bit values - extend sign bit  
             return (int32_t)(value & 0xFFFFFFFF);
-            
         case SIZE_48BIT:
-            // For 48-bit values - manual sign extension
             if (value & 0x800000000000) {
-                // Negative - extend with 1s
                 return (int64_t)(value | 0xFFFF000000000000);
             } else {
-                // Positive - extend with 0s
                 return value;
             }
-            
         case SIZE_64BIT:
-            // For 64-bit - let C++ handle it
             return (int64_t)value;
-            
         default:
             return (int64_t)value;
     }

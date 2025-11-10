@@ -169,11 +169,7 @@ float calculateVoltage(uint64_t registerValue, float pt, float divider);
 void handleQueryStartFailure();
 void handleQueryTimeout();
 void checkCycleCompletion();
-
-// ==================== TIMING FUNCTIONS ====================
-unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName);
-String calculateSameDeviceDelta(uint8_t slaveId, const char* slaveName);
-String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer);
+void publishSlaveError(uint8_t slaveId, const char* slaveName, const char* errorMsg);
 
 // ==================== DEBUG FUNCTIONS ====================
 void addBatchSeparatorMessage();

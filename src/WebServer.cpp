@@ -21,13 +21,28 @@ String debugMessages[kMaxDebugMessages];
 int debugMessageCount = 0;
 int debugMessageIndex = 0;
 
-// ==================== WEB SERVER INITIALIZATION ====================
+// ==================== HELPER FUNCTIONS ====================
 
+void copyWifiParam(char* dest, const String& src, size_t maxLen) {
+    strncpy(dest, src.c_str(), maxLen - 1);
+    dest[maxLen - 1] = '\0';
+}
+
+void sendJsonResponse(const JsonDocument& doc) {
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
+}
+
+void sendErrorResponse(const char* message) {
+    server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"" + String(message) + "\"}");
+}
+
+// ==================== WEB SERVER INITIALIZATION ====================
 
 void setupWebServer() {
     Serial.println("🌐 Initializing Web Server...");
 
-    // Initialize device timing array
     for (int i = 0; i < kMaxDevices; i++) {
         deviceTiming[i].slaveId = 0;
         deviceTiming[i].lastSeenTime = 0;
@@ -36,13 +51,9 @@ void setupWebServer() {
         deviceTiming[i].messageCount = 0;
     }
     
-    // Set system start time
     systemStartTime = millis();
     
-    // Serve static files
     server.onNotFound(handleStaticFiles);
-
-    // SPA endpoint
     server.on("/", []() { serveHtmlFile("/index.html"); });
     
     // WiFi endpoints
@@ -92,13 +103,6 @@ void serveHtmlFile(const String& filename) {
     
     server.streamFile(file, "text/html");
     file.close();
-    Serial.printf("✅ Streamed: %s\n", filename.c_str());
-}
-
-void sendJsonResponse(const JsonDocument& doc) {
-    String response;
-    serializeJson(doc, response);
-    server.send(200, "application/json", response);
 }
 
 bool parseJsonBody(JsonDocument& doc) {
@@ -107,7 +111,7 @@ bool parseJsonBody(JsonDocument& doc) {
     
     if (error) {
         Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        sendErrorResponse("Invalid JSON");
         return false;
     }
     return true;
@@ -115,13 +119,11 @@ bool parseJsonBody(JsonDocument& doc) {
 
 // ==================== WIFI CONFIGURATION HANDLERS ====================
 
-
 void handleGetIpInfo() {
     Serial.println("📡 Returning IP information");
     
     JsonDocument doc;
     
-    // STA IP info
     if (WiFi.status() == WL_CONNECTED) {
         doc["sta_ip"] = WiFi.localIP().toString();
         doc["sta_subnet"] = WiFi.subnetMask().toString();
@@ -134,14 +136,10 @@ void handleGetIpInfo() {
         doc["sta_connected"] = false;
     }
     
-    // AP IP info
     doc["ap_ip"] = WiFi.softAPIP().toString();
     doc["ap_connected_clients"] = WiFi.softAPgetStationNum();
     
     sendJsonResponse(doc);
-    Serial.printf("✅ Sent IP info - STA: %s, AP: %s\n", 
-                  doc["sta_ip"].as<const char*>(), 
-                  doc["ap_ip"].as<const char*>());
 }
 
 void handleSaveWifi() {
@@ -157,20 +155,12 @@ void handleSaveWifi() {
     WifiParams newParams;
     memset(&newParams, 0, sizeof(newParams));
     
-    strncpy(newParams.STAWifiID, staSsid.c_str(), sizeof(newParams.STAWifiID) - 1);
-    strncpy(newParams.STApassword, staPassword.c_str(), sizeof(newParams.STApassword) - 1);
-    strncpy(newParams.APWifiID, apSsid.c_str(), sizeof(newParams.APWifiID) - 1);
-    strncpy(newParams.APpassword, apPassword.c_str(), sizeof(newParams.APpassword) - 1);
-    strncpy(newParams.mqttServer, mqttServer.c_str(), sizeof(newParams.mqttServer) - 1);
-    strncpy(newParams.mqttPort, mqttPort.c_str(), sizeof(newParams.mqttPort) - 1);
-    
-    // Ensure null termination
-    newParams.STAWifiID[sizeof(newParams.STAWifiID) - 1] = '\0';
-    newParams.STApassword[sizeof(newParams.STApassword) - 1] = '\0';
-    newParams.APWifiID[sizeof(newParams.APWifiID) - 1] = '\0';
-    newParams.APpassword[sizeof(newParams.APpassword) - 1] = '\0';
-    newParams.mqttServer[sizeof(newParams.mqttServer) - 1] = '\0';
-    newParams.mqttPort[sizeof(newParams.mqttPort) - 1] = '\0';
+    copyWifiParam(newParams.STAWifiID, staSsid, sizeof(newParams.STAWifiID));
+    copyWifiParam(newParams.STApassword, staPassword, sizeof(newParams.STApassword));
+    copyWifiParam(newParams.APWifiID, apSsid, sizeof(newParams.APWifiID));
+    copyWifiParam(newParams.APpassword, apPassword, sizeof(newParams.APpassword));
+    copyWifiParam(newParams.mqttServer, mqttServer, sizeof(newParams.mqttServer));
+    copyWifiParam(newParams.mqttPort, mqttPort, sizeof(newParams.mqttPort));
     
     saveWifi(newParams);
     server.send(200, "application/json", "{\"status\":\"success\"}");
@@ -181,7 +171,6 @@ void handleGetWifi() {
     Serial.println("📡 Returning WiFi settings");
     
     JsonDocument doc;
-    
     doc["sta_ssid"] = currentParams.STAWifiID;
     doc["sta_password"] = currentParams.STApassword;
     doc["ap_ssid"] = currentParams.APWifiID;
@@ -196,32 +185,26 @@ void handleGetWifi() {
 
 void handleStaticFiles() {
     String path = server.uri();
-    Serial.printf("📁 Static file request: %s\n", path.c_str());
     
     if (path.endsWith("/")) {
         path += "index.html";
-        Serial.printf("🔀 Redirected to: %s\n", path.c_str());
     }
     
     String contentType = getContentType(path);
-    Serial.printf("📄 Content type: %s\n", contentType.c_str());
     
     if (!fileExists(path)) {
-        Serial.printf("❌ File not found: %s\n", path.c_str());
         server.send(404, "text/plain", "File not found: " + path);
         return;
     }
     
     File file = LittleFS.open(path, "r");
     if (!file) {
-        Serial.printf("❌ Failed to open: %s\n", path.c_str());
         server.send(500, "text/plain", "Failed to open file");
         return;
     }
     
     server.streamFile(file, contentType);
     file.close();
-    Serial.printf("✅ Streamed file: %s\n", path.c_str());
 }
 
 String getContentType(const String& filename) {
@@ -244,29 +227,22 @@ void handleSaveSlaves() {
     JsonDocument newDoc;
     if (!parseJsonBody(newDoc)) return;
     
-    Serial.printf("📥 Received slave config: %d bytes\n", server.arg("plain").length());
-    
-    // 🆕 FIX: Load existing config first to preserve overrides
     JsonDocument existingDoc;
     if (loadSlaveConfig(existingDoc)) {
         JsonArray existingSlaves = existingDoc["slaves"];
         JsonArray newSlaves = newDoc["slaves"];
         
-        // 🆕 Merge overrides from existing slaves into new slaves
-        for (int i = 0; i < newSlaves.size(); i++) {
+        for (size_t  i = 0; i < newSlaves.size(); i++) {
             JsonObject newSlave = newSlaves[i];
             uint8_t newId = newSlave["id"];
             const char* newName = newSlave["name"];
             
-            // Find matching slave in existing config
             for (JsonObject existingSlave : existingSlaves) {
                 if (existingSlave["id"] == newId && 
                     strcmp(existingSlave["name"], newName) == 0) {
                     
-                    // 🆕 Preserve override if it exists
                     if (existingSlave["override"].is<JsonObject>()) {
                         newSlave["override"] = existingSlave["override"];
-                        Serial.printf("✅ Preserved overrides for slave %d: %s\n", newId, newName);
                     }
                     break;
                 }
@@ -274,14 +250,13 @@ void handleSaveSlaves() {
         }
     }
     
-    // Now save the merged config
     if (saveSlaveConfig(newDoc)) {
+        clearTemplateCache();
         modbusReloadSlaves();
         server.send(200, "application/json", "{\"status\":\"success\"}");
         Serial.println("✅ Slave configuration saved successfully with preserved overrides");
     } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save slave configuration");
+        sendErrorResponse("Failed to save slave configuration");
     }
 }
 
@@ -293,44 +268,36 @@ void handleGetSlaves() {
         String response;
         serializeJson(doc, response);
         server.send(200, "application/json", response);
-        Serial.printf("✅ Sent slave configuration (%d bytes)\n", response.length());
     } else {
         server.send(200, "application/json", "{\"slaves\":[]}");
-        Serial.println("✅ Sent empty slave configuration");
     }
 }
 
 void handleGetSlaveConfig() {
     Serial.println("🔍 Getting specific slave with template merge");
     
-    // 1. Get the request data (which slave to load)
     String body = server.arg("plain");
     if (body.length() == 0) {
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Empty request body\"}");
+        sendErrorResponse("Empty request body");
         return;
     }
     
-    // 2. Parse the JSON request
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, body);
     if (error) {
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        sendErrorResponse("Invalid JSON");
         return;
     }
     
-    // 3. Extract which slave we're looking for
     uint8_t slaveId = doc["slaveId"];
     const char* slaveName = doc["slaveName"];
-    Serial.printf("🔎 Loading slave ID: %d, Name: %s\n", slaveId, slaveName);
     
-    // 4. Load ALL slaves from file
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
+        sendErrorResponse("No slave configuration found");
         return;
     }
     
-    // 5. Find the specific slave we want
     JsonArray slavesArray = configDoc["slaves"];
     bool slaveFound = false;
     JsonObject foundSlave;
@@ -344,11 +311,10 @@ void handleGetSlaveConfig() {
     }
     
     if (!slaveFound) {
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found\"}");
+        sendErrorResponse("Slave not found");
         return;
     }
     
-    // 6. 🆕 TEMPLATE SYSTEM: Load the device template
     JsonDocument templateDoc;
     JsonObject templateConfig = templateDoc.to<JsonObject>();
     JsonDocument mergedDoc;
@@ -356,10 +322,8 @@ void handleGetSlaveConfig() {
     
     const char* deviceType = foundSlave["deviceType"];
     if (loadDeviceTemplate(deviceType, templateConfig)) {
-        // 7. 🆕 Merge template defaults + slave overrides
         mergeWithOverride(foundSlave, templateConfig, mergedConfig);
         
-        // 8. Add the basic slave info to the merged config
         mergedConfig["id"] = foundSlave["id"];
         mergedConfig["name"] = foundSlave["name"];
         mergedConfig["deviceType"] = foundSlave["deviceType"];
@@ -368,17 +332,9 @@ void handleGetSlaveConfig() {
         mergedConfig["mqttTopic"] = foundSlave["mqttTopic"];
         mergedConfig["registerSize"] = foundSlave["registerSize"];
         
-        // 9. Send the COMPLETE config to UI
-        String response;
-        serializeJson(mergedConfig, response);
-        server.send(200, "application/json", response);
-        Serial.printf("✅ Sent merged config for slave %d: %s (template: %s)\n", slaveId, slaveName, deviceType);
+        sendJsonResponse(mergedDoc);
     } else {
-        // Fallback if no template found
-        String response;
-        serializeJson(foundSlave, response);
-        server.send(200, "application/json", response);
-        Serial.printf("⚠️  No template found for slave %d, sent raw config\n", slaveId);
+        sendJsonResponse(foundSlave);
     }
 }
 
@@ -387,7 +343,7 @@ void handleUpdateSlaveConfig() {
     
     String body = server.arg("plain");
     if (body.length() == 0) {
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Empty request body\"}");
+        sendErrorResponse("Empty request body");
         return;
     }
     
@@ -395,28 +351,21 @@ void handleUpdateSlaveConfig() {
     DeserializationError error = deserializeJson(updateDoc, body);
     
     if (error) {
-        Serial.printf("❌ JSON parse error: %s\n", error.c_str());
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+        sendErrorResponse("Invalid JSON");
         return;
     }
     
-    // 🆕 DEBUG: Print what we received
-    Serial.printf("📥 Received update: %s\n", body.c_str());
-    
-    // 🆕 FIX: Check for basic required fields
     if (!updateDoc["id"].is<int>() || !updateDoc["name"].is<const char*>()) {
-        Serial.println("❌ Missing id or name fields");
-        server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing required fields: id or name\"}");
+        sendErrorResponse("Missing required fields: id or name");
         return;
     }
     
     uint8_t slaveId = updateDoc["id"];
     const char* slaveName = updateDoc["name"];
     
-    // 🆕 FIX: Get deviceType from slave config, not from updateDoc
     JsonDocument configDoc;
     if (!loadSlaveConfig(configDoc)) {
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"No slave configuration found\"}");
+        sendErrorResponse("No slave configuration found");
         return;
     }
     
@@ -430,37 +379,29 @@ void handleUpdateSlaveConfig() {
         if (slave["id"] == slaveId && strcmp(slave["name"], slaveName) == 0) {
             slaveIndex = i;
             slaveFound = true;
-            deviceType = slave["deviceType"]; // 🆕 Get deviceType from existing slave
+            deviceType = slave["deviceType"];
             break;
         }
     }
     
     if (!slaveFound || deviceType == nullptr) {
-        Serial.printf("❌ Slave not found or no deviceType: ID=%d, Name=%s\n", slaveId, slaveName);
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Slave not found or no deviceType\"}");
+        sendErrorResponse("Slave not found or no deviceType");
         return;
     }
     
-    Serial.printf("🔄 Updating slave ID: %d, Name: %s, Type: %s\n", slaveId, slaveName, deviceType);
-    
-    // Load template for this device type
     JsonDocument templateDoc;
     JsonObject templateConfig = templateDoc.to<JsonObject>();
     
     if (!loadDeviceTemplate(deviceType, templateConfig)) {
-        Serial.printf("❌ Template not found for: %s\n", deviceType);
-        server.send(404, "application/json", "{\"status\":\"error\",\"message\":\"Template not found for device type\"}");
+        sendErrorResponse("Template not found for device type");
         return;
     }
     
-    // 🆕 FIX: Create a copy with ONLY parameter fields (no basic slave info)
     JsonDocument paramsOnlyDoc;
     JsonObject paramsOnly = paramsOnlyDoc.to<JsonObject>();
     
-    // Copy only parameter fields (exclude basic slave info)
     for (JsonPair kv : updateDoc.as<JsonObject>()) {
         const char* key = kv.key().c_str();
-        // 🆕 Only include fields that are NOT basic slave info
         if (strcmp(key, "id") != 0 && 
             strcmp(key, "name") != 0 &&
             strcmp(key, "deviceType") != 0 &&
@@ -472,43 +413,30 @@ void handleUpdateSlaveConfig() {
         }
     }
     
-    Serial.printf("📊 Comparing %d parameter fields against template\n", paramsOnly.size());
-    
-    // Detect overrides by comparing submitted PARAMETERS vs template
     JsonDocument overrideDoc;
     JsonObject overrideOutput = overrideDoc.to<JsonObject>();
     detectOverrides(paramsOnly, templateConfig, overrideOutput);
     
-    Serial.printf("📊 Detected %d parameter overrides\n", overrideOutput.size());
-    
-    // Update the slave - keep only basic info + override
     slavesArray[slaveIndex].clear();
     
-    // 🆕 Store basic fields DIRECTLY (not in override)
     slavesArray[slaveIndex]["id"] = slaveId;
     slavesArray[slaveIndex]["name"] = slaveName;
     slavesArray[slaveIndex]["deviceType"] = deviceType;
-    slavesArray[slaveIndex]["startReg"] = updateDoc["startReg"];  // 🆕 Updated if changed
-    slavesArray[slaveIndex]["numReg"] = updateDoc["numReg"];      // 🆕 Updated if changed
-    slavesArray[slaveIndex]["mqttTopic"] = updateDoc["mqttTopic"]; // 🆕 Updated if changed
-    slavesArray[slaveIndex]["registerSize"] = updateDoc["registerSize"]; // 🆕 Updated if changed
+    slavesArray[slaveIndex]["startReg"] = updateDoc["startReg"];
+    slavesArray[slaveIndex]["numReg"] = updateDoc["numReg"];
+    slavesArray[slaveIndex]["mqttTopic"] = updateDoc["mqttTopic"];
+    slavesArray[slaveIndex]["registerSize"] = updateDoc["registerSize"];
     
-    // Only add override if there are any parameter overrides
     if (overrideOutput.size() > 0) {
         slavesArray[slaveIndex]["override"] = overrideOutput;
-        Serial.printf("💾 Storing parameter overrides: %d parameters\n", overrideOutput.size());
-    } else {
-        Serial.println("💾 No parameter overrides to store");
     }
 
-    // Now save the  config
     if (saveSlaveConfig(configDoc)) {
+        clearTemplateCache();
         modbusReloadSlaves();
         server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Slave configuration updated successfully\"}");
-        Serial.println("✅ Slave configuration saved successfully with preserved overrides");
     } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save slave configuration");
+        sendErrorResponse("Failed to save slave configuration");
     }
 }
 
@@ -525,10 +453,8 @@ void handleSavePollingConfig() {
     
     if (savePollingConfig(interval, timeout)) {
         server.send(200, "application/json", "{\"status\":\"success\"}");
-        Serial.printf("✅ Polling config saved: interval=%ds, timeout=%ds\n", interval, timeout);
     } else {
-        server.send(500, "application/json", "{\"status\":\"error\"}");
-        Serial.println("❌ Failed to save polling config");
+        sendErrorResponse("Failed to save polling config");
     }
 }
 
@@ -543,7 +469,6 @@ void handleGetPollingConfig() {
     doc["timeout"] = timeout;
     
     sendJsonResponse(doc);
-    Serial.printf("✅ Sent polling config: interval=%ds, timeout=%ds\n", interval, timeout);
 }
 
 // ==================== STATISTICS HANDLERS ====================
@@ -553,7 +478,6 @@ void handleGetStatistics() {
     
     String statsJson = getStatisticsJson();
     server.send(200, "application/json", statsJson);
-    Serial.printf("✅ Sent statistics (%d bytes)\n", statsJson.length());
 }
 
 void handleRemoveSlaveStats() {
@@ -567,7 +491,6 @@ void handleRemoveSlaveStats() {
     
     removeSlaveStatistic(slaveId, slaveName);
     server.send(200, "application/json", "{\"status\":\"success\"}");
-    Serial.printf("✅ Removed statistics for slave %d: %s\n", slaveId, slaveName);
 }
 
 // ==================== DEBUG MANAGEMENT HANDLERS ====================
@@ -578,8 +501,6 @@ void handleToggleDebug() {
     
     debugEnabled = doc["enabled"] | false;
     server.send(200, "application/json", "{\"status\":\"success\"}");
-    
-    Serial.printf("🔧 Debug mode %s\n", debugEnabled ? "ENABLED" : "DISABLED");
 }
 
 void handleGetDebugState() {
@@ -596,7 +517,6 @@ void handleGetDebugMessages() {
     }
     response += "]";
     
-    // Clear messages after reading
     debugMessageCount = 0;
     debugMessageIndex = 0;
     
@@ -617,27 +537,22 @@ void addDebugMessage(const char* topic, const char* message, const char* timeDel
     String jsonMessage;
     serializeJson(doc, jsonMessage);
     
-    // Store in circular buffer
     debugMessages[debugMessageIndex] = jsonMessage;
     debugMessageIndex = (debugMessageIndex + 1) % kMaxDebugMessages;
     
     if (debugMessageCount < kMaxDebugMessages) {
         debugMessageCount++;
     }
-    
-    Serial.printf("📢 DEBUG [%s]: %s (Δ%s, sameΔ%s)\n", topic, message, timeDelta, sameDeviceDelta);
 }
 
 void handleClearTable() {
     Serial.println("🗑️ Clearing table and resetting timing data");
     resetAllTiming();
     
-    // Also clear debug messages
     debugMessageCount = 0;
     debugMessageIndex = 0;
     
     server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Table cleared and timing reset\"}");
-    Serial.println("✅ Table cleared and all timing data reset");
 }
 
 // ==================== ENHANCED TIMING FUNCTIONS ====================
@@ -663,7 +578,6 @@ String formatTimeDelta(unsigned long deltaMs) {
 }
 
 String getCurrentTimeString() {
-    // Calculate time since system start (real time)
     unsigned long elapsedMs = millis() - systemStartTime;
     unsigned long seconds = elapsedMs / 1000;
     unsigned long hours = (seconds % 86400) / 3600;
@@ -702,7 +616,6 @@ String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTime
         }
     }
     
-    // Device not found - initialize
     if (deviceTimeCount < 20) {
         deviceTiming[deviceTimeCount].slaveId = slaveId;
         strncpy(deviceTiming[deviceTimeCount].slaveName, slaveName, 31);
@@ -721,7 +634,6 @@ String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTime
 void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime) {
     int deviceIndex = -1;
     
-    // Find existing device
     for (int i = 0; i < deviceTimeCount; i++) {
         if (deviceTiming[i].slaveId == slaveId && 
             strcmp(deviceTiming[i].slaveName, slaveName) == 0) {
@@ -731,7 +643,6 @@ void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long cu
     }
     
     if (deviceIndex == -1 && deviceTimeCount < 20) {
-        // Create new device entry
         deviceIndex = deviceTimeCount;
         deviceTiming[deviceIndex].slaveId = slaveId;
         strncpy(deviceTiming[deviceIndex].slaveName, slaveName, 31);
@@ -750,7 +661,6 @@ void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long cu
 }
 
 void resetAllTiming() {
-    // Reset all timing variables
     for (int i = 0; i < kMaxDevices; i++) {
         deviceTiming[i].slaveId = 0;
         deviceTiming[i].lastSeenTime = 0;
@@ -761,7 +671,7 @@ void resetAllTiming() {
     
     deviceTimeCount = 0;
     lastSequenceTime = 0;
-    systemStartTime = millis(); // Reset real time counter
+    systemStartTime = millis();
     
     Serial.println("✅ All timing data reset - Real Time, Since Prev, and Since Same cleared");
 }

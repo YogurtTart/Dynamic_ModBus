@@ -13,3 +13,8 @@ extern bool otaInitialized;
 // Function declarations
 void setupWiFi();
 void checkWiFi();
+
+bool isWiFiConnected();
+String getSTAIP();
+String getAPIP();
+int getAPClientCount();

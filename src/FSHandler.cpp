@@ -10,7 +10,6 @@ bool initFileSystem() {
     }
     Serial.println("✅ LittleFS mounted successfully");
     
-    // List files for debugging
     Serial.println("📁 Listing files in LittleFS:");
     Dir dir = LittleFS.openDir("/");
     int fileCount = 0;
@@ -66,7 +65,6 @@ bool writeFile(const String& path, const String& content) {
 bool saveSlaveConfig(const JsonDocument& config) {
     Serial.println("💾 Saving slave configuration to LittleFS (STREAMING MODE)...");
     
-    // MEMORY PROTECTION: Check available heap
     uint32_t freeHeap = ESP.getFreeHeap();
     Serial.printf("📊 Free heap before save: %d bytes\n", freeHeap);
     
@@ -75,14 +73,12 @@ bool saveSlaveConfig(const JsonDocument& config) {
         return false;
     }
     
-    // OPEN file for writing
     File file = LittleFS.open("/slaves.json", "w");
     if (!file) {
         Serial.println("❌ Failed to open slaves.json for writing");
         return false;
     }
     
-    // STREAMING: Write JSON directly to file (no large String)
     size_t bytesWritten = serializeJson(config, file);
     file.close();
     
@@ -99,7 +95,6 @@ bool saveSlaveConfig(const JsonDocument& config) {
 bool loadSlaveConfig(JsonDocument& config) {
     Serial.println("📖 Loading slave configuration from LittleFS (STREAMING MODE)...");
     
-    // MEMORY PROTECTION: Check available heap
     uint32_t freeHeap = ESP.getFreeHeap();
     Serial.printf("📊 Free heap before load: %d bytes\n", freeHeap);
     
@@ -113,7 +108,6 @@ bool loadSlaveConfig(JsonDocument& config) {
         return false;
     }
     
-    // OPEN: Use file streaming instead of reading entire file to RAM
     File file = LittleFS.open("/slaves.json", "r");
     if (!file) {
         Serial.println("❌ Failed to open slaves.json for reading");
@@ -127,9 +121,8 @@ bool loadSlaveConfig(JsonDocument& config) {
         Serial.println("⚠️  WARNING: Large JSON file - memory may be tight");
     }
     
-    // MEMORY OPTIMIZED: Parse directly from file stream
     DeserializationError error = deserializeJson(config, file);
-    file.close(); // Important: close file when done
+    file.close();
     
     if (error) {
         Serial.printf("❌ Failed to parse slave config: %s\n", error.c_str());
@@ -149,17 +142,23 @@ bool savePollingConfig(int interval, int timeoutSeconds) {
     doc["pollInterval"] = interval;
     doc["timeout"] = timeoutSeconds;
     
-    String jsonString;
-    serializeJson(doc, jsonString);
+    File file = LittleFS.open("/polling.json", "w");
+    if (!file) {
+        Serial.println("❌ Failed to open polling.json for writing");
+        return false;
+    }
     
-    bool success = writeFile("/polling.json", jsonString);
+    size_t bytesWritten = serializeJson(doc, file);
+    file.close();
+    
+    bool success = (bytesWritten > 0);
     if (success) {
         Serial.println("✅ Polling config saved successfully");
+        modbusReloadSlaves();
     } else {
         Serial.println("❌ Failed to save polling config");
     }
 
-    modbusReloadSlaves();
     return success;
 }
 
@@ -173,16 +172,18 @@ bool loadPollingConfig(int& interval, int& timeoutSeconds) {
         return false;
     }
     
-    String jsonString = readFile("/polling.json");
-    if (jsonString.length() == 0) {
-        Serial.println("❌ Empty polling config file, using defaults");
+    File file = LittleFS.open("/polling.json", "r");
+    if (!file) {
+        Serial.println("❌ Failed to open polling.json for reading");
         interval = 10;
         timeoutSeconds = 1;
         return false;
     }
     
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, jsonString);
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    
     if (error) {
         Serial.printf("❌ Failed to parse polling config: %s, using defaults\n", error.c_str());
         interval = 10;

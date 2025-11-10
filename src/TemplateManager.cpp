@@ -1,15 +1,24 @@
 #include "TemplateManager.h"
 
+// ==================== TEMPLATE CACHE ====================
+JsonDocument templatesCache;
+bool cacheLoaded = false;
+
+// ==================== SAFETY CONSTANTS ====================
+constexpr int MAX_RECURSION_DEPTH = 10;
 
 bool loadDeviceTemplate(const String& deviceType, JsonObject& templateConfig) {
-    JsonDocument templatesDoc;
-    if (!loadTemplates(templatesDoc)) {
-        return false;
+
+    // Load cache if not already loaded
+    if (!cacheLoaded) {
+        if (!loadTemplates(templatesCache)) {
+            return false;
+        }
+        cacheLoaded = true;
     }
     
-    // 🆕 FIX: Use new ArduinoJson API
-    if (templatesDoc[deviceType].is<JsonObject>()) {
-        templateConfig.set(templatesDoc[deviceType]);
+    if (templatesCache[deviceType].is<JsonObject>()) {
+        templateConfig.set(templatesCache[deviceType]);
         return true;
     }
     
@@ -17,10 +26,8 @@ bool loadDeviceTemplate(const String& deviceType, JsonObject& templateConfig) {
 }
 
 bool mergeWithOverride(JsonObject& slaveConfig, const JsonObject& templateConfig, JsonObject& output) {
-    // First, copy the template as base
     output.set(templateConfig);
     
-    // 🆕 FIX: Use new ArduinoJson API
     if (slaveConfig["override"].is<JsonObject>()) {
         JsonObject overrideObj = slaveConfig["override"];
         deepMerge(overrideObj, output);
@@ -29,59 +36,67 @@ bool mergeWithOverride(JsonObject& slaveConfig, const JsonObject& templateConfig
     return true;
 }
 
-void detectOverrides(const JsonObject& currentConfig, const JsonObject& templateConfig, JsonObject& overrideOutput) {
+// ✅ CLEAN: Single function, no useless wrapper
+void detectOverrides(const JsonObject& currentConfig, const JsonObject& templateConfig, JsonObject& overrideOutput, int depth) {
+    // ✅ Safety check built in
+    if (depth > MAX_RECURSION_DEPTH) {
+        Serial.println("⚠️  Max recursion depth reached in detectOverrides!");
+        return;
+    }
+    
     for (JsonPair kv : currentConfig) {
         const char* key = kv.key().c_str();
         JsonVariant currentValue = kv.value();
         
-        // Check if this key exists in template
         if (templateConfig[key].isNull() == false) {
             JsonVariant templateValue = templateConfig[key];
             
-            // If both are objects, recursively compare their contents
             if (currentValue.is<JsonObject>() && templateValue.is<JsonObject>()) {
                 JsonObject currentObj = currentValue.as<JsonObject>();
                 JsonObject templateObj = templateValue.as<JsonObject>();
                 JsonObject overrideObj = overrideOutput[key].to<JsonObject>();
                 
-                // 🆕 RECURSIVE CALL: Compare nested objects
-                detectOverrides(currentObj, templateObj, overrideObj);
+                // ✅ Direct recursive call with depth+1
+                detectOverrides(currentObj, templateObj, overrideObj, depth + 1);
                 
-                // Remove empty nested objects from override
                 if (overrideObj.size() == 0) {
                     overrideOutput.remove(key);
                 }
                 
             } else {
-                // Primitive values - compare directly
                 if (!deepCompare(currentValue, templateValue)) {
                     overrideOutput[key].set(currentValue);
                 }
             }
         } else {
-            // Key doesn't exist in template - always store
             overrideOutput[key].set(currentValue);
         }
     }
 }
 
-bool deepCompare(const JsonVariant& a, const JsonVariant& b) {
-    // Handle nested objects recursively
+// ✅ CLEAN: Single function, no useless wrapper
+bool deepCompare(const JsonVariant& a, const JsonVariant& b, int depth) {
+    // ✅ Safety check built in
+    if (depth > MAX_RECURSION_DEPTH) {
+        Serial.println("⚠️  Max recursion depth reached in deepCompare!");
+        return false;
+    }
+    
     if (a.is<JsonObject>() && b.is<JsonObject>()) {
         JsonObject objA = a.as<JsonObject>();
         JsonObject objB = b.as<JsonObject>();
         
         if (objA.size() != objB.size()) return false;
         
-        // 🆕 Use temporary override to check if objects are identical
-        JsonDocument tempDoc;
-        JsonObject tempOverride = tempDoc.to<JsonObject>();
-        detectOverrides(objA, objB, tempOverride);
-        
-        return (tempOverride.size() == 0); // Objects are identical if no overrides
+        for (JsonPair kv : objA) {
+            const char* key = kv.key().c_str();
+            if (objB[key].isNull() || !deepCompare(kv.value(), objB[key], depth + 1)) {
+                return false;
+            }
+        }
+        return true;
     }
     
-    // Handle arrays
     if (a.is<JsonArray>() && b.is<JsonArray>()) {
         JsonArray arrA = a.as<JsonArray>();
         JsonArray arrB = b.as<JsonArray>();
@@ -89,29 +104,32 @@ bool deepCompare(const JsonVariant& a, const JsonVariant& b) {
         if (arrA.size() != arrB.size()) return false;
         
         for (size_t i = 0; i < arrA.size(); i++) {
-            if (!deepCompare(arrA[i], arrB[i])) {
+            if (!deepCompare(arrA[i], arrB[i], depth + 1)) {
                 return false;
             }
         }
         return true;
     }
     
-    // Primitive types
     return a == b;
 }
 
-void deepMerge(const JsonObject& source, JsonObject& dest) {
+// ✅ CLEAN: Single function, no useless wrapper
+void deepMerge(const JsonObject& source, JsonObject& dest, int depth) {
+    // ✅ Safety check built in
+    if (depth > MAX_RECURSION_DEPTH) {
+        Serial.println("⚠️  Max recursion depth reached in deepMerge!");
+        return;
+    }
+    
     for (JsonPair kv : source) {
         const char* key = kv.key().c_str();
         
-        // 🆕 FIX: Use new ArduinoJson API
         if (kv.value().is<JsonObject>() && dest[key].is<JsonObject>()) {
-            // Recursively merge nested objects
             JsonObject nestedSource = kv.value().as<JsonObject>();
             JsonObject nestedDest = dest[key].as<JsonObject>();
-            deepMerge(nestedSource, nestedDest);
+            deepMerge(nestedSource, nestedDest, depth + 1);
         } else {
-            // Replace or add the value
             dest[key].set(kv.value());
         }
     }
@@ -120,6 +138,9 @@ void deepMerge(const JsonObject& source, JsonObject& dest) {
 bool saveTemplates(const JsonDocument& templates) {
     String jsonString;
     serializeJson(templates, jsonString);
+    
+    clearTemplateCache();
+    
     return writeFile("/templates.json", jsonString);
 }
 
@@ -128,11 +149,19 @@ bool loadTemplates(JsonDocument& templates) {
         return false;
     }
     
-    String jsonString = readFile("/templates.json");
-    if (jsonString.length() == 0) {
+    // Use streaming for large template files
+    File file = LittleFS.open("/templates.json", "r");
+    if (!file) {
         return false;
     }
     
-    DeserializationError error = deserializeJson(templates, jsonString);
+    DeserializationError error = deserializeJson(templates, file);
+    file.close();
     return !error;
+}
+
+void clearTemplateCache() {
+    cacheLoaded = false;
+    templatesCache.clear();
+    Serial.println("✅ Template cache cleared");
 }

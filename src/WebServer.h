@@ -35,7 +35,6 @@ extern unsigned long lastSequenceTime; // For "Since Prev" across all devices
 extern unsigned long systemStartTime; // For "Real Time" calculation
 
 // ==================== TIMING FUNCTIONS ====================
-
 unsigned long calculateTimeDelta(uint8_t slaveId, const char* slaveName);
 String getSameDeviceDelta(uint8_t slaveId, const char* slaveName, bool resetTimer = false);
 void updateDeviceTiming(uint8_t slaveId, const char* slaveName, unsigned long currentTime);
