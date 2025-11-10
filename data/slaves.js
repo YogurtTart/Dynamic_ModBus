@@ -70,13 +70,13 @@ class SlavesManager {
         const slaveId = FormHelper.getValue('slave_id');
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
-        const bitAddress = FormHelper.getValue('bit_address');
+        const registerSize = FormHelper.getValue('register_size');
         const deviceType = FormHelper.getValue('device_type'); // 🆕 Get device type
         const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         const slaveName = FormHelper.getValue('slave_name');
         const mqttTopic = FormHelper.getValue('mqtt_topic');
 
-        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'bit_address', 'mqtt_topic'];
+        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'register_size', 'mqtt_topic'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
         if (!deviceIdentifier) {
@@ -99,7 +99,7 @@ class SlavesManager {
             id: parseInt(slaveId),
             startReg: parseInt(startReg),
             numReg: parseInt(numReg),
-            bitAddress: parseInt(bitAddress),
+            registerSize: parseInt(registerSize),
             name: slaveName,
             mqttTopic: mqttTopic,
             deviceType: deviceType // 🆕 CRITICAL: Store device type
@@ -115,7 +115,7 @@ class SlavesManager {
     clearSlaveForm() {
         FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
 
-        document.getElementById('bit_address').value = 1;
+        document.getElementById('register_size').value = 1;
         document.getElementById('device_type').value = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
@@ -150,7 +150,7 @@ class SlavesManager {
                 <td>${slave.name}</td>
                 <td>${slave.startReg}</td>
                 <td>${slave.numReg}</td>
-                <td>${slave.bitAddress}</td>
+                <td>${slave.registerSize}</td> 
                 <td><code>${slave.mqttTopic}</code></td>
                 <td>
                     <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
@@ -180,7 +180,7 @@ class SlavesManager {
                 id: slave.id,
                 startReg: slave.startReg,
                 numReg: slave.numReg,
-                bitAddress: slave.bitAddress,
+                registerSize: slave.registerSize,
                 name: slave.name,
                 mqttTopic: slave.mqttTopic,
                 deviceType: slave.deviceType // 🆕 CRITICAL: Include deviceType

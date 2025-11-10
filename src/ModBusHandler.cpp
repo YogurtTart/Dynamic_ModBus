@@ -56,25 +56,31 @@ float convertRegisterToHumidity(uint16_t registerValue, float divider) {
     return (registerValue * 0.1f) / divider;
 }
 
-float calculateCurrent(uint16_t registerValue, float ct, float divider) {
-    Serial.printf("🔍 CALC CURRENT: reg=%d, ct=%.1f, divider=%.1f\n", registerValue, ct, divider);
+// 🆕 UPDATE calculation functions to accept uint64_t
+
+float calculateCurrent(uint64_t registerValue, float ct, float divider) {
+    Serial.printf("🔍 CALC CURRENT: reg=%llu, ct=%.1f, divider=%.1f\n", registerValue, ct, divider);
     return (registerValue * ct / 10000.0f) / divider;
 }
 
-float calculateSinglePhasePower(int16_t registerValue, float pt, float ct, float divider) {
+float calculateSinglePhasePower(int64_t registerValue, float pt, float ct, float divider) {
     return (registerValue * pt * ct / 100.0f) / divider;
 }
 
-float calculateThreePhasePower(int16_t registerValue, float pt, float ct, float divider) {
+float calculateThreePhasePower(int64_t registerValue, float pt, float ct, float divider) {
     return (registerValue * pt * ct / 10.0f) / divider;
 }
 
-float calculatePowerFactor(int16_t registerValue, float divider) {
-    return (registerValue / 10000.0f) / divider;
+float calculatePowerFactor(int64_t registerValue, float divider) {
+    return (registerValue / 1000.0f) / divider;
 }
 
-float calculateVoltage(uint16_t registerValue, float pt, float divider) {
+float calculateVoltage(uint64_t registerValue, float pt, float divider) {
     return (registerValue * pt / 100.0f) / divider;
+}
+
+float readEnergyValue(uint64_t rawValue, float divider) {
+    return (rawValue / 100.0f) / divider;
 }
 
 // ==================== MODBUS INITIALIZATION ====================
@@ -102,6 +108,8 @@ DeviceType determineDeviceTypeFromString(const String& deviceTypeStr) {
 }
 
 void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
+
+    Serial.printf("🔍 Register size: %d\n", slave.registerSize);
     switch(slave.deviceType) {
         case DEVICE_G01S:
             loadG01SParameters(slave.config.sensor, slaveObj);
@@ -275,15 +283,30 @@ bool modbusReloadSlaves() {
         
         mergeWithOverride(slaveObj, templateConfig, mergedConfig);
         
-        // Load basic fields - use mergedConfig if available, otherwise fallback to slaveObj
+        // 🆕 FIX: Load registerSize BEFORE template merge
         slaves[i].id = mergedConfig["id"] | slaveObj["id"];
         slaves[i].startRegister = mergedConfig["startReg"] | slaveObj["startReg"];
         slaves[i].registerCount = mergedConfig["numReg"] | slaveObj["numReg"];
         slaves[i].name = mergedConfig["name"] | slaveObj["name"].as<String>();
         slaves[i].mqttTopic = mergedConfig["mqttTopic"] | slaveObj["mqttTopic"].as<String>();
-        slaves[i].deviceType = determineDeviceTypeFromString(deviceType); // Use original deviceType
+        slaves[i].deviceType = determineDeviceTypeFromString(deviceType);
         
-        // 🆕 Load device parameters from MERGED config (template + override)
+        // 🆕 CRITICAL FIX: Load registerSize DIRECTLY from slaveObj, NOT mergedConfig
+        if (slaveObj["registerSize"].is<int>()) {
+            int size = slaveObj["registerSize"];
+            if (size >= 1 && size <= 4) {
+                slaves[i].registerSize = static_cast<RegisterSize>(size);
+                Serial.printf("✅ LOADED registerSize: %d\n", slaves[i].registerSize);
+            } else {
+                slaves[i].registerSize = SIZE_16BIT;
+                Serial.printf("❌ INVALID registerSize: %d, defaulting to 1\n", size);
+            }
+        } else {
+            slaves[i].registerSize = SIZE_16BIT;
+            Serial.printf("❌ NO registerSize in config, defaulting to 1\n");
+        }
+        
+        // 🆕 Load device parameters from MERGED config
         loadDeviceParameters(slaves[i], mergedConfig);
         
         // SIMPLIFIED Debug - just show basic info
@@ -297,60 +320,118 @@ bool modbusReloadSlaves() {
 
 // ==================== DATA PROCESSING HELPERS ====================
 
-void processSensorData(JsonObject& root, const SensorConfig& sensorConfig) {
-     Serial.printf("🔍 PROCESS G01S - USING: tempDivider=%.1f, humidDivider=%.1f\n", 
-                 sensorConfig.tempDivider, sensorConfig.humidDivider);
-    root["temperature"] = convertRegisterToTemperature(node.getResponseBuffer(0), sensorConfig.tempDivider);
-    root["humidity"] = convertRegisterToHumidity(node.getResponseBuffer(1), sensorConfig.humidDivider);
+void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint64_t* combinedValues, RegisterSize regSize) {
+
+        // Convert back to uint16_t for existing functions (G01S is always 16-bit)
+        uint16_t tempRaw = combinedValues[0] & 0xFFFF;
+        uint16_t humidRaw = combinedValues[1] & 0xFFFF;
+        
+        // Use existing functions
+        root["temperature"] = convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider);
+        root["humidity"] = convertRegisterToHumidity(humidRaw, sensorConfig.humidDivider);
+   
 }
 
-void processMeterData(JsonObject& root, const MeterConfig& meterConfig) {
-
-    Serial.printf("🔍 PROCESS METER - ACurrent: ct=%.1f, pt=%.1f, divider=%.1f\n",
-                 meterConfig.aCurrent.ct, meterConfig.aCurrent.pt, meterConfig.aCurrent.divider);
-    // Current values
-    root["A_Current"] = calculateCurrent(node.getResponseBuffer(0), meterConfig.aCurrent.ct, meterConfig.aCurrent.divider);
-    root["B_Current"] = calculateCurrent(node.getResponseBuffer(1), meterConfig.bCurrent.ct, meterConfig.bCurrent.divider);
-    root["C_Current"] = calculateCurrent(node.getResponseBuffer(2), meterConfig.cCurrent.ct, meterConfig.cCurrent.divider);
-    root["Zero_Phase_Current"] = calculateCurrent(node.getResponseBuffer(3), meterConfig.zeroPhaseCurrent.ct, meterConfig.zeroPhaseCurrent.divider);
+void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize) {
+    int valueIndex = 0;
     
-    // Active Power
-    root["A_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(4), meterConfig.aActivePower.pt, meterConfig.aActivePower.ct, meterConfig.aActivePower.divider);
-    root["B_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(5), meterConfig.bActivePower.pt, meterConfig.bActivePower.ct, meterConfig.bActivePower.divider);
-    root["C_Active_Power"] = calculateSinglePhasePower(node.getResponseBuffer(6), meterConfig.cActivePower.pt, meterConfig.cActivePower.ct, meterConfig.cActivePower.divider);
-    root["Total_Active_Power"] = calculateThreePhasePower(node.getResponseBuffer(7), meterConfig.totalActivePower.pt, meterConfig.totalActivePower.ct, meterConfig.totalActivePower.divider);
+    // Current values (unsigned - no change)
+    root["A_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.aCurrent.ct, meterConfig.aCurrent.divider);
+    root["B_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.bCurrent.ct, meterConfig.bCurrent.divider);
+    root["C_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.cCurrent.ct, meterConfig.cCurrent.divider);
+    root["Zero_Phase_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.zeroPhaseCurrent.ct, meterConfig.zeroPhaseCurrent.divider);
     
-    // Reactive Power
-    root["A_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(8), meterConfig.aReactivePower.pt, meterConfig.aReactivePower.ct, meterConfig.aReactivePower.divider);
-    root["B_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(9), meterConfig.bReactivePower.pt, meterConfig.bReactivePower.ct, meterConfig.bReactivePower.divider);
-    root["C_Reactive_Power"] = calculateSinglePhasePower(node.getResponseBuffer(10), meterConfig.cReactivePower.pt, meterConfig.cReactivePower.ct, meterConfig.cReactivePower.divider);
-    root["Total_Reactive_Power"] = calculateThreePhasePower(node.getResponseBuffer(11), meterConfig.totalReactivePower.pt, meterConfig.totalReactivePower.ct, meterConfig.totalReactivePower.divider);
+    // 🆕 ACTIVE POWER - USE SMART SIGN CONVERSION
+    root["A_Active_Power_(kW)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize), 
+        meterConfig.aActivePower.pt, meterConfig.aActivePower.ct, meterConfig.aActivePower.divider
+    );
+    root["B_Active_Power_(kW)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.bActivePower.pt, meterConfig.bActivePower.ct, meterConfig.bActivePower.divider
+    );
+    root["C_Active_Power_(kW)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.cActivePower.pt, meterConfig.cActivePower.ct, meterConfig.cActivePower.divider
+    );
+    root["Total_Active_Power_(kW)"] = calculateThreePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.totalActivePower.pt, meterConfig.totalActivePower.ct, meterConfig.totalActivePower.divider
+    );
     
-    // Apparent Power
-    root["A_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(12), meterConfig.aApparentPower.pt, meterConfig.aApparentPower.ct, meterConfig.aApparentPower.divider);
-    root["B_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(13), meterConfig.bApparentPower.pt, meterConfig.bApparentPower.ct, meterConfig.bApparentPower.divider);
-    root["C_Apparent_Power"] = calculateSinglePhasePower(node.getResponseBuffer(14), meterConfig.cApparentPower.pt, meterConfig.cApparentPower.ct, meterConfig.cApparentPower.divider);
-    root["Total_Apparent_Power"] = calculateThreePhasePower(node.getResponseBuffer(15), meterConfig.totalApparentPower.pt, meterConfig.totalApparentPower.ct, meterConfig.totalApparentPower.divider);
+    // 🆕 REACTIVE POWER - USE SMART SIGN CONVERSION
+    root["A_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.aReactivePower.pt, meterConfig.aReactivePower.ct, meterConfig.aReactivePower.divider
+    );
+    root["B_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.bReactivePower.pt, meterConfig.bReactivePower.ct, meterConfig.bReactivePower.divider
+    );
+    root["C_Reactive_Power_(VAr)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.cReactivePower.pt, meterConfig.cReactivePower.ct, meterConfig.cReactivePower.divider
+    );
+    root["Total_Reactive_Power_(VAr)"] = calculateThreePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.totalReactivePower.pt, meterConfig.totalReactivePower.ct, meterConfig.totalReactivePower.divider
+    );
     
-    // Power Factor
-    root["A_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(16), meterConfig.aPowerFactor.divider);
-    root["B_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(17), meterConfig.bPowerFactor.divider);
-    root["C_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(18), meterConfig.cPowerFactor.divider);
-    root["Total_Power_Factor"] = calculatePowerFactor(node.getResponseBuffer(19), meterConfig.totalPowerFactor.divider);
+    // 🆕 APPARENT POWER - USE SMART SIGN CONVERSION
+    root["A_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.aApparentPower.pt, meterConfig.aApparentPower.ct, meterConfig.aApparentPower.divider
+    );
+    root["B_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.bApparentPower.pt, meterConfig.bApparentPower.ct, meterConfig.bApparentPower.divider
+    );
+    root["C_Apparent_Power_(VA)"] = calculateSinglePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.cApparentPower.pt, meterConfig.cApparentPower.ct, meterConfig.cApparentPower.divider
+    );
+    root["Total_Apparent_Power_(VA)"] = calculateThreePhasePower(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.totalApparentPower.pt, meterConfig.totalApparentPower.ct, meterConfig.totalApparentPower.divider
+    );
+    
+    // 🆕 POWER FACTOR - USE SMART SIGN CONVERSION
+    root["A_Power_Factor"] = calculatePowerFactor(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.aPowerFactor.divider
+    );
+    root["B_Power_Factor"] = calculatePowerFactor(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.bPowerFactor.divider
+    );
+    root["C_Power_Factor"] = calculatePowerFactor(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.cPowerFactor.divider
+    );
+    root["Total_Power_Factor"] = calculatePowerFactor(
+        convertToSigned(combinedValues[valueIndex++], regSize),
+        meterConfig.totalPowerFactor.divider
+    );
 }
 
-void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig) {
-    root["A_Voltage"] = calculateVoltage(node.getResponseBuffer(0), voltageConfig.aVoltage.pt, voltageConfig.aVoltage.divider);
-    root["B_Voltage"] = calculateVoltage(node.getResponseBuffer(1), voltageConfig.bVoltage.pt, voltageConfig.bVoltage.divider);
-    root["C_Voltage"] = calculateVoltage(node.getResponseBuffer(2), voltageConfig.cVoltage.pt, voltageConfig.cVoltage.divider);
-    root["Phase_Voltage_Mean"] = calculateVoltage(node.getResponseBuffer(3), voltageConfig.phaseVoltageMean.pt, voltageConfig.phaseVoltageMean.divider);
-    root["Zero_Sequence_Voltage"] = calculateVoltage(node.getResponseBuffer(4), voltageConfig.zeroSequenceVoltage.pt, voltageConfig.zeroSequenceVoltage.divider);
+void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize) {
+
+    int valueIndex = 0;
+    
+    root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.aVoltage.pt, voltageConfig.aVoltage.divider);
+    root["B_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.bVoltage.pt, voltageConfig.bVoltage.divider);
+    root["C_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.cVoltage.pt, voltageConfig.cVoltage.divider);
+    root["Phase_Voltage_Mean"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.phaseVoltageMean.pt, voltageConfig.phaseVoltageMean.divider);
+    root["Zero_Sequence_Voltage"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.zeroSequenceVoltage.pt, voltageConfig.zeroSequenceVoltage.divider);
 }
 
-void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig) {
-    root["Total_Active_Energy"] = readEnergyValue(0, energyConfig.totalActiveEnergy.divider);
-    root["Import_Active_Energy"] = readEnergyValue(2, energyConfig.importActiveEnergy.divider);
-    root["Export_Active_Energy"] = readEnergyValue(4, energyConfig.exportActiveEnergy.divider);
+void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
+    
+    int valueIndex = 0;
+    
+    root["Total_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.totalActiveEnergy.divider);
+    root["Import_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.importActiveEnergy.divider);
+    root["Export_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.exportActiveEnergy.divider);
 }
 
 void publishData(const SensorSlave& slave, const JsonDocument& doc) {
@@ -408,25 +489,35 @@ void processNonBlockingData() {
     root["mqtt_topic"] = slave.mqttTopic;
     root["start_reg"] = slave.startRegister;
     root["num_reg"] = slave.registerCount;
+    root["register_size"] = slave.registerSize;
 
-    // Device-specific data processing
+    // 🆕 STEP 1: Read ALL raw registers into array
+    uint16_t* rawRegisters = new uint16_t[slave.registerCount];
+    readAllRegistersIntoArray(rawRegisters, slave.registerCount);
+    
+    // 🆕 STEP 2: Combine registers based on registerSize
+    uint16_t combinedCount = 0;
+    uint64_t* combinedValues = combineRegistersBySize(rawRegisters, slave.registerCount, slave.registerSize, combinedCount);
+    
+    // 🆕 STEP 3: Process data with combined array
     switch(slave.deviceType) {
         case DEVICE_G01S:
-            processSensorData(root, slave.config.sensor);
+            processSensorData(root, slave.config.sensor, combinedValues, slave.registerSize);
             break;
-            
         case DEVICE_HEYLA_PARAM:
-            processMeterData(root, slave.config.meter);
+            processMeterData(root, slave.config.meter, combinedValues, slave.registerSize);
             break;
-            
         case DEVICE_HEYLA_VOLTAGE:
-            processVoltageData(root, slave.config.voltage);
+            processVoltageData(root, slave.config.voltage, combinedValues, slave.registerSize);
             break;
-            
         case DEVICE_HEYLA_ENERGY:
-            processEnergyData(root, slave.config.energy);
+            processEnergyData(root, slave.config.energy, combinedValues, slave.registerSize);
             break;
     }
+    
+    // Clean up memory
+    delete[] rawRegisters;
+    delete[] combinedValues;
     
     // Publish results
     publishData(slave, doc);
@@ -671,4 +762,68 @@ void addBatchSeparatorMessage() {
     serializeJson(doc, output);
     
     addDebugMessage("BATCH", output.c_str(), "0", "0");
+}
+
+// ==================== REGISTER PROCESSING FUNCTIONS ====================
+
+void readAllRegistersIntoArray(uint16_t* registerArray, uint16_t numRegisters) {
+    for (int i = 0; i < numRegisters; i++) {
+        registerArray[i] = node.getResponseBuffer(i);
+    }
+}
+
+uint64_t combineRegisters(uint16_t* registers, RegisterSize size, uint16_t startIndex) {
+    uint64_t result = 0;
+    
+    for (int i = 0; i < size; i++) {
+        result = (result << 16) | registers[startIndex + i];
+    }
+    
+    return result;
+}
+
+uint64_t* combineRegistersBySize(uint16_t* rawRegisters, uint16_t numRawRegisters, RegisterSize regSize, uint16_t& combinedCount) {
+    // Calculate how many combined values we'll have
+    combinedCount = numRawRegisters / regSize;
+    
+    // Allocate array for combined values
+    uint64_t* combinedArray = new uint64_t[combinedCount];
+    
+    // Combine registers according to size
+    for (int i = 0; i < combinedCount; i++) {
+        uint16_t startIndex = i * regSize;
+        combinedArray[i] = combineRegisters(rawRegisters, regSize, startIndex);
+    }
+    
+    return combinedArray;
+}
+
+// 🆕 ADD THIS FUNCTION - Proper sign extension for different register sizes
+int64_t convertToSigned(uint64_t value, RegisterSize regSize) {
+    switch(regSize) {
+        case SIZE_16BIT:
+            // For 16-bit values - extend sign bit
+            return (int16_t)(value & 0xFFFF);
+            
+        case SIZE_32BIT:
+            // For 32-bit values - extend sign bit  
+            return (int32_t)(value & 0xFFFFFFFF);
+            
+        case SIZE_48BIT:
+            // For 48-bit values - manual sign extension
+            if (value & 0x800000000000) {
+                // Negative - extend with 1s
+                return (int64_t)(value | 0xFFFF000000000000);
+            } else {
+                // Positive - extend with 0s
+                return value;
+            }
+            
+        case SIZE_64BIT:
+            // For 64-bit - let C++ handle it
+            return (int64_t)value;
+            
+        default:
+            return (int64_t)value;
+    }
 }

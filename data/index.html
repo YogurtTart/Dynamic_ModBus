@@ -327,8 +327,8 @@
                                 
                                 <!-- Bit Address Dropdown -->
                                 <div class="input-group compact">
-                                    <label for="bit_address" class="input-label">Register's Amount</label>
-                                    <select id="bit_address" class="bit-address-dropdown">
+                                    <label for="register_size" class="input-label">Register's Amount</label>
+                                    <select id="register_size" class="register_size-dropdown">
                                         <option value="1">1</option>
                                         <option value="2">2</option>
                                         <option value="3">3</option>
@@ -373,10 +373,6 @@
                                 <button type="button" class="btn btn-primary" onclick="window.slavesManager.addSlave()">
                                     <span class="btn-icon">➕</span>
                                     Add Slave Device
-                                </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.slavesManager.loadSlaveConfig()">
-                                    <span class="btn-icon">📥</span>
-                                    Load Slave
                                 </button>
                                 <button type="button" class="btn btn-secondary" onclick="window.slavesManager.saveSlaveConfig()">
                                     <span class="btn-icon">💾</span>

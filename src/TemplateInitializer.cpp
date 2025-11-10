@@ -25,7 +25,13 @@ void addMeterConfig(JsonObject& templateObj) {
         JsonObject param = meterParams[config].to<JsonObject>();
         param["ct"] = 1.0;
         param["pt"] = 1.0;
-        param["divider"] = 1.0;
+
+        // 🆕 SET 1000 DIVIDER FOR POWER VALUES, 1.0 FOR OTHERS
+        if (strstr(config, "ActivePower") != nullptr) { // Contains "Power"
+            param["divider"] = 1000.0;
+        } else {
+            param["divider"] = 1.0;
+        }
     }
 }
 

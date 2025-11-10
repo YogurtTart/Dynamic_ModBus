@@ -191,9 +191,9 @@
     font-family: monospace;
 }
 
-/* ===== BIT ADDRESS DROPDOWN STYLES ===== */
+/* ===== register_size DROPDOWN STYLES ===== */
 /* Use same simple style as other text inputs */
-.bit-address-dropdown {
+.register_size-dropdown {
     width: 100%;
     padding: var(--space-md);
     border: 1px solid var(--border-color);
@@ -205,14 +205,14 @@
     cursor: pointer;
 }
 
-.bit-address-dropdown:focus {
+.register_size-dropdown:focus {
     outline: none;
     border-color: var(--border-focus);
     box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
 }
 
 /* Style dropdown options */
-.bit-address-dropdown option {
+.register_size-dropdown option {
     background-color: #1a2435;
     color: var(--text-primary);
     padding: var(--space-sm);

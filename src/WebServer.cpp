@@ -366,7 +366,7 @@ void handleGetSlaveConfig() {
         mergedConfig["startReg"] = foundSlave["startReg"];
         mergedConfig["numReg"] = foundSlave["numReg"];
         mergedConfig["mqttTopic"] = foundSlave["mqttTopic"];
-        mergedConfig["bitAddress"] = foundSlave["bitAddress"];
+        mergedConfig["registerSize"] = foundSlave["registerSize"];
         
         // 9. Send the COMPLETE config to UI
         String response;
@@ -467,7 +467,7 @@ void handleUpdateSlaveConfig() {
             strcmp(key, "startReg") != 0 &&
             strcmp(key, "numReg") != 0 &&
             strcmp(key, "mqttTopic") != 0 &&
-            strcmp(key, "bitAddress") != 0) {
+            strcmp(key, "registerSize") != 0) {
             paramsOnly[key].set(kv.value());
         }
     }
@@ -491,7 +491,7 @@ void handleUpdateSlaveConfig() {
     slavesArray[slaveIndex]["startReg"] = updateDoc["startReg"];  // 🆕 Updated if changed
     slavesArray[slaveIndex]["numReg"] = updateDoc["numReg"];      // 🆕 Updated if changed
     slavesArray[slaveIndex]["mqttTopic"] = updateDoc["mqttTopic"]; // 🆕 Updated if changed
-    slavesArray[slaveIndex]["bitAddress"] = updateDoc["bitAddress"]; // 🆕 Updated if changed
+    slavesArray[slaveIndex]["registerSize"] = updateDoc["registerSize"]; // 🆕 Updated if changed
     
     // Only add override if there are any parameter overrides
     if (overrideOutput.size() > 0) {
