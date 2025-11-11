@@ -7,6 +7,7 @@
 #include "EEEProm.h"
 #include "FSHandler.h"
 #include "TemplateManager.h"
+#include "WiFiHandler.h"
 
 // ==================== EXTERNAL DECLARATIONS ====================
 
@@ -56,6 +57,7 @@ void handleGetIpInfo();
 
 void handleSaveWifi();
 void handleGetWifi();
+void handleControlSTA();
 
 // ==================== SLAVE CONFIGURATION HANDLERS ====================
 

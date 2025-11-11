@@ -47,7 +47,7 @@
             <!-- Status Message (Global) -->
             <div class="status-message" id="status" aria-live="polite"></div>
 
-            <!-- ===== WIFI TAB ===== -->
+                    <!-- ===== WIFI TAB ===== -->
             <div class="tab-content active" id="wifi-tab">
                 <div class="content-header">
                     <h2>WiFi & MQTT Network Configuration</h2>
@@ -192,22 +192,26 @@
                     </div>
                 </form>
 
-                <!-- Network Status Section -->
-                <section class="form-section" aria-labelledby="ip-heading">
+                <!-- Combined Network Status & STA Control Section -->
+                <section class="form-section" aria-labelledby="network-status-heading">
                     <header class="section-header">
-                        <h3 id="ip-heading" class="section-title">
+                        <h3 id="network-status-heading" class="section-title">
                             <span class="section-icon">🌐</span>
-                            Network Status
+                            Network Status & Control
                         </h3>
-                        <p class="section-description">Current device IP addresses</p>
+                        <p class="section-description">Current device network status and STA connection control</p>
                     </header>
                     
                     <div class="ip-info-grid">
+                        <!-- Station Mode Status -->
                         <div class="ip-info-group">
-                            <h4 class="ip-info-title">
-                                <span class="ip-info-icon">🖧</span>
-                                Station Mode (STA)
-                            </h4>
+                            <div class="group-header">
+                                <h4 class="ip-info-title">
+                                    <span class="ip-info-icon">🖧</span>
+                                    Station Mode (STA)
+                                </h4>
+                                <span id="sta_status_badge" class="badge status-disconnected">Disconnected</span>
+                            </div>
                             <div class="ip-info-item">
                                 <span class="ip-label">IP Address:</span>
                                 <span id="sta_ip" class="ip-value">Loading...</span>
@@ -222,15 +226,37 @@
                             </div>
                             <div class="ip-info-item">
                                 <span class="ip-label">Status:</span>
-                                <span id="sta_status" class="ip-value status-connected">Connected</span>
+                                <span id="sta_status" class="ip-value status-disconnected">Disconnected</span>
+                            </div>
+                            
+                            <!-- STA Control Buttons -->
+                            <div class="action-bar compact sta-control-buttons">
+                                <button type="button" 
+                                        class="btn btn-primary" 
+                                        id="connectStaBtn"
+                                        onclick="window.wifiManager.connectSTA()">
+                                    <span class="btn-icon">🔌</span>
+                                    Connect STA
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-warning" 
+                                        id="disconnectStaBtn"
+                                        onclick="window.wifiManager.disconnectSTA()">
+                                    <span class="btn-icon">🔴</span>
+                                    Disconnect
+                                </button>
                             </div>
                         </div>
                         
+                        <!-- Access Point Status -->
                         <div class="ip-info-group">
-                            <h4 class="ip-info-title">
-                                <span class="ip-info-icon">📡</span>
-                                Access Point (AP)
-                            </h4>
+                            <div class="group-header">
+                                <h4 class="ip-info-title">
+                                    <span class="ip-info-icon">📡</span>
+                                    Access Point (AP)
+                                </h4>
+                                <span class="badge status-connected">Active</span>
+                            </div>
                             <div class="ip-info-item">
                                 <span class="ip-label">IP Address:</span>
                                 <span id="ap_ip" class="ip-value">Loading...</span>
@@ -246,13 +272,27 @@
                         </div>
                     </div>
                     
-                    <div class="action-bar compact">
-                        <button type="button" class="btn btn-secondary" onclick="window.wifiManager.refreshIPInfo()">
+                    <!-- Global Refresh Button -->
+                    <div class="action-bar compact" style="margin-top: var(--space-lg);">
+                        <button type="button" 
+                                class="btn btn-secondary" 
+                                onclick="window.wifiManager.refreshIPInfo()">
                             <span class="btn-icon">↻</span>
-                            Refresh IP Info
+                            Refresh All Status
                         </button>
                     </div>
+                    
+                    <div class="section-description" style="margin-top: var(--space-lg);">
+                        <p><strong>STA Connection Control:</strong></p>
+                        <p>• Device starts in AP mode with STA interface ready</p>
+                        <p>• Click <strong>"Connect STA"</strong> to manually connect to saved Station Mode WiFi</p>
+                        <p>• Click <strong>"Disconnect"</strong> to return to AP-only mode</p>
+                        <p>• Click <strong>"Refresh All Status"</strong> to update both STA and AP information</p>
+                        <p>• Status auto-updates every 5 seconds during connection attempts</p>
+                        <p>• <strong>No auto-reconnect</strong> - STA stays disconnected until manually connected</p>
+                    </div>
                 </section>
+
 
                 <!-- Info Panel -->
                 <section class="config-panel" aria-labelledby="wifi-info-heading">

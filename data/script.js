@@ -7,6 +7,7 @@ class WifiManager {
     init() {
         this.bindEvents();
         this.loadInitialData();
+        this.startAutoRefresh();
     }
 
     bindEvents() {
@@ -28,12 +29,14 @@ class WifiManager {
                 this.loadSettings(),
                 this.loadIPInfo()
             ]);
-            
-            // Auto-refresh IP info every 30 seconds
-            setInterval(() => this.loadIPInfo(), 30000);
         } catch (error) {
             console.error('WiFi initialization error:', error);
         }
+    }
+
+    startAutoRefresh() {
+        // Auto-refresh IP info every 5 seconds (more frequent for connection status)
+        setInterval(() => this.loadIPInfo(), 5000);
     }
 
     async loadSettings() {
@@ -54,7 +57,6 @@ class WifiManager {
                 FormHelper.setValue(id, value);
             });
             
-            StatusManager.showStatus('WiFi & MQTT settings loaded successfully!', 'success');
         } catch (error) {
             // Error handled by ApiClient
         }
@@ -76,7 +78,7 @@ class WifiManager {
         try {
             await ApiClient.postForm('/savewifi', formData);
             StatusManager.showStatus(
-                'WiFi & MQTT settings saved successfully! Device will use new settings on restart.', 
+                'WiFi & MQTT settings saved successfully!', 
                 'success'
             );
         } catch (error) {
@@ -100,24 +102,84 @@ class WifiManager {
         document.getElementById('sta_gateway').textContent = data.sta_gateway || 'N/A';
         
         const staStatus = document.getElementById('sta_status');
-        if (data.sta_connected) {
+        const staStatusBadge = document.getElementById('sta_status_badge');
+        
+        // Handle different connection states
+        if (data.sta_connecting) {
+            staStatus.textContent = 'Connecting...';
+            staStatus.className = 'ip-value status-connecting';
+            staStatusBadge.textContent = 'Connecting';
+            staStatusBadge.className = 'badge status-connecting';
+        } else if (data.sta_connected) {
             staStatus.textContent = 'Connected';
             staStatus.className = 'ip-value status-connected';
+            staStatusBadge.textContent = 'Connected';
+            staStatusBadge.className = 'badge status-connected';
         } else {
             staStatus.textContent = 'Disconnected';
             staStatus.className = 'ip-value status-disconnected';
+            staStatusBadge.textContent = 'Disconnected';
+            staStatusBadge.className = 'badge status-disconnected';
         }
         
         // AP information
         document.getElementById('ap_ip').textContent = data.ap_ip || 'N/A';
         const clientCount = data.ap_connected_clients || 0;
         document.getElementById('ap_clients').textContent = `${clientCount} client(s)`;
+        
+        // Update connection buttons state
+        this.updateConnectionButtons(data.sta_connecting, data.sta_connected);
+    }
+
+    // Update connection buttons based on state (same as before)
+    updateConnectionButtons(connecting, connected) {
+        const connectBtn = document.getElementById('connectStaBtn');
+        const disconnectBtn = document.getElementById('disconnectStaBtn');
+        const refreshBtn = document.querySelector('#network-status-heading ~ .ip-info-grid .btn-secondary');
+        
+        if (connectBtn && disconnectBtn) {
+            if (connecting) {
+                connectBtn.disabled = true;
+                connectBtn.innerHTML = '<span class="btn-icon">⏳</span> Connecting...';
+                disconnectBtn.disabled = true;
+            } else if (connected) {
+                connectBtn.disabled = true;
+                connectBtn.innerHTML = '<span class="btn-icon">✅</span> Connected';
+                disconnectBtn.disabled = false;
+            } else {
+                connectBtn.disabled = false;
+                connectBtn.innerHTML = '<span class="btn-icon">🔌</span> Connect STA';
+                disconnectBtn.disabled = true;
+            }
+        }
     }
 
     async refreshIPInfo() {
-        StatusManager.showStatus('Refreshing network status...', 'info');
+        StatusManager.showStatus('Refreshing all network status...', 'info');
         await this.loadIPInfo();
         StatusManager.showStatus('Network status updated', 'success');
+    }
+
+    // NEW: Connect to STA manually
+    async connectSTA() {
+        try {
+            StatusManager.showStatus('Starting STA connection...', 'info');
+            await ApiClient.post('/controlsta', { action: 'connect' });
+            // Status will update automatically via auto-refresh
+        } catch (error) {
+            StatusManager.showStatus('Failed to start STA connection', 'error');
+        }
+    }
+
+    // NEW: Disconnect STA manually
+    async disconnectSTA() {
+        try {
+            StatusManager.showStatus('Disconnecting STA...', 'info');
+            await ApiClient.post('/controlsta', { action: 'disconnect' });
+            // Status will update automatically via auto-refresh
+        } catch (error) {
+            StatusManager.showStatus('Failed to disconnect STA', 'error');
+        }
     }
 
     refreshUI() {

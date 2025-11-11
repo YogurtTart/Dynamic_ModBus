@@ -24,9 +24,9 @@ void addMeterConfig(JsonObject& templateObj) {
     
     // ✅ ONLY these get 1000 divider
     const char* power1000Configs[] = {
-        "aActivePower", "bActivePower", "cActivePower",
-        "aReactivePower", "bReactivePower", "cReactivePower", 
-        "aApparentPower", "bApparentPower", "cApparentPower"
+        "aActivePower", "bActivePower", "cActivePower", "totalActivePower",
+        "aReactivePower", "bReactivePower", "cReactivePower", "totalReactivePower",
+        "aApparentPower", "bApparentPower", "cApparentPower", "totalApparentPower"
     };
     
     for (const char* config : meterConfigs) {

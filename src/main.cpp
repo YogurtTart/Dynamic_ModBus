@@ -49,11 +49,11 @@ void initializeSystem() {
     }
     
     // Phase 2: Network Services  
-    Serial.println("📡 Phase 3: Setting up WiFi...");
-    setupWiFi();
-    
-    Serial.println("🌐 Phase 4: Starting Web Server...");
+    Serial.println("🌐 Phase 3: Starting Web Server...");
     setupWebServer();
+    
+    Serial.println("📡 Phase 4: Setting up WiFi (AP+STA mode, STA disconnected)...");
+    setupWiFi();  // Now starts in AP_STA mode but STA is disconnected
     
     // Phase 3: Application Logic
     Serial.println("🔧 Phase 5: Initializing ModBus...");
@@ -76,45 +76,9 @@ void initializeSystem() {
         Serial.println("⚠️  No slave configurations loaded");
     }
     
-    Serial.println("✅ System fully initialized and ready!");
-}
-
-void handleSystemOperations() {
-    server.handleClient();    // Handle web requests
-    checkWiFi();              // Maintain WiFi connection
-    
-    // ✅ USE HELPER: Only check MQTT if WiFi is up
-    if (isWiFiConnected()) {  
-        checkMQTT();          // Maintain MQTT connection
-    }
-    
-    // ✅ EFFICIENT: Only process ModBus if slaves are configured
-    if (slaveCount > 0) {
-        updateNonBlockingQuery(); // Process ModBus queries
-    }
-    
-    // OTA handled inside checkWiFi() when appropriate
-}
-
-// 🆕 ADDED: System status function
-void printSystemStatus() {
-    Serial.println("\n📊 SYSTEM STATUS:");
-    Serial.printf("   WiFi: %s", isWiFiConnected() ? "Connected" : "Disconnected");
-    if (isWiFiConnected()) {
-        Serial.printf(" (%s)", getSTAIP().c_str());
-    }
-    Serial.println();
-    
-    Serial.printf("   MQTT: %s", isMQTTConnected() ? "Connected" : "Disconnected");
-    if (isMQTTConnected()) {
-        Serial.printf(" (%s)", getMQTTServer().c_str());
-    }
-    Serial.println();
-    
-    Serial.printf("   Slaves: %d configured\n", slaveCount);
-    Serial.printf("   Templates: %d available\n", getTemplateCount());
-    Serial.printf("   Free Heap: %d bytes\n", ESP.getFreeHeap());
-    Serial.printf("   AP Clients: %d connected\n", getAPClientCount());
+    Serial.println("✅ System fully initialized!");
+    Serial.println("📍 AP Mode: Active - Connect to configure device");
+    Serial.println("🔌 STA Mode: Ready - Use web interface to connect manually");
 }
 
 // ==================== ARDUINO MAIN FUNCTIONS ====================
@@ -128,19 +92,25 @@ void setup() {
 
     //forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
     
-    Serial.printf("📊 Free Heap after init: %d bytes\n", ESP.getFreeHeap());
-    printSystemStatus();
     Serial.println("🎉 System fully initialized and ready!");
 }
 
 void loop() {
-    handleSystemOperations();
-    delay(10); // Small delay for stability
-    
-    // 🆕 ADDED: Periodic status reporting (every 5 minutes)
-    static unsigned long lastStatusReport = 0;
-    if (millis() - lastStatusReport > 300000) { // 5 minutes
-        lastStatusReport = millis();
-        printSystemStatus();
+    server.handleClient();    // Handle web requests
+    checkWiFi();              // Maintain WiFi connection (non-blocking STA checks)
+    handleOTA(); 
+
+    // ✅ USE HELPER: Only check MQTT if WiFi is up
+    if (isWiFiConnected()) {  
+        checkMQTT();          // Maintain MQTT connection
     }
+    
+    // ✅ EFFICIENT: Only process ModBus if slaves are configured
+    if (slaveCount > 0) {
+        updateNonBlockingQuery(); // Process ModBus queries
+    }
+    
+    // OTA handled inside checkWiFi() when STA is connected
+
+    delay(10); // Small delay for stability
 }

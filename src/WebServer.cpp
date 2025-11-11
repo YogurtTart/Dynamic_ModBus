@@ -60,6 +60,7 @@ void setupWebServer() {
     server.on("/savewifi", HTTP_POST, handleSaveWifi);
     server.on("/getwifi", HTTP_GET, handleGetWifi);
     server.on("/getipinfo", HTTP_GET, handleGetIpInfo);
+    server.on("/controlsta", HTTP_POST, handleControlSTA);
     
     // Slave endpoints
     server.on("/saveslaves", HTTP_POST, handleSaveSlaves);
@@ -119,23 +120,39 @@ bool parseJsonBody(JsonDocument& doc) {
 
 // ==================== WIFI CONFIGURATION HANDLERS ====================
 
+void handleControlSTA() {
+    Serial.println("🔄 Handling STA control request");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
+    
+    String action = doc["action"] | "";
+    
+    if (action == "connect") {
+        connectSTA();
+        server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"STA connection started\"}");
+    } else if (action == "disconnect") {
+        disconnectSTA();
+        server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"STA disconnected\"}");
+    } else {
+        sendErrorResponse("Invalid action");
+    }
+}
+
 void handleGetIpInfo() {
     Serial.println("📡 Returning IP information");
     
     JsonDocument doc;
     
-    if (WiFi.status() == WL_CONNECTED) {
-        doc["sta_ip"] = WiFi.localIP().toString();
-        doc["sta_subnet"] = WiFi.subnetMask().toString();
-        doc["sta_gateway"] = WiFi.gatewayIP().toString();
-        doc["sta_connected"] = true;
-    } else {
-        doc["sta_ip"] = "Not connected";
-        doc["sta_subnet"] = "N/A";
-        doc["sta_gateway"] = "N/A";
-        doc["sta_connected"] = false;
-    }
+    // STA information
+    doc["sta_ip"] = getSTAIP();
+    doc["sta_subnet"] = WiFi.subnetMask().toString();
+    doc["sta_gateway"] = WiFi.gatewayIP().toString();
+    doc["sta_connected"] = isSTAConnected();
+    doc["sta_connecting"] = isSTAConnecting();  // NEW: Add connecting status
+    doc["sta_status"] = getSTAStatus();         // NEW: Add status text
     
+    // AP information  
     doc["ap_ip"] = WiFi.softAPIP().toString();
     doc["ap_connected_clients"] = WiFi.softAPgetStationNum();
     
