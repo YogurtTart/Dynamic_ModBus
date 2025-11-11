@@ -1,4 +1,4 @@
-// script.js - Optimized WiFi configuration page
+// script.js - WiFi configuration page
 class WifiManager {
     constructor() {
         this.init();
@@ -10,15 +10,16 @@ class WifiManager {
     }
 
     bindEvents() {
-        // Enter key support for forms
-        document.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && e.target.closest('form')) {
-                e.preventDefault();
-                if (e.target.closest('#wifiForm')) {
+        // Enter key support for WiFi form
+        const wifiForm = document.getElementById('wifiForm');
+        if (wifiForm) {
+            wifiForm.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
                     this.saveSettings();
                 }
-            }
-        });
+            });
+        }
     }
 
     async loadInitialData() {
@@ -31,7 +32,7 @@ class WifiManager {
             // Auto-refresh IP info every 30 seconds
             setInterval(() => this.loadIPInfo(), 30000);
         } catch (error) {
-            console.error('Initialization error:', error);
+            console.error('WiFi initialization error:', error);
         }
     }
 
@@ -39,12 +40,19 @@ class WifiManager {
         try {
             const data = await ApiClient.get('/getwifi');
             
-            FormHelper.setValue('sta_ssid', data.sta_ssid);
-            FormHelper.setValue('sta_password', data.sta_password);
-            FormHelper.setValue('ap_ssid', data.ap_ssid);
-            FormHelper.setValue('ap_password', data.ap_password);
-            FormHelper.setValue('mqtt_server', data.mqtt_server);
-            FormHelper.setValue('mqtt_port', data.mqtt_port);
+            // Set form values
+            const fields = {
+                'sta_ssid': data.sta_ssid,
+                'sta_password': data.sta_password,
+                'ap_ssid': data.ap_ssid,
+                'ap_password': data.ap_password,
+                'mqtt_server': data.mqtt_server,
+                'mqtt_port': data.mqtt_port
+            };
+            
+            Object.entries(fields).forEach(([id, value]) => {
+                FormHelper.setValue(id, value);
+            });
             
             StatusManager.showStatus('WiFi & MQTT settings loaded successfully!', 'success');
         } catch (error) {
@@ -53,20 +61,24 @@ class WifiManager {
     }
 
     async saveSettings() {
-        const requiredFields = ['sta_ssid', 'sta_password', 'ap_ssid', 'ap_password', 'mqtt_server', 'mqtt_port'];
+        const requiredFields = [
+            'sta_ssid', 'sta_password', 'ap_ssid', 
+            'ap_password', 'mqtt_server', 'mqtt_port'
+        ];
+        
         if (!FormHelper.validateRequired(requiredFields)) return;
 
         const formData = new FormData();
-        formData.append('sta_ssid', FormHelper.getValue('sta_ssid'));
-        formData.append('sta_password', FormHelper.getValue('sta_password'));
-        formData.append('ap_ssid', FormHelper.getValue('ap_ssid'));
-        formData.append('ap_password', FormHelper.getValue('ap_password'));
-        formData.append('mqtt_server', FormHelper.getValue('mqtt_server'));
-        formData.append('mqtt_port', FormHelper.getValue('mqtt_port'));
+        requiredFields.forEach(field => {
+            formData.append(field, FormHelper.getValue(field));
+        });
 
         try {
             await ApiClient.postForm('/savewifi', formData);
-            StatusManager.showStatus('WiFi & MQTT settings saved successfully! Device will use new settings on restart.', 'success');
+            StatusManager.showStatus(
+                'WiFi & MQTT settings saved successfully! Device will use new settings on restart.', 
+                'success'
+            );
         } catch (error) {
             // Error handled by ApiClient
         }
@@ -83,9 +95,9 @@ class WifiManager {
 
     updateIPDisplay(data) {
         // STA information
-        document.getElementById('sta_ip').textContent = data.sta_ip;
-        document.getElementById('sta_subnet').textContent = data.sta_subnet;
-        document.getElementById('sta_gateway').textContent = data.sta_gateway;
+        document.getElementById('sta_ip').textContent = data.sta_ip || 'N/A';
+        document.getElementById('sta_subnet').textContent = data.sta_subnet || 'N/A';
+        document.getElementById('sta_gateway').textContent = data.sta_gateway || 'N/A';
         
         const staStatus = document.getElementById('sta_status');
         if (data.sta_connected) {
@@ -97,9 +109,9 @@ class WifiManager {
         }
         
         // AP information
-        document.getElementById('ap_ip').textContent = data.ap_ip;
-        document.getElementById('ap_clients').textContent = 
-            data.ap_connected_clients + ' client(s)';
+        document.getElementById('ap_ip').textContent = data.ap_ip || 'N/A';
+        const clientCount = data.ap_connected_clients || 0;
+        document.getElementById('ap_clients').textContent = `${clientCount} client(s)`;
     }
 
     async refreshIPInfo() {
@@ -124,4 +136,3 @@ window.addEventListener('tabChanged', (e) => {
         window.wifiManager.refreshUI();
     }
 });
-

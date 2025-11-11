@@ -129,10 +129,3 @@ void loadWifi() {
                      currentParams.mqttServer, currentParams.mqttPort);
     }
 }
-
-// 🆕 ADDED: Reset to defaults function
-void resetToDefaults() {
-    Serial.println("🔄 Resetting EEPROM to defaults");
-    currentParams.magic = 0; // Force reload with defaults
-    loadWifi();
-}

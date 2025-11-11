@@ -11,6 +11,29 @@
 
 // ==================== SYSTEM INITIALIZATION ====================
 
+void forceResetEEPROM() {
+    Serial.println("🔄 FORCING EEPROM RESET...");
+    EEPROM.begin(EEPROM_SIZE);
+    
+    // Create default WiFi parameters
+    WifiParams defaultParams;
+    defaultParams.magic = 0xDEADBEEF;
+    strcpy(defaultParams.STAWifiID, "Tanand_Hardware");
+    strcpy(defaultParams.STApassword, "202040406060808010102020");
+    strcpy(defaultParams.APWifiID, "ESP8266_AP");
+    strcpy(defaultParams.APpassword, "12345678");
+    strcpy(defaultParams.mqttServer, "192.168.31.66");
+    strcpy(defaultParams.mqttPort, "1883");
+    
+    // Write to EEPROM
+    EEPROM.put(WIFI_PARAMS_ADDR, defaultParams);
+    EEPROM.commit();
+    EEPROM.end();
+    
+    Serial.println("✅ EEPROM reset to defaults");
+    delay(1000);
+}
+
 void initializeSystem() {
     Serial.println("🎯 Starting ESP8266 System Initialization...");
     
@@ -73,19 +96,6 @@ void handleSystemOperations() {
     // OTA handled inside checkWiFi() when appropriate
 }
 
-
-void factoryReset() {
-    Serial.println("🔄 FACTORY RESET: Restoring all defaults...");
-    
-    // Reset EEPROM to defaults
-    resetToDefaults();
-    
-    // Reinitialize everything
-    initializeSystem();
-    
-    Serial.println("✅ Factory reset complete!");
-}
-
 // 🆕 ADDED: System status function
 void printSystemStatus() {
     Serial.println("\n📊 SYSTEM STATUS:");
@@ -113,10 +123,10 @@ void setup() {
     Serial.begin(9600);
     Serial.println("\n🔌 ESP8266 ModBus Gateway Starting...");
     Serial.printf("📊 Free Heap: %d bytes\n", ESP.getFreeHeap());
-
-    //factoryReset();
     
     initializeSystem();
+
+    //forceResetEEPROM();  // ⬅️ UNCOMMENT THIS LINE FOR FIRST RUN
     
     Serial.printf("📊 Free Heap after init: %d bytes\n", ESP.getFreeHeap());
     printSystemStatus();

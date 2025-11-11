@@ -9,9 +9,6 @@ const DEVICE_TYPES = {
 
 // ==================== SLAVES MANAGER CLASS ====================
 
-/**
- * @class SlavesManager - Manages Modbus slave configuration and statistics
- */
 class SlavesManager {
     constructor() {
         this.slaves = [];
@@ -61,8 +58,7 @@ class SlavesManager {
     }
 
     countUniqueSlaves() {
-        const uniqueIDs = new Set();
-        this.slaves.forEach(slave => uniqueIDs.add(slave.id));
+        const uniqueIDs = new Set(this.slaves.map(slave => slave.id));
         return uniqueIDs.size;
     }
 
@@ -71,7 +67,7 @@ class SlavesManager {
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
         const registerSize = FormHelper.getValue('register_size');
-        const deviceType = FormHelper.getValue('device_type'); // 🆕 Get device type
+        const deviceType = FormHelper.getValue('device_type');
         const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         const slaveName = FormHelper.getValue('slave_name');
         const mqttTopic = FormHelper.getValue('mqtt_topic');
@@ -94,7 +90,6 @@ class SlavesManager {
             return;
         }
 
-        // 🆕 Create MINIMAL slave config (NO parameters)
         const slave = {
             id: parseInt(slaveId),
             startReg: parseInt(startReg),
@@ -102,7 +97,7 @@ class SlavesManager {
             registerSize: parseInt(registerSize),
             name: slaveName,
             mqttTopic: mqttTopic,
-            deviceType: deviceType // 🆕 CRITICAL: Store device type
+            deviceType: deviceType
         };
 
         this.slaves.push(slave);
@@ -133,32 +128,34 @@ class SlavesManager {
         // Update statistics
         document.getElementById('totalEntries').textContent = this.slaves.length;
         const uniqueSlaveCount = this.countUniqueSlaves();
-        slaveCount.textContent = uniqueSlaveCount;
-        slaveCountBadge.textContent = this.slaves.length;
+        if (slaveCount) slaveCount.textContent = uniqueSlaveCount;
+        if (slaveCountBadge) slaveCountBadge.textContent = this.slaves.length;
         
         if (this.slaves.length === 0) {
-            list.innerHTML = '';
-            emptyState.style.display = 'block';
+            if (list) list.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
             return;
         }
         
-        emptyState.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'none';
         
-        list.innerHTML = this.slaves.map((slave, index) => `
-            <tr>
-                <td><strong>${slave.id}</strong></td>
-                <td>${slave.name}</td>
-                <td>${slave.startReg}</td>
-                <td>${slave.numReg}</td>
-                <td>${slave.registerSize}</td> 
-                <td><code>${slave.mqttTopic}</code></td>
-                <td>
-                    <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
-                        🗑️ Delete
-                    </button>
-                </td>
-            </tr>
-        `).join('');
+        if (list) {
+            list.innerHTML = this.slaves.map((slave, index) => `
+                <tr>
+                    <td><strong>${slave.id}</strong></td>
+                    <td>${slave.name}</td>
+                    <td>${slave.startReg}</td>
+                    <td>${slave.numReg}</td>
+                    <td>${slave.registerSize}</td>
+                    <td><code>${slave.mqttTopic}</code></td>
+                    <td>
+                        <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
     }
 
     deleteSlave(index) {
@@ -174,7 +171,6 @@ class SlavesManager {
     // ==================== CONFIGURATION PERSISTENCE ====================
 
     async saveSlaveConfig() {
-        // 🆕 Create minimal config - only basic info + deviceType
         const config = { 
             slaves: this.slaves.map(slave => ({
                 id: slave.id,
@@ -183,25 +179,21 @@ class SlavesManager {
                 registerSize: slave.registerSize,
                 name: slave.name,
                 mqttTopic: slave.mqttTopic,
-                deviceType: slave.deviceType // 🆕 CRITICAL: Include deviceType
-                // 🚫 NO parameters here - they come from template
+                deviceType: slave.deviceType
             }))
         };
 
-        console.log("💾 Saving MINIMAL config:", JSON.stringify(config));
-
-    try {
+        try {
             await ApiClient.post('/saveslaves', config);
             
-            // 🆕 CRITICAL: Force ModBusHandler to reload slaves
+            // Force reload slaves after save
             setTimeout(() => {
-                window.slavesManager.loadSlaveConfig(); // Reload frontend
-                // Backend will reload automatically via modbusReloadSlaves in WebServer
+                this.loadSlaveConfig();
             }, 1000);
             
             StatusManager.showStatus('Slave configuration saved successfully!', 'success');
         } catch (error) {
-            console.error("❌ Error saving slaves:", error);
+            console.error("Error saving slaves:", error);
         }
     }
 
@@ -281,20 +273,20 @@ class SlavesManager {
             .sort((a, b) => a.slaveId - b.slaveId);
         
         if (filteredStats.length > 0) {
-            emptyState.style.display = 'none';
-            statsCountBadge.textContent = filteredStats.length;
+            if (emptyState) emptyState.style.display = 'none';
+            if (statsCountBadge) statsCountBadge.textContent = filteredStats.length;
             
-            // Use smart rendering instead of innerHTML
             this.smartRenderStats(tbody, filteredStats);
         } else {
-            tbody.innerHTML = '';
-            emptyState.style.display = 'block';
-            statsCountBadge.textContent = '0';
+            if (tbody) tbody.innerHTML = '';
+            if (emptyState) emptyState.style.display = 'block';
+            if (statsCountBadge) statsCountBadge.textContent = '0';
         }
     }
 
     smartRenderStats(tbody, filteredStats) {
-        // Track which rows we've updated
+        if (!tbody) return;
+        
         const updatedRows = new Set();
         
         filteredStats.forEach(stats => {
@@ -302,18 +294,15 @@ class SlavesManager {
             let row = document.getElementById(rowId);
             
             if (!row) {
-                // Create new row
                 row = document.createElement('tr');
                 row.id = rowId;
                 tbody.appendChild(row);
             }
             
-            // Update row content
             this.updateStatsRow(row, stats);
             updatedRows.add(rowId);
         });
         
-        // Remove rows that are no longer in the data
         this.removeOldStatsRows(tbody, updatedRows);
     }
 
@@ -346,9 +335,6 @@ class SlavesManager {
         });
     }
 
-    /**
-     * @brief Render status history as colored circles
-     */
     renderStatusHistory(statusHistory) {
         if (!statusHistory || statusHistory.length < 3) {
             return '<div class="status-history">---</div>';
@@ -363,10 +349,7 @@ class SlavesManager {
         let circles = '';
         for (let i = 0; i < 3; i++) {
             const statusClass = statusMap[statusHistory[i]];
-            
-            // ALWAYS pulse the newest (leftmost) circle, others never pulse
             const pulseClass = (i === 0) ? 'status-pulse' : '';
-            
             circles += `<span class="status-circle ${statusClass} ${pulseClass}"></span>`;
         }
         
@@ -388,18 +371,12 @@ class SlavesManager {
 
     // ==================== UI MANAGEMENT ====================
 
-    /**
-     * @brief Refresh UI when slaves tab becomes active
-     */
     refreshUI() {
         this.updateSlavesList();
-        this.updateStatsDisplay();
+        this.fetchStatistics();
         console.log('Slaves tab UI refreshed');
     }
 
-    /**
-     * @brief Initialize composite name input with device type and identifier
-     */
     initCompositeNameInput() {
         const deviceType = document.getElementById('device_type');
         const deviceIdentifier = document.getElementById('device_identifier');
@@ -411,21 +388,16 @@ class SlavesManager {
             const identifier = deviceIdentifier.value.trim();
             const finalName = identifier ? `${type}_${identifier}` : type;
             
-            hiddenSlaveName.value = finalName; // 🆕 Update hidden field
-            namePreview.textContent = finalName;
-            
-            // Visual feedback
-            if (identifier) {
-                namePreview.style.color = 'var(--text-primary)';
-            } else {
-                namePreview.style.color = 'var(--error-color)';
+            if (hiddenSlaveName) hiddenSlaveName.value = finalName;
+            if (namePreview) {
+                namePreview.textContent = finalName;
+                namePreview.style.color = identifier ? 'var(--text-primary)' : 'var(--error-color)';
             }
         };
 
-        deviceType.addEventListener('change', updateName);
-        deviceIdentifier.addEventListener('input', updateName);
+        if (deviceType) deviceType.addEventListener('change', updateName);
+        if (deviceIdentifier) deviceIdentifier.addEventListener('input', updateName);
         
-        // Initialize
         updateName();
     }
 }

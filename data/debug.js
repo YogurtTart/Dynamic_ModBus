@@ -1,3 +1,4 @@
+// debug.js - Debug console manager
 class DebugConsole {
     constructor() {
         this.isEnabled = false;
@@ -14,10 +15,16 @@ class DebugConsole {
     }
 
     bindEvents() {
-        FormHelper.getElement('debugEnabled')?.addEventListener('change', 
-            (e) => this.toggleDebugMode(e.target.checked));
-        FormHelper.getElement('clearTable')?.addEventListener('click', 
-            () => this.clearTable());
+        const debugToggle = document.getElementById('debugEnabled');
+        const clearButton = document.getElementById('clearTable');
+        
+        if (debugToggle) {
+            debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
+        }
+        
+        if (clearButton) {
+            clearButton.addEventListener('click', () => this.clearTable());
+        }
     }
 
     async loadDebugState() {
@@ -43,8 +50,8 @@ class DebugConsole {
     }
 
     updateToggle() {
-        const checkbox = FormHelper.getElement('debugEnabled');
-        const status = FormHelper.getElement('debugStatus');
+        const checkbox = document.getElementById('debugEnabled');
+        const status = document.getElementById('debugStatus');
         
         if (checkbox) checkbox.checked = this.isEnabled;
         if (status) {
@@ -101,7 +108,7 @@ class DebugConsole {
     }
 
     addTableRow(messageData) {
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         if (!tableBody) return;
 
         if (tableBody.querySelector('.no-data')) {
@@ -121,9 +128,8 @@ class DebugConsole {
     }
 
     // ========== SMART RENDERING ==========
-
     addSingleRowToTable(messageObject) {
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         if (!tableBody) return;
 
         const newRowHtml = this.createRowHtml(messageObject);
@@ -161,7 +167,7 @@ class DebugConsole {
     }
 
     trimExcessRows() {
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         if (!tableBody) return;
 
         const allRows = tableBody.querySelectorAll('tr');
@@ -176,7 +182,6 @@ class DebugConsole {
     }
 
     // ========== STORAGE MANAGEMENT ==========
-
     saveMessageToStorage(messageObject) {
         try {
             const currentMessages = this.getStoredMessages();
@@ -231,7 +236,7 @@ class DebugConsole {
             
             if (stored) {
                 const messages = JSON.parse(stored);
-                const tableBody = FormHelper.getElement('tableBody');
+                const tableBody = document.getElementById('tableBody');
                 
                 if (tableBody?.querySelector('.no-data')) {
                     tableBody.innerHTML = '';
@@ -258,9 +263,8 @@ class DebugConsole {
     }
 
     // ========== UI RENDERING ==========
-
     renderTable() {
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         if (!tableBody) return;
 
         tableBody.innerHTML = this.messageSequence.map(item => this.createRowHtml(item)).join('');
@@ -271,7 +275,6 @@ class DebugConsole {
             const parsed = JSON.parse(rawJson);
             const formatted = JSON.stringify(parsed, null, 2);
             
-            // ONLY check if object has 'error' property
             const hasErrorProperty = parsed.error !== undefined;
             
             if (hasErrorProperty) {
@@ -280,7 +283,6 @@ class DebugConsole {
             
             return `<div class="raw-json">${this.syntaxHighlight(formatted)}</div>`;
         } catch (error) {
-            // If JSON parsing fails but contains "error" key text
             if (rawJson.toLowerCase().includes('"error"')) {
                 return `<div class="raw-json error-highlight">${rawJson}</div>`;
             }
@@ -292,7 +294,6 @@ class DebugConsole {
         return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
             let cls = 'raw-json-number';
             
-            // ONLY check for "error" keys (not values/messages)
             const isErrorKey = /^"error"(\s*:)?$/i.test(match);
             
             if (isErrorKey) {
@@ -313,9 +314,8 @@ class DebugConsole {
     }
 
     // ========== CLEANUP & STATUS ==========
-
     async clearTable() {
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         
         if (tableBody) {
             tableBody.innerHTML = '';
@@ -326,9 +326,8 @@ class DebugConsole {
             try {
                 await ApiClient.post('/cleartable', {});
                 StatusManager.showStatus('Table cleared and timing reset', 'success');
-                console.log('✅ Table cleared and timing reset');
             } catch (error) {
-                console.error('❌ Error resetting timing:', error);
+                console.error('Error resetting timing:', error);
                 StatusManager.showStatus('Table cleared (timing reset failed)', 'warning');
             }
         }
@@ -336,7 +335,7 @@ class DebugConsole {
 
     updateStatusMessages() {
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
-        const tableBody = FormHelper.getElement('tableBody');
+        const tableBody = document.getElementById('tableBody');
         
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;
@@ -344,7 +343,6 @@ class DebugConsole {
     }
 
     // ========== POLLING ==========
-
     async checkForMessages() {
         if (!this.isEnabled) return;
 
@@ -361,7 +359,6 @@ class DebugConsole {
     }
 
     refreshUI() {
-        // Refresh display when debug tab becomes active
         this.updateStatusMessages();
         console.log('Debug tab UI refreshed');
     }

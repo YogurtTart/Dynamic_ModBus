@@ -1,4 +1,4 @@
-// settings.js - Optimized slave configuration editor
+// settings.js - Slave configuration editor
 class SettingsManager {
     constructor() {
         this.currentSlaveId = null;
@@ -70,7 +70,7 @@ class SettingsManager {
             return;
         }
 
-        const editedConfig = editor.value;
+        const editedConfig = editor.value.trim();
         if (!editedConfig) {
             StatusManager.showStatus('Configuration is empty', 'error');
             return;
@@ -96,7 +96,6 @@ class SettingsManager {
             // 🛑 FIX: Don't call cancelEdit() here - just clear the form and hide the editor
             FormHelper.clearForm(['search_slave_id', 'search_slave_name']);
             
-            // Clear editor and hide section without showing "cancelled" message
             const editSection = document.getElementById('editSection');
             if (editSection) editSection.style.display = 'none';
             if (editor) editor.value = '';
