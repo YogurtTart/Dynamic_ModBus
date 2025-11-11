@@ -13,38 +13,26 @@ void addG01SConfig(JsonObject& templateObj) {
 void addMeterConfig(JsonObject& templateObj) {
     JsonObject meterParams = templateObj["meter"].to<JsonObject>();
     
-    // All parameters
-    const char* meterConfigs[] = {
-        "aCurrent", "bCurrent", "cCurrent", "zeroPhaseCurrent",
-        "aActivePower", "bActivePower", "cActivePower", "totalActivePower",
-        "aReactivePower", "bReactivePower", "cReactivePower", "totalReactivePower",
-        "aApparentPower", "bApparentPower", "cApparentPower", "totalApparentPower",
-        "aPowerFactor", "bPowerFactor", "cPowerFactor", "totalPowerFactor"
+    struct MeterParam {
+        const char* name;
+        float divider;
     };
     
-    // ✅ ONLY these get 1000 divider
-    const char* power1000Configs[] = {
-        "aActivePower", "bActivePower", "cActivePower", "totalActivePower",
-        "aReactivePower", "bReactivePower", "cReactivePower", "totalReactivePower",
-        "aApparentPower", "bApparentPower", "cApparentPower", "totalApparentPower"
+    MeterParam meterConfigs[] = {
+        {"aCurrent", 1.0}, {"bCurrent", 1.0}, {"cCurrent", 1.0}, {"zeroPhaseCurrent", 1.0}, 
+        {"aActivePower", 1000.0}, {"bActivePower", 1000.0}, {"cActivePower", 1000.0}, {"totalActivePower", 10000.0},
+        {"aReactivePower", 1000.0}, {"bReactivePower", 1000.0}, {"cReactivePower", 1000.0}, {"totalReactivePower", 10000.0},
+        {"aApparentPower", 1000.0}, {"bApparentPower", 1000.0}, {"cApparentPower", 1000.0}, {"totalApparentPower", 10000.0},
+        {"aPowerFactor", 1.0}, {"bPowerFactor", 1.0}, {"cPowerFactor", 1.0}, {"totalPowerFactor", 1.0}
     };
     
-    for (const char* config : meterConfigs) {
-        JsonObject param = meterParams[config].to<JsonObject>();
+    for (const MeterParam& config : meterConfigs) {
+        JsonObject param = meterParams[config.name].to<JsonObject>();
         param["ct"] = 1.0;
         param["pt"] = 1.0;
-
-        // ✅ SIMPLE: Check if this config is in the 1000-divider list
-        bool is1000Divider = false;
-        for (const char* powerConfig : power1000Configs) {
-            if (strcmp(config, powerConfig) == 0) {
-                is1000Divider = true;
-                break;
-            }
-        }
-        
-        param["divider"] = is1000Divider ? 1000.0 : 1.0;
+        param["divider"] = config.divider;
     }
+
 }
 
 void addVoltageConfig(JsonObject& templateObj) {
