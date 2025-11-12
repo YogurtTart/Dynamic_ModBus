@@ -279,7 +279,10 @@ void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint6
     uint16_t tempRaw = combinedValues[0] & 0xFFFF;
     uint16_t humidRaw = combinedValues[1] & 0xFFFF;
     
-    root["temperature"] = convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider);
+    root["temperature_(C)"] = convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider);
+
+    root["temperature_(F)"] = ((convertRegisterToTemperature(tempRaw, sensorConfig.tempDivider)) * 9/5) + 32;
+    
     root["humidity"] = convertRegisterToHumidity(humidRaw, sensorConfig.humidDivider);
 }
 

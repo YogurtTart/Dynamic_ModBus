@@ -103,11 +103,11 @@ class SettingsManager {
             this.currentSlaveId = null;
             this.currentSlaveName = null;
 
-            setTimeout(() => {
-                if (typeof saveSlaveConfig === 'function') {
-                    saveSlaveConfig();
-                }
-            }, 1000);
+            // setTimeout(() => {
+            //     if (typeof saveSlaveConfig === 'function') {
+            //         saveSlaveConfig();
+            //     }
+            // }, 1000);
             
         } catch (error) {
             if (error instanceof SyntaxError) {
