@@ -65,13 +65,13 @@ bool writeFile(const String& path, const String& content) {
 bool saveSlaveConfig(const JsonDocument& config) {
     Serial.println("💾 Saving slave configuration to LittleFS (STREAMING MODE)...");
     
-    uint32_t freeHeap = ESP.getFreeHeap();
-    Serial.printf("📊 Free heap before save: %d bytes\n", freeHeap);
+    // uint32_t freeHeap = ESP.getFreeHeap();
+    // Serial.printf("📊 Free heap before save: %d bytes\n", freeHeap);
     
-    if (freeHeap < 10000) {
-        Serial.println("🆘 CRITICAL: Not enough memory for JSON serialization - ABORTING");
-        return false;
-    }
+    // if (freeHeap < 10000) {
+    //     Serial.println("🆘 CRITICAL: Not enough memory for JSON serialization - ABORTING");
+    //     return false;
+    // }
     
     File file = LittleFS.open("/slaves.json", "w");
     if (!file) {
@@ -95,13 +95,13 @@ bool saveSlaveConfig(const JsonDocument& config) {
 bool loadSlaveConfig(JsonDocument& config) {
     Serial.println("📖 Loading slave configuration from LittleFS (STREAMING MODE)...");
     
-    uint32_t freeHeap = ESP.getFreeHeap();
-    Serial.printf("📊 Free heap before load: %d bytes\n", freeHeap);
+    // uint32_t freeHeap = ESP.getFreeHeap();
+    // Serial.printf("📊 Free heap before load: %d bytes\n", freeHeap);
     
-    if (freeHeap < 15000) {
-        Serial.println("🆘 CRITICAL: Not enough memory for JSON parsing - ABORTING");
-        return false;
-    }
+    // if (freeHeap < 15000) {
+    //     Serial.println("🆘 CRITICAL: Not enough memory for JSON parsing - ABORTING");
+    //     return false;
+    // }
     
     if (!fileExists("/slaves.json")) {
         Serial.println("⚠️  No slave configuration found, using defaults");

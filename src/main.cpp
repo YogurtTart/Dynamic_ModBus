@@ -54,6 +54,7 @@ void initializeSystem() {
     
     Serial.println("📡 Phase 4: Setting up WiFi (AP+STA mode, STA disconnected)...");
     setupWiFi();  // Now starts in AP_STA mode but STA is disconnected
+    connectSTA();
     
     // Phase 3: Application Logic
     Serial.println("🔧 Phase 5: Initializing ModBus...");

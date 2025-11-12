@@ -15,16 +15,10 @@ class DebugConsole {
     }
 
     bindEvents() {
-        const debugToggle = document.getElementById('debugEnabled');
-        const clearButton = document.getElementById('clearTable');
-        
-        if (debugToggle) {
-            debugToggle.addEventListener('change', (e) => this.toggleDebugMode(e.target.checked));
-        }
-        
-        if (clearButton) {
-            clearButton.addEventListener('click', () => this.clearTable());
-        }
+        FormHelper.getElement('debugEnabled')?.addEventListener('change', 
+            (e) => this.toggleDebugMode(e.target.checked));
+        FormHelper.getElement('clearTable')?.addEventListener('click', 
+            () => this.clearTable());
     }
 
     async loadDebugState() {
@@ -50,8 +44,8 @@ class DebugConsole {
     }
 
     updateToggle() {
-        const checkbox = document.getElementById('debugEnabled');
-        const status = document.getElementById('debugStatus');
+        const checkbox = FormHelper.getElement('debugEnabled');
+        const status = FormHelper.getElement('debugStatus');
         
         if (checkbox) checkbox.checked = this.isEnabled;
         if (status) {
@@ -108,7 +102,7 @@ class DebugConsole {
     }
 
     addTableRow(messageData) {
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
         if (tableBody.querySelector('.no-data')) {
@@ -129,7 +123,7 @@ class DebugConsole {
 
     // ========== SMART RENDERING ==========
     addSingleRowToTable(messageObject) {
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
         const newRowHtml = this.createRowHtml(messageObject);
@@ -167,7 +161,7 @@ class DebugConsole {
     }
 
     trimExcessRows() {
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
         const allRows = tableBody.querySelectorAll('tr');
@@ -236,7 +230,7 @@ class DebugConsole {
             
             if (stored) {
                 const messages = JSON.parse(stored);
-                const tableBody = document.getElementById('tableBody');
+                const tableBody = FormHelper.getElement('tableBody');
                 
                 if (tableBody?.querySelector('.no-data')) {
                     tableBody.innerHTML = '';
@@ -264,7 +258,7 @@ class DebugConsole {
 
     // ========== UI RENDERING ==========
     renderTable() {
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         if (!tableBody) return;
 
         tableBody.innerHTML = this.messageSequence.map(item => this.createRowHtml(item)).join('');
@@ -315,7 +309,7 @@ class DebugConsole {
 
     // ========== CLEANUP & STATUS ==========
     async clearTable() {
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         
         if (tableBody) {
             tableBody.innerHTML = '';
@@ -335,7 +329,7 @@ class DebugConsole {
 
     updateStatusMessages() {
         const statusText = this.isEnabled ? 'Waiting for data...' : 'MQTT Debug Mode is OFF. Enable to see data.';
-        const tableBody = document.getElementById('tableBody');
+        const tableBody = FormHelper.getElement('tableBody');
         
         if (tableBody && !tableBody.children.length) {
             tableBody.innerHTML = `<tr><td colspan="7" class="no-data">${statusText}</td></tr>`;

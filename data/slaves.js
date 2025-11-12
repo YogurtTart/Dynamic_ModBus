@@ -413,3 +413,11 @@ window.addEventListener('tabChanged', (e) => {
         window.slavesManager.refreshUI();
     }
 });
+
+// Make loadSlaveConfig globally accessible so other files can call it
+window.saveSlaveConfig = () => {
+    if (window.slavesManager) {
+        return window.slavesManager.saveSlaveConfig();
+    }
+    console.warn('SlavesManager not initialized');
+};

@@ -410,11 +410,6 @@ void publishSlaveError(uint8_t slaveId, const char* slaveName, const char* error
             return;
         }
     }
-    
-    root["mqtt_topic"] = "unknown";
-    String output;
-    serializeJson(doc, output);
-    publishMessage("errors", output.c_str());
 }
 
 // ==================== NON-BLOCKING QUERY STATE MACHINE ====================
