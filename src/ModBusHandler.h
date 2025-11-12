@@ -18,7 +18,7 @@ struct DeviceTypes {
 };
 
 // ==================== CONSTANTS ====================
-constexpr uint8_t kMaxStatisticsSlaves = 20;
+constexpr uint8_t kMaxStatisticsSlaves = 12;
 constexpr uint8_t kRs485DePin = 5;
 constexpr unsigned long kDefaultQueryInterval = 200; // ms
 constexpr unsigned long kDefaultPollInterval = 10000;    // 10 seconds
