@@ -377,6 +377,30 @@
                                 </div>
                             </div>
 
+                            <div class="form-row">
+                                <div class="input-group compact">
+                                    <label for="ct_ratio" class="input-label">CT Ratio</label>
+                                    <input type="number" 
+                                        id="ct_ratio" 
+                                        class="text-input"
+                                        placeholder="100"
+                                        min="1" 
+                                        max="10000"
+                                        step="1">
+                                </div>
+
+                                <div class="input-group compact">
+                                    <label for="pt_ratio" class="input-label">PT Ratio</label>
+                                    <input type="number" 
+                                        id="pt_ratio" 
+                                        class="text-input"
+                                        placeholder="1"
+                                        min="1" 
+                                        max="10000"
+                                        step="1">
+                                </div>
+                            </div>
+
                             <!-- Composite Name Input -->
                             <div class="input-group">
                                 <label for="slave_name" class="input-label">Slave Name</label>
@@ -489,6 +513,8 @@
                                     <th scope="col">Start Reg</th>
                                     <th scope="col">Count Reg</th>
                                     <th scope="col">Register's Amount</th>
+                                    <th scope="col">CT Ratio</th>
+                                    <th scope="col">PT Ratio</th>
                                     <th scope="col">MQTT Topic</th>
                                     <th scope="col">Actions</th>
                                 </tr>

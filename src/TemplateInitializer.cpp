@@ -28,17 +28,13 @@ void addMeterConfig(JsonObject& templateObj) {
     
     for (const MeterParam& config : meterConfigs) {
         JsonObject param = meterParams[config.name].to<JsonObject>();
-        param["ct"] = 1.0;
-        param["pt"] = 1.0;
         param["divider"] = config.divider;
     }
-
 }
 
 void addVoltageConfig(JsonObject& templateObj) {
     JsonObject voltageParams = templateObj["voltage"].to<JsonObject>();
     
-    // ✅ OPTIMIZED: Single array definition
     const char* voltageConfigs[] = {
         "aVoltage", "bVoltage", "cVoltage", 
         "phaseVoltageMean", "zeroSequenceVoltage"
@@ -46,7 +42,6 @@ void addVoltageConfig(JsonObject& templateObj) {
     
     for (const char* config : voltageConfigs) {
         JsonObject param = voltageParams[config].to<JsonObject>();
-        param["pt"] = 1.0;
         param["divider"] = 1.0;
     }
 }

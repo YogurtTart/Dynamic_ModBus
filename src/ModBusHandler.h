@@ -44,14 +44,11 @@ enum DeviceType {
 // ==================== PARAMETER STRUCTURES ====================
 
 struct MeterParameter {
-    float ct;
-    float pt;
-    float divider;
+    float divider;  
 };
 
 struct VoltageParameter {
-    float pt;
-    float divider;
+    float divider;  
 };
 
 struct EnergyParameter {
@@ -82,6 +79,7 @@ struct EnergyConfig {
 };
 
 // ==================== MAIN SLAVE STRUCTURE ====================
+// Add these fields to the SensorSlave struct:
 struct SensorSlave {
     // Common fields for ALL devices
     uint8_t id;
@@ -90,10 +88,11 @@ struct SensorSlave {
     String name;
     String mqttTopic;
     
-    // Device type - tells us which config to use
+    float ct;       
+    float pt; 
+    
     DeviceType deviceType;
     
-    // 🆕 Register size for ALL values in this device
     RegisterSize registerSize;
     
     // Union - only ONE of these is active at a time
@@ -159,11 +158,11 @@ void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint6
 void publishData(const SensorSlave& slave, const JsonDocument& doc);
 
 // ==================== CALCULATION FUNCTIONS ====================
-float calculateCurrent(uint64_t registerValue, float ct, float divider);
-float calculateSinglePhasePower(uint64_t registerValue, float pt, float ct, float divider);
-float calculateThreePhasePower(uint64_t registerValue, float pt, float ct, float divider);
+float calculateCurrent(uint64_t registerValue, float divider);
+float calculateSinglePhasePower(uint64_t registerValue, float divider);
+float calculateThreePhasePower(uint64_t registerValue, float divider);
 float calculatePowerFactor(uint64_t registerValue, float divider);
-float calculateVoltage(uint64_t registerValue, float pt, float divider);
+float calculateVoltage(uint64_t registerValue, float divider);
 
 // ==================== ERROR HANDLING ====================
 void handleQueryStartFailure();

@@ -67,12 +67,14 @@ class SlavesManager {
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
         const registerSize = FormHelper.getValue('register_size');
+        const ctRatio = FormHelper.getValue('ct_ratio');
+        const ptRatio = FormHelper.getValue('pt_ratio');
         const deviceType = FormHelper.getValue('device_type');
         const deviceIdentifier = document.getElementById('device_identifier').value.trim();
         const slaveName = FormHelper.getValue('slave_name');
         const mqttTopic = FormHelper.getValue('mqtt_topic');
 
-        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'register_size', 'mqtt_topic'];
+        const requiredFields = ['slave_id', 'start_reg', 'num_reg', 'register_size', 'mqtt_topic','pt_ratio','ct_ratio'];
         if (!FormHelper.validateRequired(requiredFields)) return;
 
         if (!deviceIdentifier) {
@@ -95,6 +97,8 @@ class SlavesManager {
             startReg: parseInt(startReg),
             numReg: parseInt(numReg),
             registerSize: parseInt(registerSize),
+            ct: parseFloat(ctRatio),
+            pt: parseFloat(ptRatio),
             name: slaveName,
             mqttTopic: mqttTopic,
             deviceType: deviceType
@@ -108,13 +112,12 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
+        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier', 'ct_ratio', 'pt_ratio']);
 
         document.getElementById('register_size').value = 1;
         document.getElementById('device_type').value = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
-        
     }
 
     // ==================== UI UPDATES ====================
@@ -147,6 +150,8 @@ class SlavesManager {
                     <td>${slave.startReg}</td>
                     <td>${slave.numReg}</td>
                     <td>${slave.registerSize}</td>
+                    <td>${slave.ct}:1</td>
+                    <td>${slave.pt}:1</td>
                     <td><code>${slave.mqttTopic}</code></td>
                     <td>
                         <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
@@ -177,6 +182,8 @@ class SlavesManager {
                 startReg: slave.startReg,
                 numReg: slave.numReg,
                 registerSize: slave.registerSize,
+                ct: slave.ct,
+                pt: slave.pt,
                 name: slave.name,
                 mqttTopic: slave.mqttTopic,
                 deviceType: slave.deviceType

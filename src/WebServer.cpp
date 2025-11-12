@@ -348,6 +348,8 @@ void handleGetSlaveConfig() {
         mergedConfig["numReg"] = foundSlave["numReg"];
         mergedConfig["mqttTopic"] = foundSlave["mqttTopic"];
         mergedConfig["registerSize"] = foundSlave["registerSize"];
+        mergedConfig["ct"] = foundSlave["ct"] | 1.0f;
+        mergedConfig["pt"] = foundSlave["pt"] | 1.0f;
         
         sendJsonResponse(mergedDoc);
     } else {
@@ -425,7 +427,9 @@ void handleUpdateSlaveConfig() {
             strcmp(key, "startReg") != 0 &&
             strcmp(key, "numReg") != 0 &&
             strcmp(key, "mqttTopic") != 0 &&
-            strcmp(key, "registerSize") != 0) {
+            strcmp(key, "registerSize") != 0 &&
+            strcmp(key, "ct") != 0 &&
+            strcmp(key, "pt") != 0) {
             paramsOnly[key].set(kv.value());
         }
     }
@@ -443,6 +447,8 @@ void handleUpdateSlaveConfig() {
     slavesArray[slaveIndex]["numReg"] = updateDoc["numReg"];
     slavesArray[slaveIndex]["mqttTopic"] = updateDoc["mqttTopic"];
     slavesArray[slaveIndex]["registerSize"] = updateDoc["registerSize"];
+    slavesArray[slaveIndex]["ct"] = updateDoc["ct"];
+    slavesArray[slaveIndex]["pt"] = updateDoc["pt"];
     
     if (overrideOutput.size() > 0) {
         slavesArray[slaveIndex]["override"] = overrideOutput;
