@@ -285,7 +285,7 @@ class SlavesManager {
     // ==================== STATISTICS MANAGEMENT ====================
 
     startStatsPolling() {
-        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 1000);
+        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 3000);
     }
 
     async fetchStatistics() {

@@ -349,7 +349,7 @@ class DebugConsole {
     }
 
     startMessagePolling() {
-        setInterval(() => this.checkForMessages(), 1000);
+        setInterval(() => this.checkForMessages(), 3000);
     }
 
     refreshUI() {
