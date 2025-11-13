@@ -170,7 +170,7 @@ input:checked + .toggle-slider:before {
     background: rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-md);
     padding: var(--space-md);
-    max-height: 200px;
+    max-height: 180px; /* Slightly reduced to fit more rows */
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-all;
@@ -246,15 +246,18 @@ input:checked + .toggle-slider:before {
     background: var(--text-muted); 
 }
 
-/* Table Scrollbars */
+/* Table Container - INCREASED HEIGHT */
 .table-container {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--border-color) var(--surface-color);
+    max-height: 700px; /* Increased from default to show more rows */
+    overflow-y: auto;
 }
 
 .table-container::-webkit-scrollbar { 
     height: 8px; 
+    width: 8px;
 }
 
 .table-container::-webkit-scrollbar-track { 
@@ -268,6 +271,11 @@ input:checked + .toggle-slider:before {
 
 .table-container::-webkit-scrollbar-thumb:hover { 
     background: var(--text-muted); 
+}
+
+/* Table Row Height - Reduced to fit more rows */
+.data-table.debug-table tbody tr {
+    height: 48px; /* Reduced row height to fit more content */
 }
 
 /* Special Rows */
@@ -301,6 +309,7 @@ input:checked + .toggle-slider:before {
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
         margin: var(--space-md) 0;
+        max-height: 500px; /* Slightly reduced for mobile */
     }
     
     .data-table.debug-table { 
@@ -355,7 +364,7 @@ input:checked + .toggle-slider:before {
     .raw-json { 
         font-size: 0.7rem; 
         padding: var(--space-sm); 
-        max-height: 150px; 
+        max-height: 120px; /* Further reduced for mobile */
     }
     
     .panel-header { 
@@ -363,10 +372,19 @@ input:checked + .toggle-slider:before {
         align-items: flex-start; 
         gap: var(--space-sm); 
     }
+
+    /* Mobile row height */
+    .data-table.debug-table tbody tr {
+        height: 44px; /* Even more compact on mobile */
+    }
 }
 
 @media (max-width: 480px) {
     .data-table.debug-table { 
         min-width: 700px; 
+    }
+    
+    .table-container {
+        max-height: 450px; /* Further reduced for very small screens */
     }
 }
