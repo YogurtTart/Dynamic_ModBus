@@ -119,7 +119,7 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
+        FormHelper.clearForm(['start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
 
         document.getElementById('register_size').value = 1;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
