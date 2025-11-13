@@ -15,6 +15,7 @@ class SlavesManager {
         this.pollInterval = 10;
         this.timeout = 1;
         this.statsPollInterval = null;
+        this.MAX_SLAVES = 12;
         this.init();
     }
 
@@ -63,6 +64,12 @@ class SlavesManager {
     }
 
     addSlave() {
+
+        if (this.slaves.length >= this.MAX_SLAVES) {
+            StatusManager.showStatus(`Error: Maximum ${this.MAX_SLAVES} slaves allowed. Please remove some slaves first.`, 'error');
+            return;
+        }
+
         const slaveId = FormHelper.getValue('slave_id');
         const startReg = FormHelper.getValue('start_reg');
         const numReg = FormHelper.getValue('num_reg');
@@ -120,9 +127,27 @@ class SlavesManager {
         document.getElementById('name_preview').style.color = 'var(--error-color)';
     }
 
+    // 🆕 Add button state management
+    updateAddButtonState() {
+        const addButton = document.querySelector('button[onclick="window.slavesManager.addSlave()"]');
+        if (!addButton) return;
+        
+        if (this.slaves.length >= this.MAX_SLAVES) {
+            addButton.disabled = true;
+            addButton.style.opacity = '0.5';
+            addButton.title = `Maximum ${this.MAX_SLAVES} slaves reached`;
+            addButton.innerHTML = '<span class="btn-icon">⛔</span>Maximum Slaves Reached';
+        } else {
+            addButton.disabled = false;
+            addButton.style.opacity = '1';
+            addButton.title = 'Add new slave device';
+            addButton.innerHTML = '<span class="btn-icon">➕</span>Add Slave Device';
+        }
+    }
+
     // ==================== UI UPDATES ====================
 
-    updateSlavesList() {
+        updateSlavesList() {
         const list = document.getElementById('slavesTableBody');
         const emptyState = document.getElementById('emptySlavesState');
         const slaveCount = document.getElementById('slaveCount');
@@ -130,6 +155,11 @@ class SlavesManager {
         
         // Update statistics
         document.getElementById('totalEntries').textContent = this.slaves.length;
+        
+        // Update add button state based on actual slave count
+        this.updateAddButtonState();
+        
+        // Update statistics using actual slave count
         const uniqueSlaveCount = this.countUniqueSlaves();
         if (slaveCount) slaveCount.textContent = uniqueSlaveCount;
         if (slaveCountBadge) slaveCountBadge.textContent = this.slaves.length;
