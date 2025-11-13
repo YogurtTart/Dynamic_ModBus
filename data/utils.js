@@ -21,14 +21,14 @@ class StatusManager {
         status.className = `status-message ${type}`;
         status.style.display = 'block';
         
-        // Auto-hide after 5 seconds
+        // Auto-hide after 3 seconds
         window.statusTimeout = setTimeout(() => {
             status.classList.add('hiding');
             setTimeout(() => {
                 status.style.display = 'none';
                 status.classList.remove('hiding');
             }, 300);
-        }, 5000);
+        }, 3000);
     }
 }
 

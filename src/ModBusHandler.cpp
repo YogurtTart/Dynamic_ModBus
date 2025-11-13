@@ -63,20 +63,20 @@ float calculateCurrent(uint64_t registerValue, float divider) {
     return (registerValue * slaves[currentSlaveIndex].ct / 10000.0f) / divider;
 }
 
-float calculateSinglePhasePower(uint64_t registerValue, float divider) {
-    return (registerValue * slaves[currentSlaveIndex].pt * slaves[currentSlaveIndex].ct / 100.0f) / divider;
+float calculateSinglePhasePower(uint64_t registerValue, float divider, float ct, float pt) {
+    return (registerValue * pt * ct / 100.0f) / divider;
 }
 
-float calculateThreePhasePower(uint64_t registerValue, float divider) {
-    return (registerValue * slaves[currentSlaveIndex].pt * slaves[currentSlaveIndex].ct / 10.0f) / divider;
+float calculateThreePhasePower(uint64_t registerValue, float divider, float ct, float pt) {
+    return (registerValue * pt * ct / 10.0f) / divider;
 }
 
 float calculatePowerFactor(uint64_t registerValue, float divider) {
     return (registerValue / 1000.0f) / divider;
 }
 
-float calculateVoltage(uint64_t registerValue, float divider) {
-    return (registerValue * slaves[currentSlaveIndex].pt / 100.0f) / divider;
+float calculateVoltage(uint64_t registerValue, float divider, float pt) {
+    return (registerValue * pt / 100.0f) / divider;
 }
 
 float readEnergyValue(uint64_t rawValue, float divider) {
@@ -251,8 +251,8 @@ bool modbusReloadSlaves() {
         slaves[i].name = mergedConfig["name"] | slaveObj["name"].as<String>();
         slaves[i].mqttTopic = mergedConfig["mqttTopic"] | slaveObj["mqttTopic"].as<String>();
         slaves[i].deviceType = determineDeviceTypeFromString(deviceType);
-        slaves[i].ct = mergedConfig["ct"] | 1.0f;
-        slaves[i].pt = mergedConfig["pt"] | 1.0f;
+        slaves[i].ct = mergedConfig["ct"] |  slaveObj["ct"];
+        slaves[i].pt = mergedConfig["pt"] |  slaveObj["pt"];
         
         if (slaveObj["registerSize"].is<int>()) {
             int size = slaveObj["registerSize"];
@@ -285,7 +285,7 @@ void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint6
     root["humidity"] = convertRegisterToHumidity(humidRaw, sensorConfig.humidDivider);
 }
 
-void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize) {
+void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize, float ct, float pt) {
     int valueIndex = 0;
     
     root["A_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.aCurrent.divider);
@@ -293,20 +293,20 @@ void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t
     root["C_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.cCurrent.divider);
     root["Zero_Phase_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.zeroPhaseCurrent.divider);
     
-    root["A_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aActivePower.divider);
-    root["B_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bActivePower.divider);
-    root["C_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cActivePower.divider);
-    root["Total_Active_Power_(kW)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalActivePower.divider);
+    root["A_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aActivePower.divider, ct, pt);
+    root["B_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bActivePower.divider, ct, pt);
+    root["C_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cActivePower.divider, ct, pt);
+    root["Total_Active_Power_(kW)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalActivePower.divider, ct, pt);
     
-    root["A_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aReactivePower.divider);
-    root["B_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bReactivePower.divider);
-    root["C_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cReactivePower.divider);
-    root["Total_Reactive_Power_(kVAr)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalReactivePower.divider);
+    root["A_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aReactivePower.divider, ct, pt);
+    root["B_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bReactivePower.divider, ct, pt);
+    root["C_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cReactivePower.divider, ct, pt);
+    root["Total_Reactive_Power_(kVAr)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalReactivePower.divider, ct, pt);
     
-    root["A_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aApparentPower.divider);
-    root["B_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bApparentPower.divider);
-    root["C_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cApparentPower.divider);
-    root["Total_Apparent_Power_(kVA)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalApparentPower.divider);
+    root["A_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aApparentPower.divider, ct, pt);
+    root["B_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bApparentPower.divider, ct, pt);
+    root["C_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cApparentPower.divider, ct, pt);
+    root["Total_Apparent_Power_(kVA)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalApparentPower.divider, ct, pt);
     
     root["A_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aPowerFactor.divider);
     root["B_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bPowerFactor.divider);
@@ -314,14 +314,14 @@ void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t
     root["Total_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalPowerFactor.divider);
 }
 
-void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize) {
+void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize, float pt) {
     int valueIndex = 0;
     
-    root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.aVoltage.divider);
-    root["B_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.bVoltage.divider);
-    root["C_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.cVoltage.divider);
-    root["Phase_Voltage_Mean"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.phaseVoltageMean.divider);
-    root["Zero_Sequence_Voltage"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.zeroSequenceVoltage.divider);
+    root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.aVoltage.divider, pt);
+    root["B_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.bVoltage.divider, pt);
+    root["C_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.cVoltage.divider, pt);
+    root["Phase_Voltage_Mean"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.phaseVoltageMean.divider, pt);
+    root["Zero_Sequence_Voltage"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.zeroSequenceVoltage.divider, pt);
 }
 
 void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
@@ -402,6 +402,9 @@ void processNonBlockingData() {
     root["start_reg"] = slave.startRegister;
     root["num_reg"] = slave.registerCount;
     root["register_size"] = slave.registerSize;
+    root["ct"] = slave.ct;
+    root["pt"] = slave.pt;
+    
 
     uint16_t* rawRegisters = new uint16_t[slave.registerCount];
     readAllRegistersIntoArray(rawRegisters, slave.registerCount);
@@ -414,10 +417,10 @@ void processNonBlockingData() {
             processSensorData(root, slave.config.sensor, combinedValues, slave.registerSize);
             break;
         case DEVICE_HEYLA_PARAM:
-            processMeterData(root, slave.config.meter, combinedValues, slave.registerSize);
+            processMeterData(root, slave.config.meter, combinedValues, slave.registerSize, slave.ct, slave.pt);
             break;
         case DEVICE_HEYLA_VOLTAGE:
-            processVoltageData(root, slave.config.voltage, combinedValues, slave.registerSize);
+            processVoltageData(root, slave.config.voltage, combinedValues, slave.registerSize, slave.pt);
             break;
         case DEVICE_HEYLA_ENERGY:
             processEnergyData(root, slave.config.energy, combinedValues, slave.registerSize);

@@ -119,12 +119,11 @@ class SlavesManager {
     }
 
     clearSlaveForm() {
-        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier', 'ct_ratio', 'pt_ratio']);
+        FormHelper.clearForm(['slave_id', 'start_reg', 'num_reg', 'slave_name', 'mqtt_topic', 'device_identifier']);
 
         document.getElementById('register_size').value = 1;
-        document.getElementById('device_type').value = DEVICE_TYPES.G01S;
-        document.getElementById('name_preview').textContent = DEVICE_TYPES.G01S;
         document.getElementById('name_preview').style.color = 'var(--error-color)';
+        
     }
 
     // 🆕 Add button state management
@@ -180,8 +179,8 @@ class SlavesManager {
                     <td>${slave.startReg}</td>
                     <td>${slave.numReg}</td>
                     <td>${slave.registerSize}</td>
-                    <td>${slave.ct}:1</td>
-                    <td>${slave.pt}:1</td>
+                    <td>${slave.ct}</td>
+                    <td>${slave.pt}</td>
                     <td><code>${slave.mqttTopic}</code></td>
                     <td>
                         <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
@@ -286,7 +285,7 @@ class SlavesManager {
     // ==================== STATISTICS MANAGEMENT ====================
 
     startStatsPolling() {
-        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 2000);
+        this.statsPollInterval = setInterval(() => this.fetchStatistics(), 1000);
     }
 
     async fetchStatistics() {
