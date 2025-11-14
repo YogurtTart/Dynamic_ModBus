@@ -554,3 +554,8 @@ body.dark-mode {
         padding: var(--space-md); 
     }
 }
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

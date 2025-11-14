@@ -120,6 +120,9 @@ class SettingsManager {
     }
 
     cancelEdit() {
+        const button = event.target;
+        button.disabled = true;
+
         const editSection = document.getElementById('editSection');
         const editor = document.getElementById('config_editor');
         
@@ -129,6 +132,10 @@ class SettingsManager {
         this.currentSlaveId = null;
         this.currentSlaveName = null;
         StatusManager.showStatus('Edit cancelled', 'info');
+
+        setTimeout(() => {
+            button.disabled = false;
+        }, 500);
     }
 
     refreshUI() {

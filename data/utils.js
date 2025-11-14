@@ -257,6 +257,23 @@ function refreshCurrentTab() {
     }
 }
 
+// ==================== SIMPLE BUTTON DISABLE ====================
+
+function disableButtonDuringOperation(event, operation) {
+    const button = event.target;
+    
+    // Disable the button
+    button.disabled = true;
+    
+    // Run the operation
+    return operation().finally(() => {
+        // Re-enable the button when operation completes (success or error)
+        setTimeout(() => {
+            button.disabled = false;
+        }, 500);
+    });
+}
+
 // ==================== GLOBAL INITIALIZATION ====================
 
 document.addEventListener('DOMContentLoaded', function() {

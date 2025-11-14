@@ -102,7 +102,9 @@ class SlavesManager {
         return uniqueIDs.size;
     }
 
-    addSlave() {
+    addSlave(event) {
+        const button = event.target;
+        button.disabled = true;
 
         if (this.slaves.length >= this.MAX_SLAVES) {
             StatusManager.showStatus(`Error: Maximum ${this.MAX_SLAVES} slaves allowed. Please remove some slaves first.`, 'error');
@@ -154,6 +156,11 @@ class SlavesManager {
         this.sortSlavesByID();
         this.updateSlavesList();
         this.clearSlaveForm();
+
+        setTimeout(() => {
+                button.disabled = false;
+            }, 500);
+
         StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
 
@@ -222,7 +229,7 @@ class SlavesManager {
                     <td>${slave.pt}</td>
                     <td><code>${slave.mqttTopic}</code></td>
                     <td>
-                        <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index})" title="Delete slave">
+                        <button class="btn btn-small btn-warning" onclick="slavesManager.deleteSlave(${index}, event)" title="Delete slave">
                             🗑️ Delete
                         </button>
                     </td>
@@ -231,7 +238,10 @@ class SlavesManager {
         }
     }
 
-    deleteSlave(index) {
+    deleteSlave(index, event) {
+        const button = event.target;
+        button.disabled = true;
+
         if (confirm('Are you sure you want to delete this Modbus slave?')) {
             const slave = this.slaves[index];
             this.slaves.splice(index, 1);
@@ -239,6 +249,10 @@ class SlavesManager {
             this.removeSlaveStats(slave.id, slave.name);
             StatusManager.showStatus('Modbus slave deleted successfully!', 'success');
         }
+
+        setTimeout(() => {
+            button.disabled = false;
+        }, 500);
     }
 
     // ==================== CONFIGURATION PERSISTENCE ====================
@@ -260,7 +274,6 @@ class SlavesManager {
 
         try {
             await ApiClient.post('/saveslaves', config);
-            _triggerButton: event.target
             
             // Force reload slaves after save
             setTimeout(() => {
@@ -298,9 +311,8 @@ class SlavesManager {
             await ApiClient.post('/savepollingconfig', { 
                 pollInterval: parseInt(interval), 
                 timeout: parseInt(timeoutValue) 
-            }, {
-                _triggerButton: event.target
             });
+            
             this.pollInterval = parseInt(interval);
             this.timeout = parseInt(timeoutValue);
             StatusManager.showStatus(`Polling config saved: ${this.pollInterval}s interval, ${this.timeout}s timeout`, 'success');
