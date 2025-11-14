@@ -15,7 +15,8 @@ class SlavesManager {
         this.pollInterval = 10;
         this.timeout = 1;
         this.statsPollInterval = null;
-        this.MAX_SLAVES = 12;
+        this.MAX_SLAVES = 10;
+        this.queryEnabled = false;
         this.init();
     }
 
@@ -26,6 +27,7 @@ class SlavesManager {
         this.initCompositeNameInput();
         this.loadAllConfigs();
         this.startStatsPolling();
+        this.initQueryToggle();
     }
 
     bindEvents() {
@@ -49,6 +51,53 @@ class SlavesManager {
             ]);
         } catch (error) {
             console.error('Error loading configurations:', error);
+        }
+    }
+
+    // ==================== SLAVE Start/Off button ====================
+
+    initQueryToggle() {
+        const toggleCheckbox = document.getElementById('queryToggle');
+        const statusSpan = document.getElementById('queryStatus');
+        
+        if (toggleCheckbox) {
+            // Load saved state from localStorage
+            const savedState = localStorage.getItem('modbusQueryEnabled');
+            this.queryEnabled = savedState === 'true';
+            toggleCheckbox.checked = this.queryEnabled;
+            this.updateQueryStatusDisplay();
+            
+            toggleCheckbox.addEventListener('change', (e) => {
+                this.queryEnabled = e.target.checked;
+                localStorage.setItem('modbusQueryEnabled', this.queryEnabled);
+                this.updateQueryStatusDisplay();
+                this.sendQueryToggleState();
+            });
+        }
+    }
+
+    updateQueryStatusDisplay() {
+        const statusSpan = document.getElementById('queryStatus');
+        if (statusSpan) {
+            if (this.queryEnabled) {
+                statusSpan.textContent = 'Enabled';
+                statusSpan.className = 'query-status enabled';
+            } else {
+                statusSpan.textContent = 'Disabled';
+                statusSpan.className = 'query-status disabled';
+            }
+        }
+    }
+
+    async sendQueryToggleState() {
+        try {
+            await ApiClient.post('/setquerystate', {
+                enabled: this.queryEnabled
+            });
+            StatusManager.showStatus(`ModBus queries ${this.queryEnabled ? 'enabled' : 'disabled'}`, 'success');
+        } catch (error) {
+            console.error('Error updating query state:', error);
+            StatusManager.showStatus('Error updating query state', 'error');
         }
     }
 

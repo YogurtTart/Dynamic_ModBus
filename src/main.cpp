@@ -107,7 +107,7 @@ void loop() {
     }
     
     // ✅ EFFICIENT: Only process ModBus if slaves are configured
-    if (slaveCount > 0) {
+    if (slaveCount > 0 && modbusQueriesEnabled) {
         updateNonBlockingQuery(); // Process ModBus queries
     }
     

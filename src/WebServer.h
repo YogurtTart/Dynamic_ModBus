@@ -13,6 +13,7 @@
 
 extern ESP8266WebServer server;
 extern bool debugEnabled;
+extern bool modbusQueriesEnabled;
 
 // ==================== TIMING MANAGEMENT STRUCTURES ====================
 
@@ -65,6 +66,7 @@ void handleSaveSlaves();
 void handleGetSlaves();
 void handleGetSlaveConfig();
 void handleUpdateSlaveConfig();
+void handleSetQueryState();
 
 // ==================== POLLING CONFIGURATION HANDLERS ====================
 

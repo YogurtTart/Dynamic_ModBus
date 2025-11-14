@@ -10,6 +10,7 @@ constexpr int kMaxDevices = 12;
 
 ESP8266WebServer server(kWebServerPort);
 bool debugEnabled = false;
+bool modbusQueriesEnabled = false; 
 
 // Enhanced dynamic timing variables
 unsigned long lastSequenceTime = 0;
@@ -75,6 +76,7 @@ void setupWebServer() {
     // Statistics endpoints
     server.on("/getstatistics", HTTP_GET, handleGetStatistics);
     server.on("/removeslavestats", HTTP_POST, handleRemoveSlaveStats);
+    server.on("/setquerystate", HTTP_POST, handleSetQueryState);
     
     // Debug endpoints
     server.on("/toggledebug", HTTP_POST, handleToggleDebug);
@@ -237,6 +239,20 @@ String getContentType(const String& filename) {
 }
 
 // ==================== SLAVE CONFIGURATION HANDLERS ====================
+
+void handleSetQueryState() {
+    Serial.println("🔄 Setting ModBus query state");
+    
+    JsonDocument doc;
+    if (!parseJsonBody(doc)) return;
+    
+    bool enabled = doc["enabled"] | false;
+
+    modbusQueriesEnabled = enabled;
+    
+    Serial.printf("✅ ModBus queries %s\n", enabled ? "enabled" : "disabled");
+    server.send(200, "application/json", "{\"status\":\"success\"}");
+}
 
 void handleSaveSlaves() {
     Serial.println("💾 Saving slave configuration");

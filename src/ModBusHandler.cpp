@@ -63,15 +63,15 @@ float calculateCurrent(uint64_t registerValue, float divider) {
     return (registerValue * slaves[currentSlaveIndex].ct / 10000.0f) / divider;
 }
 
-float calculateSinglePhasePower(uint64_t registerValue, float divider, float ct, float pt) {
+float calculateSinglePhasePower(int64_t registerValue, float divider, float ct, float pt) {
     return (registerValue * pt * ct / 100.0f) / divider;
 }
 
-float calculateThreePhasePower(uint64_t registerValue, float divider, float ct, float pt) {
+float calculateThreePhasePower(int64_t registerValue, float divider, float ct, float pt) {
     return (registerValue * pt * ct / 10.0f) / divider;
 }
 
-float calculatePowerFactor(uint64_t registerValue, float divider) {
+float calculatePowerFactor(int64_t registerValue, float divider) {
     return (registerValue / 1000.0f) / divider;
 }
 

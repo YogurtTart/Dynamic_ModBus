@@ -159,10 +159,10 @@ void publishData(const SensorSlave& slave, const JsonDocument& doc);
 
 // ==================== CALCULATION FUNCTIONS ====================
 float calculateCurrent(uint64_t registerValue, float divider);
-float calculateSinglePhasePower(uint64_t registerValue, float divider);
-float calculateThreePhasePower(uint64_t registerValue, float divider);
-float calculatePowerFactor(uint64_t registerValue, float divider);
-float calculateVoltage(uint64_t registerValue, float divider);
+float calculateSinglePhasePower(int64_t registerValue, float divider, float ct, float pt);
+float calculateThreePhasePower(int64_t registerValue, float divider, float ct, float pt);
+float calculatePowerFactor(int64_t registerValue, float divider);
+float calculateVoltage(uint64_t registerValue, float divider, float pt);
 
 // ==================== ERROR HANDLING ====================
 void handleQueryStartFailure();
