@@ -2,9 +2,9 @@
 
 // ==================== CONSTANTS ====================
 
-constexpr int kMaxDebugMessages = 15;
+constexpr int kMaxDebugMessages = 10;
 constexpr int kWebServerPort = 80;
-constexpr int kMaxDevices = 12;
+constexpr int kMaxDevices = 9;
 
 // ==================== GLOBAL VARIABLES ====================
 

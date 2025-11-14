@@ -6,7 +6,7 @@ class SlavesManager {
         this.pollInterval = 10;
         this.timeout = 1;
         this.statsPollInterval = null;
-        this.MAX_SLAVES = 10;
+        this.MAX_SLAVES = 9;
         this.queryEnabled = false;
         this.init();
     }
@@ -185,7 +185,7 @@ class SlavesManager {
 
     // ==================== UI UPDATES ====================
 
-        updateSlavesList() {
+    updateSlavesList() {
         const list = document.getElementById('slavesTableBody');
         const emptyState = document.getElementById('emptySlavesState');
         const slaveCount = document.getElementById('slaveCount');
@@ -260,6 +260,7 @@ class SlavesManager {
 
         try {
             await ApiClient.post('/saveslaves', config);
+            _triggerButton: event.target
             
             // Force reload slaves after save
             setTimeout(() => {
@@ -297,6 +298,8 @@ class SlavesManager {
             await ApiClient.post('/savepollingconfig', { 
                 pollInterval: parseInt(interval), 
                 timeout: parseInt(timeoutValue) 
+            }, {
+                _triggerButton: event.target
             });
             this.pollInterval = parseInt(interval);
             this.timeout = parseInt(timeoutValue);

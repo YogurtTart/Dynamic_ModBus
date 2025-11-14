@@ -31,7 +31,7 @@ struct DeviceTiming {
 
 // ==================== GLOBAL TIMING VARIABLES ====================
 
-extern DeviceTiming deviceTiming[12]; // Max 12 devices
+extern DeviceTiming deviceTiming[]; // Max 12 devices
 extern uint8_t deviceTimeCount;
 extern unsigned long lastSequenceTime; // For "Since Prev" across all devices
 extern unsigned long systemStartTime; // For "Real Time" calculation
