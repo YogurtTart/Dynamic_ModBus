@@ -2,7 +2,7 @@
 class DebugConsole {
     constructor() {
         this.isEnabled = false;
-        this.maxTableRows = 30;
+        this.maxTableRows = 24; // REDUCED from 30 to 24
         this.messageSequence = [];
         this.init();
     }
@@ -12,6 +12,19 @@ class DebugConsole {
         this.bindEvents();
         this.startMessagePolling();
         this.loadStoredMessages();
+        
+        if (this.isHardRefresh()) {
+            localStorage.removeItem('mqttDebugMessages');
+            console.log('🧹 Hard refresh detected - cleared debug storage');
+        }
+    }
+
+    isHardRefresh() {
+        const currentTime = Date.now();
+        const lastLoadTime = localStorage.getItem('lastDebugLoadTime');
+        localStorage.setItem('lastDebugLoadTime', currentTime.toString());
+        
+        return !lastLoadTime || (currentTime - parseInt(lastLoadTime)) > 5000;
     }
 
     bindEvents() {
@@ -114,7 +127,7 @@ class DebugConsole {
         this.messageSequence.unshift(messageObject);
         
         if (this.messageSequence.length > this.maxTableRows) {
-            this.messageSequence.pop();
+            this.messageSequence = this.messageSequence.slice(0, this.maxTableRows);
         }
         
         this.addSingleRowToTable(messageObject);
