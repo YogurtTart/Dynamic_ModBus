@@ -103,7 +103,8 @@ DeviceType determineDeviceTypeFromString(const String& deviceTypeStr) {
     if (deviceTypeStr == "G01S") return DEVICE_G01S;
     if (deviceTypeStr == "HeylaParam") return DEVICE_HEYLA_PARAM;
     if (deviceTypeStr == "HeylaVoltage") return DEVICE_HEYLA_VOLTAGE;
-    if (deviceTypeStr == "HeylaEnergy") return DEVICE_HEYLA_ENERGY;
+    if (deviceTypeStr == "HeylaEnergy9") return DEVICE_HEYLA_ENERGY9;
+    if (deviceTypeStr == "HeylaEnergy27") return DEVICE_HEYLA_ENERGY27;
     return DEVICE_G01S;
 }
 
@@ -118,8 +119,11 @@ void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj) {
         case DEVICE_HEYLA_VOLTAGE:
             loadVoltageParameters(slave.config.voltage, slaveObj);
             break;
-        case DEVICE_HEYLA_ENERGY:
-            loadEnergyParameters(slave.config.energy, slaveObj);
+        case DEVICE_HEYLA_ENERGY9:
+            loadEnergyParameters9(slave.config.energy, slaveObj);
+            break;
+        case DEVICE_HEYLA_ENERGY27:
+            loadEnergyParameters27(slave.config.energy, slaveObj);
             break;
     }
 }
@@ -170,7 +174,26 @@ void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
     #undef LOAD_VOLTAGE_PARAM
 }
 
-void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject paramsObj) {
+void loadEnergyParameters9(EnergyConfig& energyConfig, JsonObject paramsObj) {
+    JsonObject energyObj = paramsObj["energy"].as<JsonObject>();
+    
+    #define LOAD_ENERGY_PARAM(field) \
+        if (energyObj[#field].is<JsonObject>()) { \
+            JsonObject paramObj = energyObj[#field].as<JsonObject>(); \
+            energyConfig.field.divider = paramObj["divider"] | 1.0f; \
+        }
+    
+    LOAD_ENERGY_PARAM(totalActiveEnergy);
+    LOAD_ENERGY_PARAM(importActiveEnergy);
+    LOAD_ENERGY_PARAM(exportActiveEnergy);
+    LOAD_ENERGY_PARAM(totalReactiveEnergy);
+    LOAD_ENERGY_PARAM(importReactiveEnergy);
+    LOAD_ENERGY_PARAM(exportReactiveEnergy);
+    
+    #undef LOAD_ENERGY_PARAM
+}
+
+void loadEnergyParameters27(EnergyConfig& energyConfig, JsonObject paramsObj) {
     JsonObject energyObj = paramsObj["energy"].as<JsonObject>();
     
     #define LOAD_ENERGY_PARAM(field) \
@@ -319,12 +342,24 @@ void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, ui
     root["Zero_Sequence_Voltage"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.zeroSequenceVoltage.divider, pt);
 }
 
-void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
+void processEnergyData9(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
     int valueIndex = 0;
     
     root["Total_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.totalActiveEnergy.divider);
     root["Import_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.importActiveEnergy.divider);
     root["Export_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.exportActiveEnergy.divider);
+    root["Total_Reactive_Energy_(KVArh)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.totalReactiveEnergy.divider);
+    root["Import_Reactive_Energy_(KVArh)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.importReactiveEnergy.divider);
+    root["Export_Reactive_Energy_(KVArh)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.exportReactiveEnergy.divider);
+}
+
+void processEnergyData27(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize) {
+    int valueIndex = 0;
+    
+    root["Total_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.totalActiveEnergy.divider);
+    root["Import_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.importActiveEnergy.divider);
+    root["Export_Active_Energy_(kwH)"] = readEnergyValue(combinedValues[valueIndex++], energyConfig.exportActiveEnergy.divider);
+    
 }
 
 void publishData(const SensorSlave& slave, const JsonDocument& doc) {
@@ -417,8 +452,11 @@ void processNonBlockingData() {
         case DEVICE_HEYLA_VOLTAGE:
             processVoltageData(root, slave.config.voltage, combinedValues, slave.registerSize, slave.pt);
             break;
-        case DEVICE_HEYLA_ENERGY:
-            processEnergyData(root, slave.config.energy, combinedValues, slave.registerSize);
+        case DEVICE_HEYLA_ENERGY9:
+            processEnergyData9(root, slave.config.energy, combinedValues, slave.registerSize);
+            break;
+        case DEVICE_HEYLA_ENERGY27:
+            processEnergyData27(root, slave.config.energy, combinedValues, slave.registerSize);
             break;
     }
     

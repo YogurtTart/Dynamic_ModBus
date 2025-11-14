@@ -1,12 +1,3 @@
-// ==================== DEVICE TYPE CONSTANTS ====================
-
-const DEVICE_TYPES = {
-    G01S: "G01S",
-    HeylaParam: "HeylaParam", 
-    HeylaVoltage: "HeylaVoltage",
-    HeylaEnergy: "HeylaEnergy"
-};
-
 // ==================== SLAVES MANAGER CLASS ====================
 
 class SlavesManager {

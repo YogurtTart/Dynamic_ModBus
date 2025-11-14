@@ -46,17 +46,32 @@ void addVoltageConfig(JsonObject& templateObj) {
     }
 }
 
-void addEnergyConfig(JsonObject& templateObj) {
+void addEnergyConfig27(JsonObject& templateObj) {
     JsonObject energyParams = templateObj["energy"].to<JsonObject>();
     
-    JsonObject totalActiveEnergy = energyParams["totalActiveEnergy"].to<JsonObject>();
-    totalActiveEnergy["divider"] = 1.0;
+    const char* energyConfigs[] = {
+        "totalActiveEnergy","importActiveEnergy", "exportActiveEnergy"
+    };
     
-    JsonObject importActiveEnergy = energyParams["importActiveEnergy"].to<JsonObject>();
-    importActiveEnergy["divider"] = 1.0;
+    for (const char* config : energyConfigs) {
+        JsonObject param = energyParams[config].to<JsonObject>();
+        param["divider"] = 1.0;
+    }
+}
+
+
+void addEnergyConfig9(JsonObject& templateObj) {
+    JsonObject energyParams = templateObj["energy"].to<JsonObject>();
     
-    JsonObject exportActiveEnergy = energyParams["exportActiveEnergy"].to<JsonObject>();
-    exportActiveEnergy["divider"] = 1.0;
+    const char* energyConfigs[] = {
+        "totalActiveEnergy","importActiveEnergy", "exportActiveEnergy",
+        "totalReactiveEnergy","importReactiveEnergy", "exportReactiveEnergy" 
+    };
+    
+    for (const char* config : energyConfigs) {
+        JsonObject param = energyParams[config].to<JsonObject>();
+        param["divider"] = 1.0;
+    }
 }
 
 // ==================== TEMPLATE CREATION ====================
@@ -81,7 +96,8 @@ bool createDefaultTemplates() {
         {"G01S", addG01SConfig},
         {"HeylaParam", addMeterConfig},
         {"HeylaVoltage", addVoltageConfig},
-        {"HeylaEnergy", addEnergyConfig}
+        {"HeylaEnergy9", addEnergyConfig9},
+        {"HeylaEnergy27", addEnergyConfig27}
     };
 
     // Create all templates

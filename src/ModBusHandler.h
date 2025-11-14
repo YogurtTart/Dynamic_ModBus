@@ -38,7 +38,8 @@ enum DeviceType {
     DEVICE_G01S = 0,
     DEVICE_HEYLA_PARAM = 1,
     DEVICE_HEYLA_VOLTAGE = 2,
-    DEVICE_HEYLA_ENERGY = 3
+    DEVICE_HEYLA_ENERGY9 = 3,
+    DEVICE_HEYLA_ENERGY27 = 4
 };
 
 // ==================== PARAMETER STRUCTURES ====================
@@ -75,7 +76,8 @@ struct VoltageConfig {
 };
 
 struct EnergyConfig {
-    EnergyParameter totalActiveEnergy, importActiveEnergy, exportActiveEnergy;
+    EnergyParameter totalActiveEnergy, importActiveEnergy, exportActiveEnergy, totalReactiveEnergy, 
+                    importReactiveEnergy, exportReactiveEnergy;
 };
 
 // ==================== MAIN SLAVE STRUCTURE ====================
@@ -142,7 +144,8 @@ void loadDeviceParameters(SensorSlave& slave, JsonObject slaveObj);
 void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj);
 void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj);
 void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj);
-void loadEnergyParameters(EnergyConfig& energyConfig, JsonObject paramsObj);
+void loadEnergyParameters9(EnergyConfig& energyConfig, JsonObject paramsObj);
+void loadEnergyParameters27(EnergyConfig& energyConfig, JsonObject paramsObj);
 
 // ==================== REGISTER PROCESSING FUNCTIONS ====================
 void readAllRegistersIntoArray(uint16_t* registerArray, uint16_t numRegisters);
@@ -154,7 +157,8 @@ int64_t convertToSigned(uint64_t value, RegisterSize regSize);
 void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint64_t* combinedValues, RegisterSize regSize);
 void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize, float ct, float pt);
 void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize, float pt);
-void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize);
+void processEnergyData9(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize);
+void processEnergyData27(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize);
 void publishData(const SensorSlave& slave, const JsonDocument& doc);
 
 // ==================== CALCULATION FUNCTIONS ====================
