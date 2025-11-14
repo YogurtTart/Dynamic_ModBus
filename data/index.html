@@ -179,13 +179,13 @@
                     <div class="action-bar" style="margin-bottom: 20px;">
                         <button type="button" 
                                 class="btn btn-secondary" 
-                                onclick="window.wifiManager.loadSettings()">
+                                onclick="disableButtonDuringOperation(event, () => window.wifiManager.loadSettings())">
                             <span class="btn-icon">↻</span>
                             Load Current Settings
                         </button>
                         <button type="button" 
                                 class="btn btn-primary" 
-                                onclick="window.wifiManager.saveSettings()">
+                                onclick="disableButtonDuringOperation(event, () => window.wifiManager.saveSettings())">
                             <span class="btn-icon">💾</span>
                             Save WiFi & MQTT Configuration
                         </button>
@@ -234,14 +234,14 @@
                                 <button type="button" 
                                         class="btn btn-primary" 
                                         id="connectStaBtn"
-                                        onclick="window.wifiManager.connectSTA()">
+                                        onclick="disableButtonDuringOperation(event, () => window.wifiManager.connectSTA())">
                                     <span class="btn-icon">🔌</span>
                                     Connect STA
                                 </button>
                                 <button type="button" 
                                         class="btn btn-warning" 
                                         id="disconnectStaBtn"
-                                        onclick="window.wifiManager.disconnectSTA()">
+                                        onclick="disableButtonDuringOperation(event, () => window.wifiManager.disconnectSTA())">
                                     <span class="btn-icon">🔴</span>
                                     Disconnect
                                 </button>
@@ -276,7 +276,7 @@
                     <div class="action-bar compact" style="margin-top: var(--space-lg);">
                         <button type="button" 
                                 class="btn btn-secondary" 
-                                onclick="window.wifiManager.refreshIPInfo()">
+                                onclick="disableButtonDuringOperation(event, () => window.wifiManager.refreshIPInfo())">
                             <span class="btn-icon">↻</span>
                             Refresh All Status
                         </button>
@@ -435,11 +435,11 @@
 
                             <!-- Action Buttons -->
                             <div class="action-bar compact dual-buttons">
-                                <button type="button" class="btn btn-primary" onclick="window.slavesManager.addSlave()">
+                                <button type="button" class="btn btn-primary" onclick="window.slavesManager.addSlave(event)">
                                     <span class="btn-icon">➕</span>
                                     Add Slave Device
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.slavesManager.saveSlaveConfig()">
+                                <button type="button" class="btn btn-secondary" onclick="disableButtonDuringOperation(event, () => window.slavesManager.saveSlaveConfig())">
                                     <span class="btn-icon">💾</span>
                                     Save Slave
                                 </button>
@@ -482,11 +482,11 @@
                                     step="1">
                             </div>
                             <div class="action-stack">
-                                <button class="btn btn-secondary full-width" onclick="window.slavesManager.loadPollingConfig()">
+                                <button class="btn btn-secondary full-width" onclick="disableButtonDuringOperation(event, () => window.slavesManager.loadPollingConfig())">
                                     <span class="btn-icon">📥</span>
                                     Load Polling Config
                                 </button>
-                                <button class="btn btn-primary full-width" onclick="window.slavesManager.savePollingConfig()">
+                                <button class="btn btn-primary full-width" onclick="disableButtonDuringOperation(event, () => window.slavesManager.savePollingConfig())">
                                     <span class="btn-icon">💾</span>
                                     Save Polling Config
                                 </button>
@@ -640,11 +640,11 @@
                         </div>
 
                         <div class="action-bar compact">
-                            <button type="button" class="btn btn-secondary" onclick="window.settingsManager.cancelEdit()">
+                            <button type="button" class="btn btn-secondary" onclick="window.settingsManager.cancelEdit(event)">
                                 <span class="btn-icon">❌</span>
                                 Cancel
                             </button>
-                            <button type="button" class="btn btn-primary" onclick="window.settingsManager.saveEditedConfig()">
+                            <button type="button" class="btn btn-primary" onclick="disableButtonDuringOperation(event, () => window.settingsManager.saveEditedConfig())">
                                 <span class="btn-icon">💾</span>
                                 Save Changes
                             </button>
@@ -682,7 +682,7 @@
                             </div>
 
                             <div class="action-stack">
-                                <button type="button" class="btn btn-primary full-width" onclick="window.settingsManager.searchSlaveConfig()">
+                                <button type="button" class="btn btn-primary full-width" onclick="disableButtonDuringOperation(event, () => window.settingsManager.searchSlaveConfig())">
                                     <span class="btn-icon">🔍</span>
                                     Search Configuration
                                 </button>
@@ -739,7 +739,7 @@
                             <span class="nav-icon">📋</span>
                             MQTT Messages Table (3 Second Update)
                         </h3>
-                        <button class="btn btn-secondary" id="clearTable" style="margin-top: 8px;">Clear Table</button>
+                        <button class="btn btn-secondary" onclick="disableButtonDuringOperation(event, () => window.debugConsole.clearTable())" style="margin-top: 8px;">Clear Table</button>
                     </div>
                     <div class="table-container">
                         <table class="data-table debug-table" id="dataTable">
