@@ -133,34 +133,25 @@ void loadG01SParameters(SensorConfig& sensorConfig, JsonObject paramsObj) {
 void loadMeterParameters(MeterConfig& meterConfig, JsonObject paramsObj) {
     JsonObject meterObj = paramsObj["meter"].as<JsonObject>();
     
-    #define LOAD_METER_PARAM(field) \
-        if (meterObj[#field].is<JsonObject>()) { \
-            JsonObject paramObj = meterObj[#field].as<JsonObject>(); \
-            meterConfig.field.divider = paramObj["divider"] | 1.0f; \
+    // Load grouped dividers
+    #define LOAD_GROUPED_PARAM(group) \
+        if (meterObj[#group].is<JsonObject>()) { \
+            JsonObject paramObj = meterObj[#group].as<JsonObject>(); \
+            meterConfig.group.divider = paramObj["divider"] | 1.0f; \
         }
     
-    LOAD_METER_PARAM(aCurrent);
-    LOAD_METER_PARAM(bCurrent);
-    LOAD_METER_PARAM(cCurrent);
-    LOAD_METER_PARAM(zeroPhaseCurrent);
-    LOAD_METER_PARAM(aActivePower);
-    LOAD_METER_PARAM(bActivePower);
-    LOAD_METER_PARAM(cActivePower);
-    LOAD_METER_PARAM(totalActivePower);
-    LOAD_METER_PARAM(aReactivePower);
-    LOAD_METER_PARAM(bReactivePower);
-    LOAD_METER_PARAM(cReactivePower);
-    LOAD_METER_PARAM(totalReactivePower);
-    LOAD_METER_PARAM(aApparentPower);
-    LOAD_METER_PARAM(bApparentPower);
-    LOAD_METER_PARAM(cApparentPower);
-    LOAD_METER_PARAM(totalApparentPower);
-    LOAD_METER_PARAM(aPowerFactor);
-    LOAD_METER_PARAM(bPowerFactor);
-    LOAD_METER_PARAM(cPowerFactor);
-    LOAD_METER_PARAM(totalPowerFactor);
+    LOAD_GROUPED_PARAM(Current);
+    LOAD_GROUPED_PARAM(zeroPhaseCurrent);
+    LOAD_GROUPED_PARAM(ActivePower);
+    LOAD_GROUPED_PARAM(totalActivePower);
+    LOAD_GROUPED_PARAM(ReactivePower);
+    LOAD_GROUPED_PARAM(totalReactivePower);
+    LOAD_GROUPED_PARAM(ApparentPower);
+    LOAD_GROUPED_PARAM(totalApparentPower);
+    LOAD_GROUPED_PARAM(PowerFactor);
+    LOAD_GROUPED_PARAM(totalPowerFactor);
     
-    #undef LOAD_METER_PARAM
+    #undef LOAD_GROUPED_PARAM
 }
 
 void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
@@ -172,9 +163,7 @@ void loadVoltageParameters(VoltageConfig& voltageConfig, JsonObject paramsObj) {
             voltageConfig.field.divider = paramObj["divider"] | 1.0f; \
         }
     
-    LOAD_VOLTAGE_PARAM(aVoltage);
-    LOAD_VOLTAGE_PARAM(bVoltage);
-    LOAD_VOLTAGE_PARAM(cVoltage);
+    LOAD_VOLTAGE_PARAM(Voltage);
     LOAD_VOLTAGE_PARAM(phaseVoltageMean);
     LOAD_VOLTAGE_PARAM(zeroSequenceVoltage);
     
@@ -288,38 +277,44 @@ void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint6
 void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize, float ct, float pt) {
     int valueIndex = 0;
     
-    root["A_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.aCurrent.divider);
-    root["B_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.bCurrent.divider);
-    root["C_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.cCurrent.divider);
+    // Current measurements - all use the same Current divider
+    root["A_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.Current.divider);
+    root["B_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.Current.divider);
+    root["C_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.Current.divider);
     root["Zero_Phase_Current_(A)"] = calculateCurrent(combinedValues[valueIndex++], meterConfig.zeroPhaseCurrent.divider);
     
-    root["A_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aActivePower.divider, ct, pt);
-    root["B_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bActivePower.divider, ct, pt);
-    root["C_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cActivePower.divider, ct, pt);
+    // Active Power - A/B/C use ActivePower divider, Total uses totalActivePower divider
+    root["A_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ActivePower.divider, ct, pt);
+    root["B_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ActivePower.divider, ct, pt);
+    root["C_Active_Power_(kW)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ActivePower.divider, ct, pt);
     root["Total_Active_Power_(kW)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalActivePower.divider, ct, pt);
     
-    root["A_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aReactivePower.divider, ct, pt);
-    root["B_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bReactivePower.divider, ct, pt);
-    root["C_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cReactivePower.divider, ct, pt);
+    // Reactive Power - A/B/C use ReactivePower divider, Total uses totalReactivePower divider
+    root["A_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ReactivePower.divider, ct, pt);
+    root["B_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ReactivePower.divider, ct, pt);
+    root["C_Reactive_Power_(kVAr)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ReactivePower.divider, ct, pt);
     root["Total_Reactive_Power_(kVAr)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalReactivePower.divider, ct, pt);
     
-    root["A_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aApparentPower.divider, ct, pt);
-    root["B_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bApparentPower.divider, ct, pt);
-    root["C_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cApparentPower.divider, ct, pt);
+    // Apparent Power - A/B/C use ApparentPower divider, Total uses totalApparentPower divider
+    root["A_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ApparentPower.divider, ct, pt);
+    root["B_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ApparentPower.divider, ct, pt);
+    root["C_Apparent_Power_(kVA)"] = calculateSinglePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.ApparentPower.divider, ct, pt);
     root["Total_Apparent_Power_(kVA)"] = calculateThreePhasePower(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalApparentPower.divider, ct, pt);
     
-    root["A_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.aPowerFactor.divider);
-    root["B_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.bPowerFactor.divider);
-    root["C_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.cPowerFactor.divider);
+    // Power Factor - A/B/C use PowerFactor divider, Total uses totalPowerFactor divider
+    root["A_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.PowerFactor.divider);
+    root["B_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.PowerFactor.divider);
+    root["C_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.PowerFactor.divider);
     root["Total_Power_Factor"] = calculatePowerFactor(convertToSigned(combinedValues[valueIndex++], regSize), meterConfig.totalPowerFactor.divider);
 }
 
 void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize, float pt) {
     int valueIndex = 0;
     
-    root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.aVoltage.divider, pt);
-    root["B_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.bVoltage.divider, pt);
-    root["C_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.cVoltage.divider, pt);
+    // A/B/C voltages use the same Voltage divider
+    root["A_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.Voltage.divider, pt);
+    root["B_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.Voltage.divider, pt);
+    root["C_Voltage_(V)"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.Voltage.divider, pt);
     root["Phase_Voltage_Mean"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.phaseVoltageMean.divider, pt);
     root["Zero_Sequence_Voltage"] = calculateVoltage(combinedValues[valueIndex++], voltageConfig.zeroSequenceVoltage.divider, pt);
 }

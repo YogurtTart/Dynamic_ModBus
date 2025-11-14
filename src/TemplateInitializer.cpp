@@ -19,11 +19,11 @@ void addMeterConfig(JsonObject& templateObj) {
     };
     
     MeterParam meterConfigs[] = {
-        {"aCurrent", 1.0}, {"bCurrent", 1.0}, {"cCurrent", 1.0}, {"zeroPhaseCurrent", 1.0}, 
-        {"aActivePower", 1000.0}, {"bActivePower", 1000.0}, {"cActivePower", 1000.0}, {"totalActivePower", 10000.0},
-        {"aReactivePower", 1000.0}, {"bReactivePower", 1000.0}, {"cReactivePower", 1000.0}, {"totalReactivePower", 10000.0},
-        {"aApparentPower", 1000.0}, {"bApparentPower", 1000.0}, {"cApparentPower", 1000.0}, {"totalApparentPower", 10000.0},
-        {"aPowerFactor", 1.0}, {"bPowerFactor", 1.0}, {"cPowerFactor", 1.0}, {"totalPowerFactor", 1.0}
+        {"Current", 1.0}, {"zeroPhaseCurrent", 1.0}, 
+        {"ActivePower", 1000.0}, {"totalActivePower", 10000.0},
+        {"ReactivePower", 1000.0}, {"totalReactivePower", 10000.0},
+        {"ApparentPower", 1000.0}, {"totalApparentPower", 10000.0},
+        {"PowerFactor", 1.0}, {"totalPowerFactor", 1.0}
     };
     
     for (const MeterParam& config : meterConfigs) {
@@ -36,7 +36,7 @@ void addVoltageConfig(JsonObject& templateObj) {
     JsonObject voltageParams = templateObj["voltage"].to<JsonObject>();
     
     const char* voltageConfigs[] = {
-        "aVoltage", "bVoltage", "cVoltage", 
+        "Voltage",
         "phaseVoltageMean", "zeroSequenceVoltage"
     };
     

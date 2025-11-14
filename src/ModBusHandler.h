@@ -63,15 +63,15 @@ struct SensorConfig {
 };
 
 struct MeterConfig {
-    MeterParameter aCurrent, bCurrent, cCurrent, zeroPhaseCurrent;
-    MeterParameter aActivePower, bActivePower, cActivePower, totalActivePower;
-    MeterParameter aReactivePower, bReactivePower, cReactivePower, totalReactivePower;
-    MeterParameter aApparentPower, bApparentPower, cApparentPower, totalApparentPower;
-    MeterParameter aPowerFactor, bPowerFactor, cPowerFactor, totalPowerFactor;
+    MeterParameter Current, zeroPhaseCurrent;
+    MeterParameter ActivePower, totalActivePower;
+    MeterParameter ReactivePower, totalReactivePower;
+    MeterParameter ApparentPower, totalApparentPower;
+    MeterParameter PowerFactor, totalPowerFactor;
 };
 
 struct VoltageConfig {
-    VoltageParameter aVoltage, bVoltage, cVoltage, phaseVoltageMean, zeroSequenceVoltage;
+    VoltageParameter Voltage, phaseVoltageMean, zeroSequenceVoltage;
 };
 
 struct EnergyConfig {
@@ -152,8 +152,8 @@ int64_t convertToSigned(uint64_t value, RegisterSize regSize);
 
 // ==================== DATA PROCESSING HELPERS ====================
 void processSensorData(JsonObject& root, const SensorConfig& sensorConfig, uint64_t* combinedValues, RegisterSize regSize);
-void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize);
-void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize);
+void processMeterData(JsonObject& root, const MeterConfig& meterConfig, uint64_t* combinedValues, RegisterSize regSize, float ct, float pt);
+void processVoltageData(JsonObject& root, const VoltageConfig& voltageConfig, uint64_t* combinedValues, RegisterSize regSize, float pt);
 void processEnergyData(JsonObject& root, const EnergyConfig& energyConfig, uint64_t* combinedValues, RegisterSize regSize);
 void publishData(const SensorSlave& slave, const JsonDocument& doc);
 

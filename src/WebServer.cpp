@@ -2,7 +2,7 @@
 
 // ==================== CONSTANTS ====================
 
-constexpr int kMaxDebugMessages = 1;
+constexpr int kMaxDebugMessages = 15;
 constexpr int kWebServerPort = 80;
 constexpr int kMaxDevices = 12;
 
