@@ -103,8 +103,6 @@ class SlavesManager {
     }
 
     addSlave(event) {
-        const button = event.target;
-        button.disabled = true;
 
         if (this.slaves.length >= this.MAX_SLAVES) {
             StatusManager.showStatus(`Error: Maximum ${this.MAX_SLAVES} slaves allowed. Please remove some slaves first.`, 'error');
@@ -156,10 +154,6 @@ class SlavesManager {
         this.sortSlavesByID();
         this.updateSlavesList();
         this.clearSlaveForm();
-
-        setTimeout(() => {
-                button.disabled = false;
-            }, 500);
 
         StatusManager.showStatus('Modbus slave added successfully!', 'success');
     }
