@@ -48,24 +48,23 @@ class SlavesManager {
     // ==================== SLAVE Start/Off button ====================
 
     initQueryToggle() {
-        const toggleCheckbox = document.getElementById('queryToggle');
-        const statusSpan = document.getElementById('queryStatus');
+    const toggleCheckbox = document.getElementById('queryToggle');
+    const statusSpan = document.getElementById('queryStatus');
+    
+    if (toggleCheckbox) {
+        // ALWAYS START DISABLED - no localStorage
+        this.queryEnabled = false;
+        toggleCheckbox.checked = false;
+        this.updateQueryStatusDisplay();
         
-        if (toggleCheckbox) {
-            // Load saved state from localStorage
-            const savedState = localStorage.getItem('modbusQueryEnabled');
-            this.queryEnabled = savedState === 'true';
-            toggleCheckbox.checked = this.queryEnabled;
+        toggleCheckbox.addEventListener('change', (e) => {
+            this.queryEnabled = e.target.checked;
             this.updateQueryStatusDisplay();
-            
-            toggleCheckbox.addEventListener('change', (e) => {
-                this.queryEnabled = e.target.checked;
-                localStorage.setItem('modbusQueryEnabled', this.queryEnabled);
-                this.updateQueryStatusDisplay();
-                this.sendQueryToggleState();
-            });
-        }
+            this.sendQueryToggleState();
+            // No localStorage - state won't be remembered
+        });
     }
+}
 
     updateQueryStatusDisplay() {
         const statusSpan = document.getElementById('queryStatus');
